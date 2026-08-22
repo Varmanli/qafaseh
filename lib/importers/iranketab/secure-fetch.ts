@@ -1,5 +1,6 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
+import { throttleExternalRequest } from "./external-request-throttle";
 
 export type SecureFetchErrorCode =
   | "INVALID_URL" | "UNSUPPORTED_HOST" | "UNSUPPORTED_PATH" | "UNSAFE_DESTINATION"
@@ -75,7 +76,7 @@ export async function fetchIranKetabHtmlSecurely(value: string, dependencies: Se
       try { addresses = await lookup(current.hostname); } catch (cause) { throw new SecureIranKetabFetchError("DNS_FAILED", "نشانی ایران‌کتاب قابل شناسایی نیست.", true, { cause }); }
       if (!addresses.length || addresses.some(item => isUnsafeIpAddress(item.address))) throw new SecureIranKetabFetchError("UNSAFE_DESTINATION", "مقصد شبکه‌ای ناامن رد شد.");
       let response: Response;
-      try { response = await fetcher(canonical, { redirect: "manual", signal: controller.signal, headers: { "User-Agent": "Qafaseh-IranKetab-Preview/1.0", Accept: "text/html,application/xhtml+xml" } }); }
+      try { response = await throttleExternalRequest(() => fetcher(canonical, { redirect: "manual", signal: controller.signal, headers: { "User-Agent": "Qafaseh-IranKetab-Preview/1.0", Accept: "text/html,application/xhtml+xml" } })); }
       catch (cause) { if (controller.signal.aborted) throw new SecureIranKetabFetchError("FETCH_TIMEOUT", "دریافت اطلاعات از ایران‌کتاب بیش از حد طول کشید.", true, { cause }); throw new SecureIranKetabFetchError("FETCH_FAILED", "صفحه ایران‌کتاب در حال حاضر در دسترس نیست.", true, { cause }); }
       if ([301,302,303,307,308].includes(response.status)) {
         if (redirects >= MAX_REDIRECTS) throw new SecureIranKetabFetchError("TOO_MANY_REDIRECTS", "تعداد تغییر مسیرهای پاسخ بیش از حد مجاز بود.");

@@ -10,7 +10,7 @@ import { prepareIranKetabReferenceImage } from "./reference-image-preparation";
 
 /** Server-produced only: Phase 6 must bind this fingerprint and these keys to its final commit. */
 export type IranKetabImportDraftWithPreparedCovers = PreparedDraft;
-const COVER_PREPARATION_CONCURRENCY = Math.max(1, Math.min(Number(process.env.IRANKETAB_COVER_PREPARATION_CONCURRENCY ?? 3) || 3, 6));
+const COVER_PREPARATION_CONCURRENCY = 1;
 export function draftFingerprint(draft: IranKetabImportDraft) { return createHash("sha256").update(JSON.stringify({ canonicalUrl: draft.source.canonicalUrl, draftVersion: draft.draftVersion, catalog: draft.catalog.action === "REUSE_EXISTING" ? draft.catalog.catalogId : "new", editions: draft.editions.map(e => e.action === "CREATE_NEW" ? [e.extractedEditionIndex, e.fields.sourceEditionCode, e.coverAction] : [e.extractedEditionIndex, e.action]) })).digest("hex"); }
 export function temporaryCoverPrefix(adminId: string, fingerprint: string, sessionId?: string) { return sessionId ? `tmp/iranketab-imports/${adminId}/${sessionId}/${fingerprint}/` : `tmp/iranketab-imports/${adminId}/${fingerprint}/`; }
 export function isOwnedTemporaryCoverKey(key: string, adminId: string, fingerprint: string, sessionId?: string) {

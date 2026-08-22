@@ -1,4 +1,4 @@
-import { apiSuccess } from "@/lib/api/response";
+import { apiError, apiSuccess } from "@/lib/api/response";
 import { processDiscoveryImportQueueBatch } from "@/lib/discovery/iranketab/import-queue";
 import { runScheduledDiscovery } from "@/lib/discovery/iranketab/scheduler";
 import { assertIranKetabDiscoveryWorkerRequest } from "@/lib/discovery/iranketab/worker-auth";
@@ -11,6 +11,10 @@ export const maxDuration = 300;
  * deliberately bounded and fail-closed; normal admin endpoints stay separate.
  */
 export async function POST(request: Request) {
+  if (process.env.ENABLE_AUTO_IMPORTER !== "true") {
+    return apiError("ورود خودکار کتاب غیرفعال است", 403, "AUTO_IMPORTER_DISABLED");
+  }
+
   const gate = await assertIranKetabDiscoveryWorkerRequest(request);
   if ("error" in gate) return gate.error;
 

@@ -1,5 +1,6 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
+import { throttleExternalRequest } from "@/lib/importers/iranketab/external-request-throttle";
 
 const IRANKETAB_HOSTS = new Set(["iranketab.ir", "www.iranketab.ir"]);
 const MAX_REDIRECTS = 3;
@@ -113,14 +114,16 @@ export async function fetchIranKetabCollectionHtml(
         throw new IranKetabCollectionFetchError("UNSAFE_DESTINATION", "مقصد شبکه‌ای ناامن رد شد.");
       let response: Response;
       try {
-        response = await fetcher(canonicalUrl, {
-          redirect: "manual",
-          signal: controller.signal,
-          headers: {
-            "User-Agent": "Qafaseh-IranKetab-Discovery/1.0",
-            Accept: "text/html,application/xhtml+xml",
-          },
-        });
+        response = await throttleExternalRequest(() =>
+          fetcher(canonicalUrl, {
+            redirect: "manual",
+            signal: controller.signal,
+            headers: {
+              "User-Agent": "Qafaseh-IranKetab-Discovery/1.0",
+              Accept: "text/html,application/xhtml+xml",
+            },
+          }),
+        );
       } catch (cause) {
         if (controller.signal.aborted)
           throw new IranKetabCollectionFetchError("FETCH_TIMEOUT", "دریافت منبع کشف بیش از حد طول کشید.", true, { cause });
