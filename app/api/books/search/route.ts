@@ -1,12 +1,6 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
-import { db } from "@/db";
-import { BookEdition, CatalogBook } from "@/db/schema";
-import { coalesceCoverImage } from "@/lib/book/cover";
-import { displayCoverFieldSql } from "@/lib/book/display-cover";
-import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
-import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
+import { searchPublicBooks } from "@/lib/book/search-service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,65 +8,17 @@ export async function GET(req: NextRequest) {
     const query = searchParams.get("q")?.trim() ?? "";
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const limit = Math.min(20, Math.max(1, Number(searchParams.get("limit")) || 10));
-    const offset = (page - 1) * limit;
 
     if (query.length === 0) {
       return NextResponse.json({ books: [], total: 0, page, limit, totalPages: 0 });
     }
 
-    const searchTerm = `%${query}%`;
-    const where = and(
-      eq(CatalogBook.status, "APPROVED"),
-      or(
-        ilike(CatalogBook.title, searchTerm),
-        ilike(CatalogBook.originalTitle, searchTerm),
-        ilike(CatalogBook.author, searchTerm),
-        ilike(CatalogBook.genre, searchTerm),
-        ilike(BookEdition.translator, searchTerm),
-        ilike(BookEdition.publisher, searchTerm),
-      ),
-    );
-
-    const [rows, countRows] = await Promise.all([
-      db
-        .select({
-          id: CatalogBook.id,
-          slug: CatalogBook.slug,
-          title: CatalogBook.title,
-          author: CatalogBook.author,
-          genre: CatalogBook.genre,
-          translator: preferredEditionFieldSql<string | null>("translator"),
-          publisher: preferredEditionFieldSql<string | null>("publisher"),
-          coverImage: displayCoverFieldSql(),
-          createdAt: CatalogBook.createdAt,
-        })
-        .from(CatalogBook)
-        .leftJoin(BookEdition, eq(BookEdition.catalogBookId, CatalogBook.id))
-        .where(where)
-        .groupBy(CatalogBook.id)
-        .orderBy(desc(CatalogBook.createdAt))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ count: sql<number>`count(distinct ${CatalogBook.id})::int` })
-        .from(CatalogBook)
-        .leftJoin(BookEdition, eq(BookEdition.catalogBookId, CatalogBook.id))
-        .where(where),
-    ]);
-
-    const books = await Promise.all(
-      rows.map(async (row) => ({
-        ...row,
-        slug: await ensureCatalogBookSlug({
-          id: row.id,
-          title: row.title,
-          slug: row.slug,
-        }),
-        coverImage: coalesceCoverImage(row.coverImage),
-      })),
-    );
-
-    const total = countRows[0]?.count ?? 0;
+    // Search is intentionally capped rather than COUNTing a fuzzy result set;
+    // typeahead/discovery only needs the ranked window and avoids an expensive
+    // duplicate aggregation on every keystroke.
+    const allBooks = await searchPublicBooks(query, 50);
+    const total = allBooks.length;
+    const books = allBooks.slice((page - 1) * limit, page * limit);
 
     return NextResponse.json({
       books,

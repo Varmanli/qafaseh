@@ -372,6 +372,13 @@
       "when": 1787000000000,
       "tag": "0052_public_route_normalized_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1787100000000,
+      "tag": "0053_book_search_index",
+      "breakpoints": true
     }
   ]
 }

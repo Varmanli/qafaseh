@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, BookEdition, CatalogBook } from "@/db/schema";
 import {
@@ -10,6 +10,7 @@ import { resolveDisplayEdition } from "@/lib/book/primary-edition";
 import { splitStoredGenres } from "@/lib/book/genres";
 import type { AddToLibraryInput, ManualBookInput } from "@/lib/validations/catalog";
 import { ensureReferenceItem } from "@/lib/reference/service";
+import { searchPublicBooks } from "@/lib/book/search-service";
 
 /** خطای کنترل‌شده‌ی کاتالوگ که route handler آن را به پاسخ HTTP تبدیل می‌کند. */
 export class CatalogError extends Error {
@@ -54,7 +55,9 @@ export async function searchCatalog(
   const q = rawQuery.trim();
   if (q.length < 2) return [];
 
-  const term = `%${q}%`;
+  const matches = await searchPublicBooks(q, limit);
+  const rankedIds = matches.map((match) => match.id);
+  if (rankedIds.length === 0) return [];
 
   const rows = await db
     .select({
@@ -84,16 +87,8 @@ export async function searchCatalog(
     .leftJoin(BookEdition, eq(BookEdition.catalogBookId, CatalogBook.id))
     .where(
       and(
-        // فقط کتاب‌های تأییدشده در کاتالوگ عمومی دیده می‌شوند
         eq(CatalogBook.status, "APPROVED"),
-        or(
-          ilike(CatalogBook.title, term),
-          ilike(CatalogBook.author, term),
-          ilike(CatalogBook.genre, term),
-          ilike(BookEdition.translator, term),
-          ilike(BookEdition.publisher, term),
-          ilike(BookEdition.isbn, term)
-        )
+        inArray(CatalogBook.id, rankedIds),
       )
     )
     .orderBy(desc(CatalogBook.createdAt))
@@ -156,7 +151,10 @@ export async function searchCatalog(
     }
   }
 
-  return Array.from(map.values());
+  return rankedIds.flatMap((id) => {
+    const book = map.get(id);
+    return book ? [book] : [];
+  });
 }
 
 /**

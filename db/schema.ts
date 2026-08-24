@@ -1375,6 +1375,28 @@ export const BlogPost = pgTable("BlogPost", {
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// One row per searchable catalog/edition value. It is maintained by database
+// triggers so every importer/admin path has the same searchable representation.
+export const BookSearchIndex = pgTable(
+  "BookSearchIndex",
+  {
+    id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+    catalogBookId: varchar("catalog_book_id")
+      .notNull()
+      .references(() => CatalogBook.id, { onDelete: "cascade" }),
+    editionId: varchar("edition_id").references(() => BookEdition.id, {
+      onDelete: "cascade",
+    }),
+    kind: varchar("kind", { length: 40 }).notNull(),
+    valueNormalized: text("value_normalized").notNull(),
+    valueCompact: text("value_compact").notNull(),
+  },
+  (t) => ({
+    catalogIdx: index("BookSearchIndex_catalog_idx").on(t.catalogBookId),
+    compactIdx: index("BookSearchIndex_compact_idx").on(t.valueCompact),
+  }),
+);
+
 // Explicit editorial graph edges. Embedded books remain a live relationship
 // source in article HTML; these tables store only editor-managed additions.
 export const BlogPostBook = pgTable(

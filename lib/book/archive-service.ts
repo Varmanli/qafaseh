@@ -11,6 +11,7 @@ import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { splitStoredGenres, STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
+import { compactSearchText } from "@/lib/book/search-normalize";
 import {
   BOOK_ARCHIVE_PAGE_SIZE,
   parseBookArchiveSearchParams,
@@ -209,20 +210,16 @@ function buildCatalogConditions(
   }
 
   if (filters.q) {
-    const term = `%${filters.q}%`;
+    const compact = compactSearchText(filters.q);
     conditions.push(
       sql`(
-        ${CatalogBook.title} ilike ${term}
-        or ${CatalogBook.originalTitle} ilike ${term}
-        or ${CatalogBook.author} ilike ${term}
-        or exists (
-          select 1
-          from "BookEdition" be
-          where be.catalog_book_id = ${CatalogBook.id}
-            and be.status = 'APPROVED'
+        exists (
+          select 1 from "BookSearchIndex" si
+          where si.catalog_book_id = ${CatalogBook.id}
             and (
-              be.translator ilike ${term}
-              or be.publisher ilike ${term}
+              si.value_compact = ${compact}
+              or si.value_compact like ${`${compact}%`}
+              or (length(${compact}) >= 4 and si.value_compact % ${compact})
             )
         )
       )`,

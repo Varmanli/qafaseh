@@ -37,6 +37,8 @@ interface GlobalSearchBook {
   coverImage: string | null;
   translator: string | null;
   publisher: string | null;
+  matchedEditionId: string | null;
+  matchedEditionLabel: string | null;
 }
 
 interface GlobalSearchReference {
@@ -781,6 +783,12 @@ function BookResultCard({ book }: { book: GlobalSearchBook }) {
           {book.author}
         </p>
 
+        {book.matchedEditionLabel ? (
+          <p className="mt-1 line-clamp-1 text-[10px] font-semibold text-primary/80 sm:text-[11px]">
+            نسخهٔ یافت‌شده: {book.matchedEditionLabel}
+          </p>
+        ) : null}
+
         {(book.translator || book.publisher) && (
           <div
             className="
@@ -979,7 +987,10 @@ function getItemHref(
 
     case "books":
     default:
-      return `/book/${encodeURIComponent((item as GlobalSearchBook).slug)}`;
+      {
+        const book = item as GlobalSearchBook;
+        return `/book/${encodeURIComponent(book.slug)}${book.matchedEditionId ? `?edition=${encodeURIComponent(book.matchedEditionId)}` : ""}`;
+      }
   }
 }
 
