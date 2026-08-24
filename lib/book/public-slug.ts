@@ -82,7 +82,10 @@ export async function ensureCatalogBookSlug(book: {
   if (book.slug?.trim()) return book.slug.trim();
 
   const slug = await generateUniqueCatalogBookSlug(book.title, book.id, book.id);
-  await db.update(CatalogBook).set({ slug }).where(eq(CatalogBook.id, book.id));
+  await db
+    .update(CatalogBook)
+    .set({ slug, slugNormalized: slugify(slug) })
+    .where(eq(CatalogBook.id, book.id));
   return slug;
 }
 

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { BookEdition, CatalogBook } from "@/db/schema";
 import { normalizeCoverImage } from "@/lib/book/cover";
 import { generateUniqueCatalogBookSlug } from "@/lib/book/public-slug";
+import { slugify } from "@/lib/book/slug";
 import { serializeGenres } from "@/lib/book/genres";
 import { buildImportPreview } from "@/lib/books/import/validate";
 import {
@@ -187,6 +188,7 @@ export async function importNormalizedBooks(
                   title: previewBook.title,
                   subtitle: previewBook.subtitle ?? null,
                   slug,
+                  slugNormalized: slugify(slug),
                   originalTitle: previewBook.originalTitle ?? null,
                   description: previewBook.description ?? null,
                   coverImage: null,

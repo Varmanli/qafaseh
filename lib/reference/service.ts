@@ -418,6 +418,7 @@ function buildReferencePatch(
   };
 
   if (!existing.slug && input.slug) patch.slug = input.normalizedSlug ?? input.slug;
+  if (patch.slug) patch.slugNormalized = slugify(patch.slug);
   if (!existing.originalName && input.originalName) patch.originalName = input.originalName;
   if (!existing.description && input.description) patch.description = input.description;
   if (!existing.shortDescription && input.shortDescription) {
@@ -591,6 +592,7 @@ export async function resolveReferenceItem(
       type: options.type,
       name: normalized.name,
       slug,
+      slugNormalized: slugify(slug),
       coverImage: normalized.imageUrl ?? null,
       bannerImage: normalized.bannerImageUrl ?? null,
       originalName: normalized.originalName ?? null,
@@ -801,6 +803,7 @@ export async function adminUpdateReference(
       id,
     );
   }
+  if (set.slug) set.slugNormalized = slugify(set.slug);
 
   await db.update(ReferenceItem).set(set).where(eq(ReferenceItem.id, id));
 }

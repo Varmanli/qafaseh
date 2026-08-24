@@ -5,6 +5,7 @@ import {
   ensureCatalogBookSlug,
   generateUniqueCatalogBookSlug,
 } from "@/lib/book/public-slug";
+import { slugify } from "@/lib/book/slug";
 import { resolveDisplayEdition } from "@/lib/book/primary-edition";
 import { splitStoredGenres } from "@/lib/book/genres";
 import type { AddToLibraryInput, ManualBookInput } from "@/lib/validations/catalog";
@@ -272,6 +273,7 @@ export async function createManualBook(userId: string, input: ManualBookInput) {
           id: nextCatalogBookId,
           title: input.title,
           slug,
+          slugNormalized: slugify(slug),
           originalTitle: input.originalTitle,
           description: input.description,
           coverImage: cover,

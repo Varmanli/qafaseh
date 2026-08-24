@@ -351,7 +351,10 @@ function buildUpdateSet(
   const set: Partial<typeof ReferenceItem.$inferInsert> = {};
 
   const slug = chooseString(profile.slug, existing.slug, overwrite);
-  if (slug) set.slug = slugify(slug) || slug;
+  if (slug) {
+    set.slug = slugify(slug) || slug;
+    set.slugNormalized = slugify(set.slug);
+  }
 
   const originalName = chooseString(
     profile.originalName,
@@ -466,6 +469,7 @@ async function ensureCountryReference(profile: ReferenceProfileInput) {
       type: "COUNTRY",
       name: profile.country.name,
       slug,
+      slugNormalized: slugify(slug),
       status: "APPROVED",
       updatedAt: new Date(),
     })
@@ -623,6 +627,7 @@ export async function applyReferenceProfiles(
           type: profile.type,
           name: profile.name,
           slug,
+          slugNormalized: slugify(slug),
           originalName: profile.originalName,
           description: profile.description,
           shortDescription: profile.shortDescription,

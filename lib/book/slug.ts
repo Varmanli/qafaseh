@@ -8,14 +8,36 @@ export function isUuid(value: string): boolean {
 }
 
 /**
+ * Normalizes Persian/Arabic text before it is used as a public URL key.
+ *
+ * This deliberately makes a half-space a word separator. Removing it joins
+ * two words ("می‌شود" -> "میشود"), which made otherwise equivalent URLs
+ * impossible to resolve reliably.
+ */
+export function normalizePersianText(input: string): string {
+  return (input || "")
+    .normalize("NFKC")
+    .replace(/[يىئ]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/[ةۀ]/g, "ه")
+    .replace(/[أإٱ]/g, "ا")
+    .replace(/ؤ/g, "و")
+    .replace(/[٠-٩]/g, (char) => String(char.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (char) => String(char.charCodeAt(0) - 1776))
+    .replace(/[ـ]/g, "")
+    .replace(/[\u200c\u200d\u200e\u200f\u2066-\u2069]/g, " ")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase("en-US");
+}
+
+/**
  * ساخت اسلاگ از عنوان. حروف فارسی/لاتین و اعداد حفظ می‌شوند؛ فاصله و نشانه‌ها
- * به خط تیره تبدیل می‌شوند. نیم‌فاصله و علامت‌های جهت حذف می‌شوند.
+ * به خط تیره تبدیل می‌شوند. This is the only normalization used for public
+ * book and reference route keys.
  */
 export function slugify(input: string): string {
-  return (input || "")
+  return normalizePersianText(input)
     .trim()
-    .toLowerCase()
-    .replace(/[‌‍‎‏]/g, "") // ZWNJ/ZWJ/LRM/RLM
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");

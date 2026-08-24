@@ -41,6 +41,7 @@ import {
 } from "@/lib/notes/service";
 import type { PublicQuote } from "@/lib/quotes/service";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
+import { slugify } from "@/lib/book/slug";
 
 export interface BookReferenceLinks {
   author?: string;
@@ -163,6 +164,7 @@ type SubjectRow = {
 };
 
 async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> {
+  const normalizedRef = slugify(ref);
   const [book] = await db
     .select({
       catalogBookId: CatalogBook.id,
@@ -184,12 +186,74 @@ async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> 
     .where(
       and(
         eq(CatalogBook.status, "APPROVED"),
-        or(eq(CatalogBook.id, ref), eq(CatalogBook.slug, ref)),
+        or(
+          eq(CatalogBook.id, ref),
+          eq(CatalogBook.slug, ref),
+        ),
       ),
     )
     .limit(1);
 
   if (book) return book;
+
+  if (normalizedRef) {
+    const normalizedMatches = await db
+      .select()
+      .from(CatalogBook)
+      .where(and(eq(CatalogBook.status, "APPROVED"), eq(CatalogBook.slugNormalized, normalizedRef)))
+      .limit(2);
+    // Existing data can contain equivalent Arabic/Persian keys. A normalized
+    // request is accepted only when it still identifies one canonical book.
+    if (normalizedMatches.length === 1) {
+      const match = normalizedMatches[0];
+      return {
+        catalogBookId: match.id,
+        primaryEditionId: match.primaryEditionId,
+        slug: match.slug,
+        title: match.title,
+        subtitle: match.subtitle,
+        originalTitle: match.originalTitle,
+        description: match.description,
+        author: match.author,
+        genre: match.genre,
+        country: match.country,
+        language: match.language,
+        firstPublishedYear: match.firstPublishedYear,
+        catalogCoverImage: match.coverImage,
+        legacyBookCoverImage: null,
+      };
+    }
+  }
+
+  // Pre-normalization URLs used title-like paths. A title fallback is safe only
+  // when it selects exactly one approved canonical book; duplicate titles must
+  // never be guessed because they can be different works/editions.
+  const titleCandidate = ref.replace(/-/g, " ").trim();
+  if (normalizedRef && titleCandidate) {
+    const titleMatches = await db
+      .select({
+        catalogBookId: CatalogBook.id,
+        primaryEditionId: CatalogBook.primaryEditionId,
+        slug: CatalogBook.slug,
+        title: CatalogBook.title,
+        subtitle: CatalogBook.subtitle,
+        originalTitle: CatalogBook.originalTitle,
+        description: CatalogBook.description,
+        author: CatalogBook.author,
+        genre: CatalogBook.genre,
+        country: CatalogBook.country,
+        language: CatalogBook.language,
+        firstPublishedYear: CatalogBook.firstPublishedYear,
+        catalogCoverImage: CatalogBook.coverImage,
+        legacyBookCoverImage: sampleLegacyBookFieldSql<string | null>("cover_image"),
+      })
+      .from(CatalogBook)
+      .where(and(eq(CatalogBook.status, "APPROVED"), sql`lower(${CatalogBook.title}) = lower(${titleCandidate})`))
+      .limit(2);
+    if (titleMatches.length === 1 && slugify(titleMatches[0].title) === normalizedRef) {
+      return titleMatches[0];
+    }
+  }
 
   const [legacy] = await db
     .select({

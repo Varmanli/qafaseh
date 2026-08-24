@@ -10,6 +10,7 @@ import {
   User,
 } from "@/db/schema";
 import { generateUniqueCatalogBookSlug } from "@/lib/book/public-slug";
+import { slugify } from "@/lib/book/slug";
 import { coalesceCoverImage } from "@/lib/book/cover";
 import { resolveBookDisplayData } from "@/lib/book/display-cover";
 import { splitStoredGenres } from "@/lib/book/genres";
@@ -448,6 +449,7 @@ export async function adminCreateCatalogBook(
         id: catalogId,
         title: input.title,
         slug,
+        slugNormalized: slugify(slug),
         originalTitle: input.originalTitle,
         description: input.description,
         coverImage: input.coverImage ?? null,
@@ -919,7 +921,10 @@ export async function updateAdminCatalogBook(
       updatedAt: new Date(),
     };
     if (input.status) catalogSet.status = input.status;
-    if (input.regenerateSlug && nextSlug) catalogSet.slug = nextSlug;
+    if (input.regenerateSlug && nextSlug) {
+      catalogSet.slug = nextSlug;
+      catalogSet.slugNormalized = slugify(nextSlug);
+    }
     if (coverProvided) catalogSet.coverImage = coverValue ?? null;
 
     await tx.update(CatalogBook).set(catalogSet).where(eq(CatalogBook.id, id));

@@ -12,6 +12,7 @@ import {
   ReferenceItem,
 } from "@/db/schema";
 import { generateUniqueCatalogBookSlug } from "@/lib/book/public-slug";
+import { slugify } from "@/lib/book/slug";
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
 import { joinPeople, normalizeIsbn } from "@/lib/books/import/normalize";
 import {
@@ -572,6 +573,7 @@ export async function commitIranKetabImport(params: {
             .values({
               id,
               slug,
+              slugNormalized: slugify(slug),
               title: draft.catalog.fields.title.trim(),
               subtitle: draft.catalog.fields.subtitle,
               originalTitle: draft.catalog.fields.originalTitle,

@@ -8,6 +8,7 @@ import { STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
+import { slugify } from "@/lib/book/slug";
 
 export interface ReferenceEntity {
   id: string;
@@ -70,7 +71,8 @@ export async function getReferenceEntity(
   type: ReferenceTypeValue,
   ref: string
 ): Promise<ReferenceEntity | null> {
-  const [row] = await db
+  const normalizedRef = slugify(ref);
+  const exactRows = await db
     .select({
       id: ReferenceItem.id,
       type: ReferenceItem.type,
@@ -97,13 +99,31 @@ export async function getReferenceEntity(
       and(
         eq(ReferenceItem.type, type),
         eq(ReferenceItem.status, "APPROVED"),
-        or(
-          eq(ReferenceItem.slug, ref),
-          sql`lower(${ReferenceItem.name}) = lower(${ref})`
-        )
+        eq(ReferenceItem.slug, ref),
       )
     )
     .limit(1);
+
+  let row = exactRows[0];
+  if (!row && normalizedRef) {
+    const normalizedRows = await db
+      .select()
+      .from(ReferenceItem)
+      .where(and(eq(ReferenceItem.type, type), eq(ReferenceItem.status, "APPROVED"), eq(ReferenceItem.slugNormalized, normalizedRef)))
+      .limit(2);
+    // A normalized key can collide in old data; a non-exact URL must never
+    // choose one of two distinct people merely because their names look alike.
+    if (normalizedRows.length === 1) row = normalizedRows[0];
+  }
+
+  if (!row) {
+    const nameRows = await db
+      .select()
+      .from(ReferenceItem)
+      .where(and(eq(ReferenceItem.type, type), eq(ReferenceItem.status, "APPROVED"), sql`lower(${ReferenceItem.name}) = lower(${ref})`))
+      .limit(2);
+    if (nameRows.length === 1) row = nameRows[0];
+  }
 
   if (!row?.slug) return null;
   return {

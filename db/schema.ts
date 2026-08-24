@@ -247,6 +247,8 @@ export const ReferenceItem = pgTable(
     name: text("name").notNull(),
     // فیلدهای صفحه‌ی عمومی موجودیت (نویسنده/ژانر/…). nullable برای سازگاری.
     slug: text("slug"),
+    // کلید lookup نرمال‌شده؛ slug اصلی برای URL canonical و backward compatibility حفظ می‌شود.
+    slugNormalized: text("slug_normalized"),
     coverImage: text("cover_image"),
     bannerImage: text("banner_image"),
     originalName: text("original_name"),
@@ -369,6 +371,7 @@ export const CatalogBook = pgTable("CatalogBook", {
   title: text("title").notNull(),
   subtitle: text("subtitle"),
   slug: text("slug").unique(),
+  slugNormalized: text("slug_normalized"),
   originalTitle: text("original_title"),
   description: text("description"),
   coverImage: text("cover_image"),

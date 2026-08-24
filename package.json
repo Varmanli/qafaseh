@@ -22,6 +22,8 @@
     "migrate:favicon": "tsx --env-file=.env scripts/migrate-local-favicon-to-s3.ts",
     "backfill:usernames": "tsx scripts/backfill-usernames.ts",
     "backfill:catalog-public": "tsx --env-file=.env scripts/backfill-catalog-public-books.ts",
+    "routes:audit": "tsx --env-file=.env scripts/audit-public-routes.ts",
+    "routes:backfill": "tsx --env-file=.env scripts/backfill-public-route-keys.ts --apply",
     "db:apply:blog": "tsx --env-file=.env scripts/apply-blog-posts.ts",
     "db:apply:blog-categories": "tsx --env-file=.env scripts/apply-blog-categories.ts",
     "db:apply:home-content": "tsx --env-file=.env scripts/apply-home-content-catalog.ts",
