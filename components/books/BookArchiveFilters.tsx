@@ -254,7 +254,7 @@ function ArchiveSearch({
         placeholder={placeholder}
         aria-label="جست‌وجوی کتاب"
         className="
-          h-12
+          h-14
           w-full
 
           rounded-[1rem]
@@ -268,8 +268,8 @@ function ArchiveSearch({
           pl-11
 
           text-right
-          text-[13px]
-          font-semibold
+          text-[15px]
+          font-medium
 
           text-foreground
 
@@ -280,7 +280,7 @@ function ArchiveSearch({
           transition-all
           duration-200
 
-          placeholder:text-foreground/60
+          placeholder:text-muted-foreground/80
           placeholder:opacity-100
           placeholder:font-medium
 
@@ -290,8 +290,8 @@ function ArchiveSearch({
           focus:ring-[3px]
           focus:ring-primary/10
 
-          sm:h-[50px]
-          sm:text-sm
+          sm:h-14
+          sm:text-[15px]
 
           [unicode-bidi:plaintext]
         "
@@ -937,6 +937,7 @@ export default function BookArchiveFilters({
   hideTranslatorFilter = false,
   hidePublisherFilter = false,
   hideCountryFilter = false,
+  showDiscoveryHeader = false,
 }: {
   filters: BookArchiveFilters;
   options: BookArchiveFilterOptions;
@@ -947,6 +948,7 @@ export default function BookArchiveFilters({
   hideTranslatorFilter?: boolean;
   hidePublisherFilter?: boolean;
   hideCountryFilter?: boolean;
+  showDiscoveryHeader?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1139,7 +1141,18 @@ export default function BookArchiveFilters({
       {/* Search + Filter                                                    */}
       {/* ------------------------------------------------------------------ */}
 
-      <section className="relative z-20">
+      <section className="relative z-20 mx-auto w-full max-w-5xl">
+        {showDiscoveryHeader ? (
+          <div className="mb-4 px-1 sm:mb-5">
+            <p className="text-xs font-bold text-primary">کشف کتاب</p>
+            <h1 className="mt-1 text-xl font-black tracking-tight text-foreground sm:text-2xl">
+              کتاب بعدی‌ات را پیدا کن
+            </h1>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              عنوان، نویسنده، مترجم، ناشر یا نام یک نسخه را جست‌وجو کن.
+            </p>
+          </div>
+        ) : null}
         <div
           className="
             flex
@@ -1147,7 +1160,7 @@ export default function BookArchiveFilters({
 
             gap-2
 
-            sm:gap-2.5
+            sm:gap-3
           "
         >
           <ArchiveSearch

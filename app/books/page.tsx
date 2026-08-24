@@ -32,6 +32,7 @@ export default async function BooksArchivePage({
           filters={filters}
           options={options}
           archive={archive}
+          showDiscoveryHeader
         />
       </main>
     </PublicShell>

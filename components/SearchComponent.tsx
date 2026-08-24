@@ -62,6 +62,7 @@ interface SearchComponentProps {
   placeholder?: string;
   onSearch?: (query: string) => void;
   resultsHref?: string;
+  variant?: "header" | "dialog";
 }
 
 type SearchSectionKey = "books" | "authors" | "translators" | "publishers";
@@ -89,6 +90,7 @@ const SearchComponent = memo(function SearchComponent({
   placeholder = "جست‌وجو در قفسه...",
   onSearch,
   resultsHref = "/books",
+  variant = "header",
 }: SearchComponentProps) {
   const router = useRouter();
 
@@ -383,7 +385,7 @@ const SearchComponent = memo(function SearchComponent({
     <div
       ref={rootRef}
       data-onboarding={onboardingTarget}
-      className={cn("relative w-full", className)}
+      className={cn(variant === "dialog" ? "w-full" : "relative w-full", className)}
     >
       <form
         onSubmit={handleSubmit}
@@ -405,11 +407,11 @@ const SearchComponent = memo(function SearchComponent({
           }}
           placeholder={placeholder}
           className="
-            h-11 w-full rounded-2xl
+            h-12 w-full rounded-2xl
             border-border/60
             bg-background/65
             pr-4 pl-12
-            text-sm text-foreground
+            text-[13px] font-medium text-foreground
             shadow-sm shadow-black/[0.03]
             backdrop-blur-md
             transition-all duration-200
@@ -425,6 +427,10 @@ const SearchComponent = memo(function SearchComponent({
             focus-visible:ring-primary/15
 
             sm:h-12 sm:rounded-[1.15rem]
+
+            data-[search-variant=dialog]:h-14
+            data-[search-variant=dialog]:rounded-2xl
+            data-[search-variant=dialog]:text-[15px]
           "
           aria-label="جست‌وجوی سراسری در قفسه"
           aria-expanded={showDropdown && canSearch}
@@ -432,6 +438,7 @@ const SearchComponent = memo(function SearchComponent({
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
+          data-search-variant={variant}
         />
 
         <Button
@@ -441,7 +448,7 @@ const SearchComponent = memo(function SearchComponent({
           disabled={!trimmedQuery || isLoading}
           className="
             absolute left-1.5 top-1/2
-            size-8 -translate-y-1/2
+            size-9 -translate-y-1/2
             rounded-xl
             shadow-none
             transition-all duration-200
@@ -464,24 +471,22 @@ const SearchComponent = memo(function SearchComponent({
         <div
           id={dropdownId}
           ref={dropdownRef}
-          className="
-            absolute inset-x-0 top-full z-50
-            mt-2
-            max-h-[min(34rem,calc(100dvh-7rem))]
+          className={cn(
+            `
+            ${variant === "dialog" ? "mt-3 max-h-[min(60dvh,32rem)]" : "absolute inset-x-0 top-full z-50 mt-2 max-h-[min(34rem,calc(100dvh-7rem))]"}
             overflow-y-auto overscroll-contain
-            rounded-2xl
+            rounded-2xl sm:rounded-3xl
             border border-border/60
             bg-popover/95
-            p-1.5
+            p-2
             shadow-[0_24px_70px_-34px_rgba(0,0,0,0.45)]
             backdrop-blur-xl
 
             [scrollbar-width:thin]
 
-            sm:mt-2.5
-            sm:rounded-3xl
             sm:p-2
-          "
+          `,
+          )}
         >
           {isLoading ? (
             <SearchSkeleton />
@@ -519,7 +524,7 @@ const SearchComponent = memo(function SearchComponent({
                 </span>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {nonEmptySections.map((section) => (
                   <SearchSection
                     key={section.key}
@@ -662,20 +667,16 @@ function SearchSection({
                   data-search-index={index}
                   onMouseEnter={() => onSelectIndex(index)}
                   onFocus={() => onSelectIndex(index)}
-                  onClick={() =>
-                    onNavigate(`/book/${encodeURIComponent(book.slug)}`)
-                  }
+                  onClick={() => onNavigate(getItemHref("books", book))}
                   className={cn(
                     `
-                      flex w-full min-w-0 items-start gap-3
-                      rounded-xl p-2.5 text-right
+                      flex w-full min-w-0 items-start gap-3.5
+                      rounded-2xl p-3 text-right sm:p-3.5
                       outline-none
                       transition-all duration-150
 
                       focus-visible:ring-2
                       focus-visible:ring-primary/20
-
-                      sm:p-3
                     `,
                     selected
                       ? `
@@ -706,7 +707,7 @@ function SearchSection({
                   className={cn(
                     `
                       flex w-full min-w-0 items-center gap-3
-                      rounded-xl p-2.5 text-right
+                      rounded-xl p-3 text-right
                       outline-none
                       transition-all duration-150
 
@@ -733,26 +734,32 @@ function SearchSection({
 }
 
 function BookResultCard({ book }: { book: GlobalSearchBook }) {
+  const matchReason = book.matchedEditionLabel
+    ? `نسخهٔ پیدا شده: ${book.matchedEditionLabel}`
+    : book.matchedEditionId
+      ? "نسخهٔ مرتبط پیدا شد"
+      : null;
+
   return (
     <>
       <div
         className="
-          flex h-[72px] w-[50px] shrink-0
+          flex h-[100px] w-[70px] shrink-0
           items-center justify-center
           overflow-hidden rounded-lg
           border border-border/30
           bg-muted/50
           shadow-sm
 
-          sm:h-20 sm:w-14 sm:rounded-xl
+          sm:h-[104px] sm:w-[72px] sm:rounded-xl
         "
       >
         {book.coverImage ? (
           <BookCoverImage
             src={book.coverImage}
             alt={book.title}
-            width={56}
-            height={80}
+            width={72}
+            height={104}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -764,9 +771,9 @@ function BookResultCard({ book }: { book: GlobalSearchBook }) {
         <p
           className="
             line-clamp-1
-            text-xs font-black
-            leading-5 text-foreground
-            sm:text-sm
+            text-sm font-black
+            leading-6 text-foreground
+            sm:text-[15px]
           "
         >
           {book.title}
@@ -774,29 +781,29 @@ function BookResultCard({ book }: { book: GlobalSearchBook }) {
 
         <p
           className="
-            mt-0.5 line-clamp-1
-            text-[11px] font-medium
+            mt-1 line-clamp-1
+            text-xs font-semibold
             text-muted-foreground
-            sm:mt-1 sm:text-xs
+            sm:text-[13px]
           "
         >
           {book.author}
         </p>
 
-        {book.matchedEditionLabel ? (
-          <p className="mt-1 line-clamp-1 text-[10px] font-semibold text-primary/80 sm:text-[11px]">
-            نسخهٔ یافت‌شده: {book.matchedEditionLabel}
+        {matchReason ? (
+          <p className="mt-2 inline-flex max-w-full items-center rounded-lg bg-primary/8 px-2 py-1 text-[11px] font-bold text-primary">
+            {matchReason}
           </p>
         ) : null}
 
         {(book.translator || book.publisher) && (
           <div
             className="
-              mt-2 flex flex-wrap items-center
-              gap-x-2.5 gap-y-1
-              text-[9px] font-medium
+            mt-2.5 flex flex-wrap items-center
+            gap-x-2 gap-y-1
+            text-[11px] font-medium
               text-muted-foreground/75
-              sm:text-[10px]
+            sm:text-xs
             "
           >
             {book.translator ? (

@@ -113,8 +113,9 @@ function MobileSearchDialog({
         dir="rtl"
         className="
           w-[calc(100%-1.5rem)]
-          max-w-lg
-          overflow-hidden
+          max-w-xl
+          max-h-[calc(100dvh-1.5rem)]
+          overflow-y-auto
           rounded-3xl
           border-border/60
           bg-background/95
@@ -157,10 +158,12 @@ function MobileSearchDialog({
           </div>
         </div>
 
-        <div className="p-4 sm:p-5">
+        <div className="p-4 pb-5 sm:p-5">
           <SearchComponent
             resultsHref={searchResultsHref}
             onSearch={() => setOpen(false)}
+            variant="dialog"
+            placeholder="عنوان، نویسنده یا نسخهٔ کتاب..."
             className="w-full"
           />
         </div>
