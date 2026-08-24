@@ -36,37 +36,7 @@ export type ImportEventType =
   | "COMMIT_STARTED"
   | "COMMIT_COMPLETED"
   | "COMMIT_FAILED";
-const contributorEventTypes = [
-  "CONTRIBUTOR_STEP_STARTED",
-  "CONTRIBUTOR_PROFILE_FETCH_STARTED",
-  "CONTRIBUTOR_PROFILE_FETCH_COMPLETED",
-  "CONTRIBUTOR_MATCHED",
-  "CONTRIBUTOR_CREATED",
-  "CONTRIBUTOR_UPDATED",
-  "CONTRIBUTOR_IGNORED",
-  "CONTRIBUTOR_IMAGE_STAGED",
-  "CONTRIBUTOR_FAILED",
-  "CONTRIBUTOR_STEP_COMPLETED",
-] as const;
-let contributorEventEnumReady: Promise<void> | null = null;
-async function ensureContributorEventEnum() {
-  contributorEventEnumReady ??= (async () => {
-    for (const value of contributorEventTypes)
-      await db.execute(sql.raw(`ALTER TYPE "IranKetabImportEventType" ADD VALUE IF NOT EXISTS '${value}'`));
-  })().catch((error) => {
-    contributorEventEnumReady = null;
-    throw error;
-  });
-  await contributorEventEnumReady;
-}
-let importerStatusEnumReady: Promise<void> | null = null;
-async function ensureImporterStatusEnum() {
-  importerStatusEnumReady ??= db.execute(sql.raw(`ALTER TYPE "IranKetabImportStatus" ADD VALUE IF NOT EXISTS 'IMPORTING_REFERENCES'`)).then(() => undefined).catch((error) => {
-    importerStatusEnumReady = null;
-    throw error;
-  });
-  await importerStatusEnumReady;
-}
+
 export function extractionFingerprint(extraction: unknown) {
   return createHash("sha256").update(JSON.stringify(extraction)).digest("hex");
 }
@@ -75,7 +45,6 @@ export async function appendImportEvent(
   type: ImportEventType,
   metadata?: unknown,
 ) {
-  if (type.startsWith("CONTRIBUTOR_")) await ensureContributorEventEnum();
   await db
     .insert(IranKetabImportEvent)
     .values({ sessionId, type, metadata: safeAuditJson(metadata) });
@@ -92,21 +61,17 @@ export async function createImportSession(input: {
       adminId: input.adminId,
       sourceUrl: input.sourceUrl,
       canonicalSourceUrl: input.canonicalSourceUrl,
-      status: "CREATED",
-      metadata: input.metadata ? safeAuditJson(input.metadata) : null,
+      metadata: input.metadata ?? {},
     })
     .returning();
   await appendImportEvent(session.id, "SESSION_CREATED", {
-    sourceName: "iranketab",
-    ...(input.metadata ?? {}),
+    sourceUrl: input.sourceUrl,
   });
-  await transitionImportSession(
-    session.id,
-    input.adminId,
-    "EXTRACTING",
-    { startedAt: new Date() },
-    "EXTRACTION_STARTED",
-  );
+  return session;
+}
+export async function markExtractionStarted(id: string, adminId: string) {
+  const session = await transitionImportSession(id, adminId, "EXTRACTING");
+  await appendImportEvent(id, "EXTRACTION_STARTED");
   return { ...session, status: "EXTRACTING" as const };
 }
 export async function transitionImportSession(
@@ -117,7 +82,6 @@ export async function transitionImportSession(
   event?: ImportEventType,
   eventMetadata?: unknown,
 ) {
-  if (next === "IMPORTING_REFERENCES") await ensureImporterStatusEnum();
   const [current] = await db
     .select({ status: IranKetabImportSession.status })
     .from(IranKetabImportSession)

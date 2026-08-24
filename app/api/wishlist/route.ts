@@ -1,127 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { Wishlist } from "@/db/schema";
-import jwt from "jsonwebtoken";
+import { getCurrentUser } from "@/lib/auth/session";
 import { eq, desc, asc } from "drizzle-orm";
+import { z } from "zod";
 
-// 📌 نوع داده ورودی برای Wishlist
-interface WishlistBody {
-  title: string;
-  author: string;
-  publisher?: string;
-  genre?: string;
-  translator?: string;
-  note?: string;
-  priority:
-    | "MUST_HAVE"
-    | "WANT_IT"
-    | "NICE_TO_HAVE"
-    | "IF_EXTRA_MONEY"
-    | "NOT_IMPORTANT";
-}
+export const dynamic = "force-dynamic";
 
-// 📌 اعتبارسنجی داده‌های ورودی
-function validateWishlistData(data: any): {
-  isValid: boolean;
-  errors: string[];
-} {
-  const errors: string[] = [];
-
-  if (
-    !data.title ||
-    typeof data.title !== "string" ||
-    data.title.trim().length === 0
-  ) {
-    errors.push("عنوان کتاب الزامی است");
-  } else if (data.title.trim().length > 255) {
-    errors.push("عنوان کتاب نمی‌تواند بیش از 255 کاراکتر باشد");
-  }
-
-  if (
-    !data.author ||
-    typeof data.author !== "string" ||
-    data.author.trim().length === 0
-  ) {
-    errors.push("نام نویسنده الزامی است");
-  } else if (data.author.trim().length > 255) {
-    errors.push("نام نویسنده نمی‌تواند بیش از 255 کاراکتر باشد");
-  }
-
-  if (
-    data.publisher &&
-    (typeof data.publisher !== "string" || data.publisher.length > 255)
-  ) {
-    errors.push("نام ناشر نمی‌تواند بیش از 255 کاراکتر باشد");
-  }
-
-  if (
-    data.genre &&
-    (typeof data.genre !== "string" || data.genre.length > 100)
-  ) {
-    errors.push("ژانر نمی‌تواند بیش از 100 کاراکتر باشد");
-  }
-
-  if (
-    data.translator &&
-    (typeof data.translator !== "string" || data.translator.length > 255)
-  ) {
-    errors.push("نام مترجم نمی‌تواند بیش از 255 کاراکتر باشد");
-  }
-
-  if (data.note && (typeof data.note !== "string" || data.note.length > 1000)) {
-    errors.push("یادداشت نمی‌تواند بیش از 1000 کاراکتر باشد");
-  }
-
-  const validPriorities = [
+const wishlistCreateSchema = z.object({
+  title: z.string().trim().min(1, "عنوان کتاب الزامی است").max(255),
+  author: z.string().trim().min(1, "نام نویسنده الزامی است").max(255),
+  publisher: z.string().trim().max(255).nullish(),
+  genre: z.string().trim().max(100).nullish(),
+  translator: z.string().trim().max(255).nullish(),
+  note: z.string().trim().max(1000).nullish(),
+  priority: z.enum([
     "MUST_HAVE",
     "WANT_IT",
     "NICE_TO_HAVE",
     "IF_EXTRA_MONEY",
     "NOT_IMPORTANT",
-  ];
-  if (!data.priority || !validPriorities.includes(data.priority)) {
-    errors.push("اولویت معتبر انتخاب کنید");
-  }
-
-  return { isValid: errors.length === 0, errors };
-}
-
-// 📌 استخراج و اعتبارسنجی توکن
-function extractAndValidateToken(
-  req: NextRequest
-): { userId: string } | { error: string; status: number } {
-  const token = req.cookies.get("token")?.value;
-  if (!token) {
-    return { error: "توکن لاگین نیاز است", status: 401 };
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    return { userId: decoded.id };
-  } catch {
-    return { error: "توکن نامعتبر است", status: 401 };
-  }
-}
+  ]),
+});
 
 // 📌 ایجاد آیتم جدید در Wishlist
 export async function POST(req: NextRequest) {
   try {
-    // اعتبارسنجی توکن
-    const tokenValidation = extractAndValidateToken(req);
-    if ("error" in tokenValidation) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
-        { error: tokenValidation.error },
-        { status: tokenValidation.status }
+        { error: "احراز هویت نشده" },
+        { status: 401 }
       );
     }
-    const { userId } = tokenValidation;
 
-    // دریافت و اعتبارسنجی داده‌ها
-    let body: WishlistBody;
+    let rawBody: unknown;
     try {
-      body = await req.json();
+      rawBody = await req.json();
     } catch {
       return NextResponse.json(
         { error: "داده‌های ارسالی نامعتبر است" },
@@ -129,27 +44,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // اعتبارسنجی کامل داده‌ها
-    const validation = validateWishlistData(body);
-    if (!validation.isValid) {
+    const parsed = wishlistCreateSchema.safeParse(rawBody);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "داده‌های نامعتبر", details: validation.errors },
-        { status: 400 }
+        { error: parsed.error.issues[0]?.message ?? "داده‌های نامعتبر" },
+        { status: 422 }
       );
     }
 
-    // ایجاد آیتم
+    const data = parsed.data;
+
     const [newWishlist] = await db
       .insert(Wishlist)
       .values({
-        userId,
-        title: body.title.trim(),
-        author: body.author.trim(),
-        publisher: body.publisher?.trim() || null,
-        genre: body.genre?.trim() || null,
-        translator: body.translator?.trim() || null,
-        note: body.note?.trim() || null,
-        priority: body.priority,
+        userId: user.id,
+        title: data.title,
+        author: data.author,
+        publisher: data.publisher || null,
+        genre: data.genre || null,
+        translator: data.translator || null,
+        note: data.note || null,
+        priority: data.priority,
       })
       .returning();
 
@@ -166,22 +81,18 @@ export async function POST(req: NextRequest) {
 // 📌 گرفتن لیست Wishlist کاربر
 export async function GET(req: NextRequest) {
   try {
-    // اعتبارسنجی توکن
-    const tokenValidation = extractAndValidateToken(req);
-    if ("error" in tokenValidation) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
-        { error: tokenValidation.error },
-        { status: tokenValidation.status }
+        { error: "احراز هویت نشده" },
+        { status: 401 }
       );
     }
-    const { userId } = tokenValidation;
 
-    // دریافت پارامترهای مرتب‌سازی از URL
     const { searchParams } = new URL(req.url);
     const sortBy = searchParams.get("sortBy") || "createdAt";
     const sortOrder = searchParams.get("sortOrder") || "desc";
 
-    // تعیین ستون و جهت مرتب‌سازی
     let orderBy;
     switch (sortBy) {
       case "title":
@@ -220,15 +131,23 @@ export async function GET(req: NextRequest) {
     const userWishlist = await db
       .select()
       .from(Wishlist)
-      .where(eq(Wishlist.userId, userId))
+      .where(eq(Wishlist.userId, user.id))
       .orderBy(orderBy);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       wishlist: userWishlist,
       total: userWishlist.length,
       sortBy,
       sortOrder,
     });
+
+    response.headers.set(
+      "Cache-Control",
+      "private, no-cache, no-store, must-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+
+    return response;
   } catch (err) {
     console.error("❌ خطا در دریافت Wishlist:", err);
     return NextResponse.json(

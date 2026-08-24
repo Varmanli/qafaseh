@@ -19,7 +19,7 @@ const identifier = z
 const verificationCode = z
   .string()
   .trim()
-  .regex(/^\d{4}$/, "کد تایید باید ۴ رقم باشد");
+  .regex(/^\d{6}$/, "کد تایید باید ۶ رقم باشد");
 
 export const verificationPurposeSchema = z.enum([
   "email_verification",

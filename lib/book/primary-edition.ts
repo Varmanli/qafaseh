@@ -87,6 +87,24 @@ export function primaryEditionOrderBy(
   ] as const;
 }
 
+const ALLOWED_EDITION_COLUMNS = new Set([
+  "id",
+  "catalog_book_id",
+  "status",
+  "cover_image",
+  "edition_label",
+  "publisher",
+  "translator",
+  "isbn",
+  "isbn10",
+  "isbn13",
+  "page_count",
+  "publish_year",
+  "price",
+  "created_at",
+  "updated_at",
+]);
+
 export function preferredEditionFieldSql<T>(
   fieldName: string,
   {
@@ -99,10 +117,15 @@ export function preferredEditionFieldSql<T>(
     approvedOnly?: boolean;
   } = {},
 ): SQL<T> {
+  const normalized = fieldName.trim().toLowerCase();
+  if (!ALLOWED_EDITION_COLUMNS.has(normalized)) {
+    throw new Error(`Disallowed column identifier for edition subquery: ${fieldName}`);
+  }
+
   const approvedClause = approvedOnly ? sql`and be.status = 'APPROVED'` : sql``;
 
   return sql<T>`(
-    select be.${sql.raw(fieldName)}
+    select be.${sql.identifier(normalized)}
     from "BookEdition" be
     where be.catalog_book_id = ${catalogBookId}
       ${approvedClause}
@@ -120,3 +143,4 @@ export function preferredEditionFieldSql<T>(
     limit 1
   )`;
 }
+

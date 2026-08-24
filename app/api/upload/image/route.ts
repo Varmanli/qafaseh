@@ -20,6 +20,10 @@ import {
   processQuoteImage,
   QuoteImageProcessingError,
 } from "@/lib/server/quote-image-processing";
+import {
+  validateAndProcessImageBuffer,
+  ImageValidationError,
+} from "@/lib/server/general-image-processing";
 
 export const runtime = "nodejs";
 
@@ -97,11 +101,13 @@ export async function POST(req: NextRequest) {
             declaredMime: file.type,
             filename: file.name || "quote-page",
           })
-        : {
+        : await validateAndProcessImageBuffer({
             buffer: inputBuffer,
-            contentType: file.type,
             filename: file.name || "image",
-          };
+            declaredMime: file.type,
+            maxBytes,
+            isFavicon,
+          });
     const uploadResult = await saveImageUpload({
       buffer: processed.buffer,
       contentType: processed.contentType,
@@ -121,7 +127,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error(err);
 
-    if (err instanceof QuoteImageProcessingError) {
+    if (err instanceof QuoteImageProcessingError || err instanceof ImageValidationError) {
       return NextResponse.json(
         { error: err.message, code: err.code },
         { status: err.code === "IMAGE_TOO_LARGE" ? 413 : 422 },

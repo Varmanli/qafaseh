@@ -105,6 +105,23 @@ export function resolveBookDisplayData<T extends DisplayBookEdition>({
   };
 }
 
+const ALLOWED_BOOK_COLUMNS = new Set([
+  "id",
+  "title",
+  "author",
+  "translator",
+  "publisher",
+  "cover_image",
+  "description",
+  "country",
+  "genre",
+  "page_count",
+  "format",
+  "status",
+  "created_at",
+  "updated_at",
+]);
+
 export function sampleLegacyBookFieldSql<T>(
   fieldName: string,
   {
@@ -113,12 +130,17 @@ export function sampleLegacyBookFieldSql<T>(
     catalogBookId?: SQLWrapper;
   } = {},
 ): SQL<T> {
+  const normalized = fieldName.trim().toLowerCase();
+  if (!ALLOWED_BOOK_COLUMNS.has(normalized)) {
+    throw new Error(`Disallowed column identifier for legacy book subquery: ${fieldName}`);
+  }
+
   return sql<T>`(
-    select b.${sql.raw(fieldName)}
+    select b.${sql.identifier(normalized)}
     from "Book" b
     where b.catalog_book_id = ${catalogBookId}
-      and b.${sql.raw(fieldName)} is not null
-      and trim(b.${sql.raw(fieldName)}) <> ''
+      and b.${sql.identifier(normalized)} is not null
+      and trim(b.${sql.identifier(normalized)}) <> ''
     order by
       (b.slug is not null) desc,
       b.created_at desc,

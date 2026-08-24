@@ -7,22 +7,24 @@ export function AuthCodeInput({
   value,
   onChange,
   disabled = false,
+  length = 6,
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  length?: number;
 }) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const digits = useMemo(
-    () => Array.from({ length: 4 }, (_, index) => value[index] ?? ""),
-    [value]
+    () => Array.from({ length }, (_, index) => value[index] ?? ""),
+    [value, length]
   );
 
   useEffect(() => {
     const nextIndex = digits.findIndex((digit) => digit === "");
-    const targetIndex = nextIndex === -1 ? 3 : nextIndex;
+    const targetIndex = nextIndex === -1 ? length - 1 : nextIndex;
     refs.current[targetIndex]?.focus();
-  }, [digits]);
+  }, [digits, length]);
 
   return (
     <div className="flex items-center justify-center gap-2" dir="ltr">

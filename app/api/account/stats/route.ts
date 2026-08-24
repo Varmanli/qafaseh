@@ -1,40 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { Book, Wishlist } from "@/db/schema";
-import jwt from "jsonwebtoken";
+import { getCurrentUser } from "@/lib/auth/session";
 import { eq, sql, count, sum, and } from "drizzle-orm";
 
-// 📌 استخراج و اعتبارسنجی توکن
-function extractAndValidateToken(
-  req: NextRequest
-): { userId: string } | { error: string; status: number } {
-  const token = req.cookies.get("token")?.value;
-  if (!token) {
-    return { error: "توکن لاگین نیاز است", status: 401 };
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    return { userId: decoded.id };
-  } catch {
-    return { error: "توکن نامعتبر است", status: 401 };
-  }
-}
+export const dynamic = "force-dynamic";
 
 // 📌 دریافت آمار کاربر
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    // اعتبارسنجی توکن
-    const tokenValidation = extractAndValidateToken(req);
-    if ("error" in tokenValidation) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
-        { error: tokenValidation.error },
-        { status: tokenValidation.status }
+        { error: "احراز هویت نشده" },
+        { status: 401 }
       );
     }
-    const { userId } = tokenValidation;
+    const userId = user.id;
 
     // آمار کلی کتاب‌ها
     const [bookStats] = await db
@@ -163,7 +145,7 @@ export async function GET(req: NextRequest) {
         )
       );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       overview: {
         totalBooks: bookStats.totalBooks || 0,
         totalPages: bookStats.totalPages || 0,
@@ -217,6 +199,14 @@ export async function GET(req: NextRequest) {
         })),
       },
     });
+
+    response.headers.set(
+      "Cache-Control",
+      "private, no-cache, no-store, must-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+
+    return response;
   } catch (err) {
     console.error("❌ خطا در دریافت آمار:", err);
     return NextResponse.json({ error: "خطا در دریافت آمار" }, { status: 500 });

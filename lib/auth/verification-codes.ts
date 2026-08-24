@@ -17,7 +17,7 @@ export function normalizeEmail(email: string) {
 }
 
 function generateVerificationCode() {
-  return crypto.randomInt(1000, 10000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 function hashVerificationCode(

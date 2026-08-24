@@ -51,12 +51,16 @@ export function rateLimit(
 
 /** کلید محدودسازی را از روی IP درخواست و نام مسیر می‌سازد. */
 export function getClientKey(req: NextRequest, scope: string): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip =
-    forwarded?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-  return `${scope}:${ip}`;
+  const directIp =
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "127.0.0.1";
+
+  const sanitizedIp =
+    directIp.replace(/[^a-zA-Z0-9:._-]/g, "").slice(0, 45) || "127.0.0.1";
+
+  return `${scope}:${sanitizedIp}`;
 }
 
 // به‌مرور سطل‌های منقضی‌شده را پاک می‌کند تا حافظه رشد بی‌رویه نکند.

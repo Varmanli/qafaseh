@@ -1,38 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, Quote } from "@/db/schema";
-import jwt from "jsonwebtoken";
-import { eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth/session";
 import { parseUserBookUpdate, type UserBookUpdate } from "@/lib/book/user-mutation";
 
-// Helper برای گرفتن ID از مسیر
-function getIdFromUrl(req: NextRequest) {
-  const parts = req.nextUrl.pathname.split("/");
-  return parts[parts.length - 1];
-}
+export const dynamic = "force-dynamic";
 
-// GET: گرفتن جزئیات یک کتاب
-export async function GET(req: NextRequest) {
+// GET: گرفتن جزئیات یک کتاب (فقط برای مالک)
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const id = getIdFromUrl(req);
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+    }
 
-    const [book] = await db.select().from(Book).where(eq(Book.id, id));
+    const { id } = await params;
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "شناسه کتاب نامعتبر است" }, { status: 400 });
+    }
+
+    const [book] = await db
+      .select()
+      .from(Book)
+      .where(and(eq(Book.id, id), eq(Book.userId, user.id)))
+      .limit(1);
 
     if (!book) {
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
     }
 
-    // Get quotes for this book
+    // گرفتن تکه‌های متصل به این کتاب (فقط متعلق به همین کاربر)
     const quotes = await db
       .select()
       .from(Quote)
-      .where(eq(Quote.bookId, id))
+      .where(and(eq(Quote.bookId, id), eq(Quote.userId, user.id)))
       .orderBy(Quote.id);
 
     return NextResponse.json({
       book: {
         ...book,
-        quotes: quotes,
+        quotes,
       },
     });
   } catch (err) {
@@ -41,25 +52,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT: بروزرسانی داده‌های شخصیِ کتاب (مالک)
-export async function PUT(req: NextRequest) {
+// PUT: بروزرسانی داده‌های شخصیِ کتاب (فقط برای مالک)
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const token = req.cookies.get("token")?.value;
-    if (!token)
-      return NextResponse.json({ error: "توکن لازم است" }, { status: 401 });
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+    }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    const userId = decoded.id;
+    const { id } = await params;
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "شناسه کتاب نامعتبر است" }, { status: 400 });
+    }
 
-    const id = getIdFromUrl(req);
+    const [book] = await db
+      .select()
+      .from(Book)
+      .where(and(eq(Book.id, id), eq(Book.userId, user.id)))
+      .limit(1);
 
-    const [book] = await db.select().from(Book).where(eq(Book.id, id));
-    if (!book)
+    if (!book) {
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
-    if (book.userId !== userId)
-      return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
+    }
 
     const parsed = parseUserBookUpdate(await req.json());
     if (!parsed.success) {
@@ -67,8 +84,6 @@ export async function PUT(req: NextRequest) {
     }
     const updateData: UserBookUpdate & { completedAt?: Date | null } = { ...parsed.data };
 
-    // Keep completion metadata consistent for status changes made outside the
-    // dedicated reading-progress screen as well.
     if (updateData.status === "FINISHED") {
       updateData.completedAt = book.completedAt ?? new Date();
     } else if (updateData.status) {
@@ -78,7 +93,7 @@ export async function PUT(req: NextRequest) {
     const [updatedBook] = await db
       .update(Book)
       .set(updateData)
-      .where(eq(Book.id, id))
+      .where(and(eq(Book.id, id), eq(Book.userId, user.id)))
       .returning({
         id: Book.id,
         title: Book.title,
@@ -96,7 +111,6 @@ export async function PUT(req: NextRequest) {
         status: Book.status,
         progress: Book.progress,
         currentPage: Book.currentPage,
-        readingUpdatedAt: Book.readingUpdatedAt,
         completedAt: Book.completedAt,
         rating: Book.rating,
         review: Book.review,
@@ -116,27 +130,30 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: حذف کتاب (فقط مالک)
-export async function DELETE(req: NextRequest) {
+// DELETE: حذف کتاب (فقط برای مالک)
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const token = req.cookies.get("token")?.value;
-    if (!token)
-      return NextResponse.json({ error: "توکن لازم است" }, { status: 401 });
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+    }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
-    const userId = decoded.id;
+    const { id } = await params;
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "شناسه کتاب نامعتبر است" }, { status: 400 });
+    }
 
-    const id = getIdFromUrl(req);
+    const [deletedBook] = await db
+      .delete(Book)
+      .where(and(eq(Book.id, id), eq(Book.userId, user.id)))
+      .returning({ id: Book.id });
 
-    const [book] = await db.select().from(Book).where(eq(Book.id, id));
-    if (!book)
+    if (!deletedBook) {
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
-    if (book.userId !== userId)
-      return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
-
-    await db.delete(Book).where(eq(Book.id, id));
+    }
 
     return NextResponse.json({ message: "کتاب با موفقیت حذف شد" });
   } catch (err) {
@@ -144,3 +161,4 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "خطا در حذف کتاب" }, { status: 500 });
   }
 }
+

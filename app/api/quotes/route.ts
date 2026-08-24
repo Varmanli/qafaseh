@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { Book, Quote } from "@/db/schema";
@@ -12,6 +12,8 @@ import {
 import {
   normalizeQuoteBackground,
 } from "@/lib/quotes/backgrounds";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,10 +82,10 @@ export async function POST(req: NextRequest) {
         editionId: Book.editionId,
       })
       .from(Book)
-      .where(eq(Book.id, bookId));
+      .where(and(eq(Book.id, bookId), eq(Book.userId, user.id)));
 
     if (!book) {
-      return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
+      return NextResponse.json({ error: "کتاب در قفسه شما پیدا نشد" }, { status: 404 });
     }
 
     const [quote] = await db

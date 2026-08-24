@@ -83,12 +83,35 @@ function bestEditionField<T>(fieldName: string) {
   return preferredEditionFieldSql<T>(fieldName);
 }
 
+const ALLOWED_EDITION_COLUMNS = new Set([
+  "id",
+  "catalog_book_id",
+  "status",
+  "cover_image",
+  "edition_label",
+  "publisher",
+  "translator",
+  "isbn",
+  "isbn10",
+  "isbn13",
+  "page_count",
+  "publish_year",
+  "price",
+  "created_at",
+  "updated_at",
+]);
+
 function presentationEditionField<T>(
   fieldName: string,
   scope: BookArchiveScope,
 ) {
   if (!scope.fixedTranslator && !scope.fixedPublisher) {
     return bestEditionField<T>(fieldName);
+  }
+
+  const normalized = fieldName.trim().toLowerCase();
+  if (!ALLOWED_EDITION_COLUMNS.has(normalized)) {
+    throw new Error(`Disallowed column identifier for edition archive subquery: ${fieldName}`);
   }
 
   const conditions = [
@@ -103,7 +126,7 @@ function presentationEditionField<T>(
   ].filter(Boolean);
 
   return sql<T>`(
-    select be.${sql.raw(fieldName)}
+    select be.${sql.identifier(normalized)}
     from "BookEdition" be
     where ${sql.join(conditions, sql` and `)}
     order by be.created_at desc, be.id asc
