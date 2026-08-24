@@ -33,7 +33,7 @@ export async function searchPublicBooks(rawQuery: string, limit = 20): Promise<P
   if (!normalized || !compact) return [];
 
   const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
-  const ranked = await db.execute(sql<RankedId>`
+  const ranked = await db.execute<RankedId>(sql`
     with candidates as (
       select
         i.catalog_book_id as "catalogBookId",
@@ -70,7 +70,7 @@ export async function searchPublicBooks(rawQuery: string, limit = 20): Promise<P
   `);
 
   if (ranked.rows.length === 0) return [];
-  const ids = ranked.rows.map((row) => row.catalogBookId);
+  const ids: string[] = ranked.rows.map((row) => row.catalogBookId);
   const rows = await db
     .select({
       id: CatalogBook.id,
@@ -85,7 +85,9 @@ export async function searchPublicBooks(rawQuery: string, limit = 20): Promise<P
     .where(and(eq(CatalogBook.status, "APPROVED"), inArray(CatalogBook.id, ids)));
   const books = new Map(rows.map((row) => [row.id, row]));
 
-  const editionIds = ranked.rows.map((row) => row.matchedEditionId).filter((id): id is string => Boolean(id));
+  const editionIds: string[] = ranked.rows
+    .map((row) => row.matchedEditionId)
+    .filter((id): id is string => id !== null);
   const editions = editionIds.length
     ? await db.select({ id: BookEdition.id, titleOverride: BookEdition.titleOverride, editionLabel: BookEdition.editionLabel }).from(BookEdition).where(inArray(BookEdition.id, editionIds))
     : [];

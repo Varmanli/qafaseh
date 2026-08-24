@@ -5,7 +5,7 @@ import { db, pool } from "@/db";
 type AuditRow = { check: string; count: number };
 
 async function main() {
-  const result = await db.execute(sql<AuditRow>`
+  const result = await db.execute<AuditRow>(sql`
     select 'books_without_slug' as "check", count(*)::int as count
       from "CatalogBook" where slug is null or btrim(slug) = ''
     union all
