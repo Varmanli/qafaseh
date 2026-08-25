@@ -111,8 +111,7 @@ export default async function Page({
                   <td className="p-3"><span className="rounded-full border px-2 py-1 text-xs font-bold">{statusLabels[session.status] ?? session.status}</span></td>
                   <td className="p-3">
                     {String(
-                      session.resultSummary?.catalogTitle ??
-                        session.errorCode ??
+                      session.errorCode ??
                         "—",
                     )}
                   </td>
@@ -141,7 +140,7 @@ export default async function Page({
                 <p className="break-all text-left text-xs text-muted-foreground" dir="ltr">{session.canonicalSourceUrl}</p>
                 <div className="flex justify-between gap-3 text-xs">
                   <span>{adminName || adminEmail || session.adminId}</span>
-                  <span>{String(session.resultSummary?.catalogTitle ?? session.errorCode ?? "—")}</span>
+                  <span>{String(session.errorCode ?? "—")}</span>
                 </div>
               </CardContent>
             </Card>

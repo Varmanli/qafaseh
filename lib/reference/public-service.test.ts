@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { isToastCorruptionError } from "@/lib/notes/service";
 
 test("public reference projection never selects stored biography columns", async () => {
   const source = await readFile(new URL("./public-service.ts", import.meta.url), "utf8");
@@ -12,7 +11,10 @@ test("public reference projection never selects stored biography columns", async
   assert.equal(source.includes(".select()"), false);
 });
 
-test("note fallback only recognizes PostgreSQL TOAST corruption", () => {
-  assert.equal(isToastCorruptionError({ code: "XX001", message: "missing chunk number 0" }), true);
-  assert.equal(isToastCorruptionError({ code: "23505", message: "duplicate key" }), false);
+test("public profile note query does not reference note content", async () => {
+  const source = await readFile(new URL("../notes/service.ts", import.meta.url), "utf8");
+  const profileStart = source.indexOf("export async function getPublishedNotesByUsername");
+  const bookStart = source.indexOf("export async function listPublishedNotesForBook");
+  assert.ok(profileStart >= 0 && bookStart > profileStart);
+  assert.equal(source.slice(profileStart, bookStart).includes("PublishedBookNote.content"), false);
 });

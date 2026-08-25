@@ -16,6 +16,36 @@ import { assertExtractionCollectionLimits, formatIranKetabSchemaIssues } from ".
 export { IMPORT_STATUSES, classifyRetryable } from "./session-lifecycle";
 export type { ImportStatus } from "./session-lifecycle";
 
+/** Columns safe for list/history pages; never add JSON payload fields here. */
+export const IMPORT_SESSION_LIST_COLUMNS = {
+  id: IranKetabImportSession.id,
+  adminId: IranKetabImportSession.adminId,
+  sourceUrl: IranKetabImportSession.sourceUrl,
+  canonicalSourceUrl: IranKetabImportSession.canonicalSourceUrl,
+  sourceName: IranKetabImportSession.sourceName,
+  status: IranKetabImportSession.status,
+  startedAt: IranKetabImportSession.startedAt,
+  completedAt: IranKetabImportSession.completedAt,
+  draftVersion: IranKetabImportSession.draftVersion,
+  catalogId: IranKetabImportSession.catalogId,
+  errorCode: IranKetabImportSession.errorCode,
+  retryable: IranKetabImportSession.retryable,
+  createdAt: IranKetabImportSession.createdAt,
+  updatedAt: IranKetabImportSession.updatedAt,
+};
+
+const IMPORT_SESSION_CORE_COLUMNS = {
+  ...IMPORT_SESSION_LIST_COLUMNS,
+  extractionFingerprint: IranKetabImportSession.extractionFingerprint,
+};
+
+function isToastCorruptionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: unknown; message?: unknown };
+  return value.code === "XX001" ||
+    (typeof value.message === "string" && /toast|missing chunk/i.test(value.message));
+}
+
 export type ImportEventType =
   | "SESSION_CREATED"
   | "EXTRACTION_STARTED"
@@ -193,7 +223,7 @@ export async function persistPreparedImportDraft(
 export async function getRecoverableSession(adminId: string) {
   const terminal: ImportStatus[] = ["SUCCESS", "CANCELLED"];
   const [row] = await db
-    .select()
+    .select(IMPORT_SESSION_CORE_COLUMNS)
     .from(IranKetabImportSession)
     .where(
       and(
@@ -206,7 +236,30 @@ export async function getRecoverableSession(adminId: string) {
     )
     .orderBy(desc(IranKetabImportSession.updatedAt))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+
+  try {
+    const [payload] = await db
+      .select({
+        draft: IranKetabImportSession.draft,
+        extraction: IranKetabImportSession.extraction,
+        preparedCovers: IranKetabImportSession.preparedCovers,
+        metadata: IranKetabImportSession.metadata,
+      })
+      .from(IranKetabImportSession)
+      .where(eq(IranKetabImportSession.id, row.id))
+      .limit(1);
+    return { ...row, ...payload };
+  } catch (error) {
+    if (!isToastCorruptionError(error)) throw error;
+    return {
+      ...row,
+      draft: null,
+      extraction: null,
+      preparedCovers: null,
+      metadata: null,
+    };
+  }
 }
 
 export async function cancelImportSession(id: string, adminId: string) {
@@ -253,6 +306,49 @@ export async function getImportSession(id: string) {
     .orderBy(IranKetabImportEvent.createdAt);
   return { ...session, events };
 }
+
+/**
+ * Admin history detail projection.  Core metadata and audit events remain
+ * readable even when an optional JSON/text payload has a corrupt TOAST value.
+ */
+export async function getImportSessionDetail(id: string) {
+  const [session] = await db
+    .select({
+      session: IMPORT_SESSION_CORE_COLUMNS,
+      adminName: User.name,
+      adminEmail: User.email,
+    })
+    .from(IranKetabImportSession)
+    .leftJoin(User, eq(User.id, IranKetabImportSession.adminId))
+    .where(eq(IranKetabImportSession.id, id))
+    .limit(1);
+  if (!session) return null;
+
+  let optional: {
+    resultSummary: Record<string, unknown> | null;
+    errorMessage: string | null;
+  } = { resultSummary: null, errorMessage: null };
+  try {
+    const [payload] = await db
+      .select({
+        resultSummary: IranKetabImportSession.resultSummary,
+        errorMessage: IranKetabImportSession.errorMessage,
+      })
+      .from(IranKetabImportSession)
+      .where(eq(IranKetabImportSession.id, id))
+      .limit(1);
+    optional = payload ?? optional;
+  } catch (error) {
+    if (!isToastCorruptionError(error)) throw error;
+  }
+
+  const events = await db
+    .select()
+    .from(IranKetabImportEvent)
+    .where(eq(IranKetabImportEvent.sessionId, id))
+    .orderBy(IranKetabImportEvent.createdAt);
+  return { ...session, session: { ...session.session, ...optional }, events };
+}
 export async function listImportSessions(input: {
   page: number;
   status?: ImportStatus;
@@ -278,7 +374,6 @@ export async function listImportSessions(input: {
       or(
         ilike(IranKetabImportSession.sourceUrl, `%${input.q}%`),
         ilike(IranKetabImportSession.canonicalSourceUrl, `%${input.q}%`),
-        sql`${IranKetabImportSession.resultSummary}->>'catalogTitle' ilike ${`%${input.q}%`}`,
       )!,
     );
   const where = filters.length ? and(...filters) : undefined;
@@ -286,7 +381,7 @@ export async function listImportSessions(input: {
   const [rows, count] = await Promise.all([
     db
       .select({
-        session: IranKetabImportSession,
+        session: IMPORT_SESSION_LIST_COLUMNS,
         adminName: User.name,
         adminEmail: User.email,
       })

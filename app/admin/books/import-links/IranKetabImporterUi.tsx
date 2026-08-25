@@ -191,7 +191,6 @@ export type RecentImport = {
   status: string;
   updatedAt?: string;
   createdAt: string;
-  resultSummary?: Record<string, unknown> | null;
   errorCode?: string | null;
 };
 const statusLabel: Record<string, string> = {
@@ -288,7 +287,7 @@ export function RecentHistory({ sessions }: { sessions: RecentImport[] }) {
               >
                 <span className="truncate text-sm font-bold" dir="ltr">
                   {String(
-                    item.resultSummary?.catalogTitle ?? item.canonicalSourceUrl,
+                    item.canonicalSourceUrl,
                   )}
                 </span>
                 <span

@@ -4,7 +4,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin/permissions";
-import { getImportSession } from "@/lib/importers/iranketab/session";
+import { getImportSessionDetail } from "@/lib/importers/iranketab/session";
 export const dynamic = "force-dynamic";
 export default async function Page({
   params,
@@ -12,7 +12,7 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   await requireAdmin();
-  const data = await getImportSession((await params).id);
+  const data = await getImportSessionDetail((await params).id);
   if (!data) notFound();
   const { session } = data;
   const result = (session.resultSummary ?? {}) as {
