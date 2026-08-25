@@ -43,6 +43,15 @@ export type PublicNotesResult =
   | { found: true; isPrivate: true }
   | { found: true; isPrivate: false; isOwner: boolean; notes: PublicNote[]; hasMore: boolean };
 
+const CORRUPTED_NOTE_PLACEHOLDER = "متن این یادداشت در دسترس نیست.";
+
+export function isToastCorruptionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: unknown; message?: unknown };
+  return value.code === "XX001" ||
+    (typeof value.message === "string" && /toast|missing chunk/i.test(value.message));
+}
+
 async function resolveOwnedLibraryRow(
   userId: string,
   catalogBookId: string,
@@ -103,10 +112,10 @@ export async function getPublishedNotesByUsername(
     return { found: true, isPrivate: true };
   }
 
-  const rows = await db
+  const loadRows = (includeContent: boolean) => db
     .select({
       id: PublishedBookNote.id,
-      content: PublishedBookNote.content,
+      ...(includeContent ? { content: PublishedBookNote.content } : {}),
       bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
       catalogBookId: PublishedBookNote.catalogBookId,
       bookEditionId: PublishedBookNote.bookEditionId,
@@ -144,11 +153,25 @@ export async function getPublishedNotesByUsername(
     .limit(Math.min(opts.limit ?? 10, 50) + 1)
     .offset(Math.max(opts.offset ?? 0, 0));
 
+  let rows;
+  let contentAvailable = true;
+  try {
+    rows = await loadRows(true);
+  } catch (error) {
+    if (!isToastCorruptionError(error)) throw error;
+    contentAvailable = false;
+    rows = await loadRows(false);
+  }
+
   const hasMore = rows.length > Math.min(opts.limit ?? 10, 50);
   const visibleRows = hasMore ? rows.slice(0, -1) : rows;
 
   const notes: PublicNote[] = visibleRows.map((r) => ({
     ...r,
+    content:
+      contentAvailable && "content" in r && typeof r.content === "string"
+        ? r.content
+        : CORRUPTED_NOTE_PLACEHOLDER,
     scope: (r.scope ?? "book") as "book" | "edition",
     likedByViewer: Boolean(r.likedByViewer),
     authorUserId: user.id,

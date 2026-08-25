@@ -36,6 +36,7 @@ import {
 import { splitStoredGenres } from "@/lib/book/genres";
 import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
 import {
+  isToastCorruptionError,
   listPublishedNotesForBook,
   type PublicNote,
 } from "@/lib/notes/service";
@@ -678,6 +679,9 @@ export async function getBookDetail(
       catalogBookId: subject.catalogBookId,
       viewerId,
       editionId: selectedEdition?.id ?? null,
+    }).catch((error) => {
+      if (!isToastCorruptionError(error)) throw error;
+      return { bookNotes: [], editionNotes: [] };
     }),
   ]);
 

@@ -95,7 +95,18 @@ export default async function ReferencePublicView({
   const scopedArchiveData = usesArchiveFilters
     ? await getBookArchivePageData(searchParams ?? {}, archiveScope)
     : null;
-  const magazinePosts = type === "AUTHOR" ? await getMagazineArticlesForAuthor(entity.id) : type === "GENRE" ? await getMagazineArticlesForGenre(entity.id) : [];
+  const magazinePosts = await (async () => {
+    try {
+      return type === "AUTHOR"
+        ? await getMagazineArticlesForAuthor(entity.id)
+        : type === "GENRE"
+          ? await getMagazineArticlesForGenre(entity.id)
+          : [];
+    } catch {
+      // Magazine content is secondary to the public reference profile.
+      return [];
+    }
+  })();
   const description = entity.description?.trim();
 
   return (

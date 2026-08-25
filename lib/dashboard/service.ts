@@ -186,7 +186,6 @@ export async function getUserDashboardData(
       db
         .select({
           id: PublishedBookNote.id,
-          content: PublishedBookNote.content,
           bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, ${Book.id}, '')`,
           bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
           bookTitle: sql<string>`coalesce(${CatalogBook.title}, ${Book.title}, 'کتاب')`,
@@ -264,7 +263,12 @@ export async function getUserDashboardData(
     currentlyReading,
     recentlyAdded,
     recentQuotes,
-    recentNotes,
+    recentNotes: recentNotes.map((note) => ({
+      ...note,
+      // Dashboard only needs a preview/link.  Deliberately do not read the
+      // potentially corrupted TOAST content column here.
+      content: "متن یادداشت در این نمای خلاصه نمایش داده نمی‌شود.",
+    })),
     pendingSubmissions: [
       ...pendingCatalogBooks.map((item) => ({
         ...item,

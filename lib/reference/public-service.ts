@@ -10,6 +10,31 @@ import type { BookPresentationEdition } from "@/lib/book/presentation";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 import { slugify } from "@/lib/book/slug";
 
+// Public profile pages must not read optional biography TOAST values.  The
+// importer/admin projection remains unchanged because those workflows need
+// the stored text.
+export const PUBLIC_REFERENCE_COLUMNS = {
+  id: ReferenceItem.id,
+  type: ReferenceItem.type,
+  name: ReferenceItem.name,
+  slug: ReferenceItem.slug,
+  coverImage: ReferenceItem.coverImage,
+  bannerImage: ReferenceItem.bannerImage,
+  originalName: ReferenceItem.originalName,
+  imageFilename: ReferenceItem.imageFilename,
+  sourceName: ReferenceItem.sourceName,
+  sourceUrl: ReferenceItem.sourceUrl,
+  seoTitle: ReferenceItem.seoTitle,
+  seoDescription: ReferenceItem.seoDescription,
+  birthYear: ReferenceItem.birthYear,
+  deathYear: ReferenceItem.deathYear,
+  countryName: ReferenceItem.countryName,
+  countrySlug: ReferenceItem.countrySlug,
+  website: ReferenceItem.website,
+  description: sql<string | null>`null`,
+  shortDescription: sql<string | null>`null`,
+} as const;
+
 export interface ReferenceEntity {
   id: string;
   type: ReferenceTypeValue;
@@ -74,25 +99,7 @@ export async function getReferenceEntity(
   const normalizedRef = slugify(ref);
   const exactRows = await db
     .select({
-      id: ReferenceItem.id,
-      type: ReferenceItem.type,
-      name: ReferenceItem.name,
-      slug: ReferenceItem.slug,
-      coverImage: ReferenceItem.coverImage,
-      bannerImage: ReferenceItem.bannerImage,
-      originalName: ReferenceItem.originalName,
-      description: ReferenceItem.description,
-      shortDescription: ReferenceItem.shortDescription,
-      imageFilename: ReferenceItem.imageFilename,
-      sourceName: ReferenceItem.sourceName,
-      sourceUrl: ReferenceItem.sourceUrl,
-      seoTitle: ReferenceItem.seoTitle,
-      seoDescription: ReferenceItem.seoDescription,
-      birthYear: ReferenceItem.birthYear,
-      deathYear: ReferenceItem.deathYear,
-      countryName: ReferenceItem.countryName,
-      countrySlug: ReferenceItem.countrySlug,
-      website: ReferenceItem.website,
+      ...PUBLIC_REFERENCE_COLUMNS,
     })
     .from(ReferenceItem)
     .where(
@@ -107,7 +114,7 @@ export async function getReferenceEntity(
   let row = exactRows[0];
   if (!row && normalizedRef) {
     const normalizedRows = await db
-      .select()
+      .select(PUBLIC_REFERENCE_COLUMNS)
       .from(ReferenceItem)
       .where(and(eq(ReferenceItem.type, type), eq(ReferenceItem.status, "APPROVED"), eq(ReferenceItem.slugNormalized, normalizedRef)))
       .limit(2);
@@ -118,7 +125,7 @@ export async function getReferenceEntity(
 
   if (!row) {
     const nameRows = await db
-      .select()
+      .select(PUBLIC_REFERENCE_COLUMNS)
       .from(ReferenceItem)
       .where(and(eq(ReferenceItem.type, type), eq(ReferenceItem.status, "APPROVED"), sql`lower(${ReferenceItem.name}) = lower(${ref})`))
       .limit(2);
