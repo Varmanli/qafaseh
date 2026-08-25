@@ -9,7 +9,7 @@ import { getLoginPath, isProtectedPagePath } from "@/lib/auth/routes";
  * چون kتابخانه‌ی jsonwebtoken در رانتایم edge اجرا نمی‌شود.
  */
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasToken = Boolean(req.cookies.get(AUTH_COOKIE)?.value);
 

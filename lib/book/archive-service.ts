@@ -87,6 +87,7 @@ function bestEditionField<T>(fieldName: string) {
 const ALLOWED_EDITION_COLUMNS = new Set([
   "id",
   "catalog_book_id",
+  "title_override",
   "status",
   "cover_image",
   "edition_label",
@@ -98,6 +99,8 @@ const ALLOWED_EDITION_COLUMNS = new Set([
   "page_count",
   "publish_year",
   "price",
+  "published_year",
+  "language",
   "created_at",
   "updated_at",
 ]);

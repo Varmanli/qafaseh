@@ -74,7 +74,6 @@ function getActiveFilterCount(filters: BookArchiveFilters) {
 
     filters.minYear !== null,
     filters.maxYear !== null,
-
   ].filter(Boolean).length;
 }
 
@@ -1141,18 +1140,7 @@ export default function BookArchiveFilters({
       {/* Search + Filter                                                    */}
       {/* ------------------------------------------------------------------ */}
 
-      <section className="relative z-20 mx-auto w-full max-w-5xl">
-        {showDiscoveryHeader ? (
-          <div className="mb-4 px-1 sm:mb-5">
-            <p className="text-xs font-bold text-primary">کشف کتاب</p>
-            <h1 className="mt-1 text-xl font-black tracking-tight text-foreground sm:text-2xl">
-              کتاب بعدی‌ات را پیدا کن
-            </h1>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              عنوان، نویسنده، مترجم، ناشر یا نام یک نسخه را جست‌وجو کن.
-            </p>
-          </div>
-        ) : null}
+      <section className="relative z-20 mx-auto w-full">
         <div
           className="
             flex
