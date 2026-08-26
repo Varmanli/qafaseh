@@ -11,11 +11,11 @@ export default function ProfileBio({ bio }: { bio: string }) {
   const shouldCollapse = bio.length > 150;
 
   return (
-    <div className="mt-5 sm:mt-5">
+    <div className="mt-2.5 max-w-xl text-right">
       <p
         className={cn(
-          "max-w-2xl whitespace-pre-line text-[12px] leading-6 text-foreground/90 sm:text-sm sm:leading-7",
-          shouldCollapse && !expanded && "line-clamp-2",
+          "whitespace-pre-line text-xs leading-6 text-muted-foreground sm:text-sm sm:leading-7",
+          !expanded && "line-clamp-3",
         )}
       >
         {bio}

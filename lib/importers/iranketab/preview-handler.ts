@@ -32,6 +32,10 @@ type Dependencies = {
     sourceUrl: string;
     canonicalUrl: string;
   }) => Promise<string>;
+  sessionStarted?: (input: {
+    sessionId: string;
+    adminId: string;
+  }) => Promise<void>;
   previewReady?: (input: {
     sessionId: string;
     adminId: string;
@@ -86,6 +90,7 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
     try {
       if (operation.kind === "COMPLETED") {
         sessionId = await dependencies.startSession?.({ adminId: gate.user.id, sourceUrl: url, canonicalUrl });
+        if (sessionId) await dependencies.sessionStarted?.({ sessionId, adminId: gate.user.id });
         if (sessionId) await dependencies.previewReady?.({ sessionId, adminId: gate.user.id, ...operation.payload });
         return NextResponse.json({ success: true, reused: true, operationId: operation.operation.id, sessionId, ...operation.payload });
       }
@@ -94,6 +99,11 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
         sourceUrl: url,
         canonicalUrl,
       });
+      if (sessionId)
+        await dependencies.sessionStarted?.({
+          sessionId,
+          adminId: gate.user.id,
+        });
       const fetched = await (
         dependencies.secureFetch ?? fetchIranKetabHtmlSecurely
       )(canonicalUrl);
@@ -133,6 +143,14 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
         analysis,
       });
     } catch (error) {
+      if (!(error instanceof SecureIranKetabFetchError) && !(error instanceof IranKetabExtractionError)) {
+        console.error("[iranketab-preview] unexpected failure", {
+          sourceUrl: canonicalUrl,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          errorMessage: error instanceof Error ? error.message : "unknown",
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
       if (sessionId)
         await dependencies
           .sessionFailed?.({ sessionId, adminId: gate.user.id, error })

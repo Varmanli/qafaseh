@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ArrowUpDown } from "lucide-react";
 
 export default function BlogArchiveSort({
   q,
@@ -41,9 +42,10 @@ export default function BlogArchiveSort({
       <SelectTrigger
         size="default"
         aria-label="مرتب‌سازی مقالات"
-        className="h-14 min-h-14 w-[140px] min-w-[140px] rounded-2xl border-border/70 bg-background/80 px-3.5 text-sm font-medium"
+        className="h-14 min-h-14 w-12 min-w-12 justify-center rounded-2xl border-border/70 bg-background/80 px-0 text-sm font-medium data-[state=open]:border-primary/50 data-[state=open]:bg-primary/10 data-[state=open]:text-primary sm:w-[140px] sm:min-w-[140px] sm:justify-between sm:px-3.5"
       >
-        <SelectValue placeholder="مرتب‌سازی" />
+        <ArrowUpDown className="size-[18px] sm:hidden" aria-hidden="true" />
+        <span className="hidden sm:block"><SelectValue placeholder="مرتب‌سازی" /></span>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="newest">جدیدترین</SelectItem>

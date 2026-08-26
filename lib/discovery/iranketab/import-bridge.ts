@@ -10,6 +10,7 @@ import {
   createImportSession,
   extractionFingerprint,
   getImportSession,
+  markExtractionStarted,
   transitionImportSession,
 } from "@/lib/importers/iranketab/session";
 import { validateIranKetabBookUrl } from "@/lib/importers/iranketab/secure-fetch";
@@ -138,6 +139,9 @@ export async function startDiscoveryImport(discoveryItemId: string, actorId: str
           "این نامزد هم‌اکنون در حال آماده‌سازی است.",
         );
       return session.id;
+    },
+    sessionStarted: async ({ sessionId }) => {
+      await markExtractionStarted(sessionId, adminId);
     },
     previewReady: async ({ sessionId, extraction, analysis, preview }) => {
       await transitionImportSession(

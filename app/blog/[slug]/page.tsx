@@ -269,10 +269,11 @@ export default async function BlogPostPage({
               className="
                 article-hero-image
                 relative
-                min-h-[420px]
+                aspect-[16/10]
                 w-full
                 overflow-hidden
-                sm:min-h-[560px]
+                md:aspect-auto
+                md:min-h-[560px]
                 lg:min-h-[620px]
               "
             >
@@ -301,9 +302,12 @@ export default async function BlogPostPage({
                   absolute
                   inset-0
                   bg-gradient-to-t
-                  from-black/90
-                  via-black/40
-                  to-black/10
+                  from-black/25
+                  via-black/10
+                  to-transparent
+                  md:from-black/90
+                  md:via-black/40
+                  md:to-black/10
                 "
               />
 
@@ -314,10 +318,12 @@ export default async function BlogPostPage({
                   absolute
                   inset-x-0
                   bottom-0
+                  hidden
                   h-3/4
                   bg-gradient-to-t
                   from-black/45
                   to-transparent
+                  md:block
                 "
               />
 
@@ -328,8 +334,10 @@ export default async function BlogPostPage({
                   absolute
                   inset-x-0
                   bottom-0
+                  hidden
                   p-5
                   sm:p-8
+                  md:block
                   lg:p-12
                 "
               >
@@ -447,6 +455,23 @@ export default async function BlogPostPage({
               </div>
             </div>
           </header>
+
+          <div className="px-1 pt-5 md:hidden">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold leading-6 text-muted-foreground">
+              {post.categoryName ? (
+                post.categorySlug ? (
+                  <Link href={`/blog/category/${encodeURIComponent(post.categorySlug)}`} className="text-primary transition-colors hover:text-primary/80">
+                    {post.categoryName}
+                  </Link>
+                ) : <span className="text-primary">{post.categoryName}</span>
+              ) : null}
+              {post.categoryName ? <span aria-hidden="true">•</span> : null}
+              <time dateTime={post.publishedAt.toISOString()}>{post.publishedAt.toLocaleDateString("fa-IR")}</time>
+              {post.readingTime ? <><span aria-hidden="true">•</span><span>{post.readingTime.toLocaleString("fa-IR")} دقیقه مطالعه</span></> : null}
+            </div>
+            <h1 className="mt-2 text-2xl font-black leading-[1.7] tracking-tight text-foreground">{post.title}</h1>
+            {post.excerpt ? <p className="mt-3 text-sm leading-8 text-muted-foreground">{post.excerpt}</p> : null}
+          </div>
 
           {/* ==============================================================
               Article body

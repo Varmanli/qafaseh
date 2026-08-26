@@ -27,6 +27,7 @@ type ArticleShareProps = {
   coverImage?: string | null;
   category?: string | null;
   readingTime?: number | null;
+  triggerClassName?: string;
 };
 
 export default function ArticleShare({
@@ -36,6 +37,7 @@ export default function ArticleShare({
   coverImage,
   category,
   readingTime,
+  triggerClassName,
 }: ArticleShareProps) {
   const [canNativeShare, setCanNativeShare] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -95,10 +97,11 @@ export default function ArticleShare({
       <DialogTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-11 items-center gap-2 rounded-full border border-border/70 bg-background/80 px-5 text-sm font-black text-foreground backdrop-blur-xl transition-all hover:border-primary/30 hover:text-primary"
+          className={`article-share-trigger inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-black/55 px-2.5 text-xs font-black text-white backdrop-blur-xl transition-all hover:border-primary/30 hover:text-primary md:h-11 md:flex-none md:gap-2 md:rounded-full md:border-border/70 md:bg-background/80 md:px-5 md:text-sm md:text-foreground ${triggerClassName || ""}`}
         >
           <Share2 className="size-4" />
-          اشتراک‌گذاری
+          <span className="md:hidden">اشتراک</span>
+          <span className="hidden md:inline">اشتراک‌گذاری</span>
         </button>
       </DialogTrigger>
 

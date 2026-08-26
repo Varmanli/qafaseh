@@ -61,27 +61,40 @@ function ReadingButton({
       className={cn(
         `
         inline-flex
-        h-11
+        h-10
+        flex-1
+        md:h-11
+        md:flex-none
+        justify-center
         items-center
-        gap-2
-        rounded-full
+        gap-1.5
+        md:gap-2
+        rounded-xl
+        md:rounded-full
         border
-        px-5
-        text-sm
+        px-2.5
+        md:px-5
+        text-xs
+        md:text-sm
         font-black
         transition-all
+        bg-black/55
+        text-white
+        md:bg-background/80
+        md:text-foreground
         backdrop-blur-xl
         `,
         active
           ? `
-            border-primary/30
-            bg-primary/10
+            border-primary/40
+            bg-primary/25
+            md:border-primary/30
+            md:bg-primary/10
             text-primary
           `
           : `
-            border-border/70
-            bg-background/80
-            text-foreground
+            border-white/20
+            md:border-border/70
             hover:border-primary/30
             hover:text-primary
           `,
@@ -219,10 +232,10 @@ export default function ArticleReadingExperience({
   );
 
   const entryControls = (
-    <div className="article-reading-controls z-40 flex justify-center gap-2">
+    <div className="article-reading-controls z-40 flex justify-center gap-1.5 md:gap-2">
       {tocHeadings.length > 0 && (
         <ReadingButton onClick={() => setTocOpen(true)}>
-          <List className="size-4" />
+          <List className="size-3.5 md:size-4" />
           فهرست
         </ReadingButton>
       )}
@@ -231,9 +244,9 @@ export default function ArticleReadingExperience({
         onClick={() => setReadingMode((value) => !value)}
       >
         {readingMode ? (
-          <X className="size-4" />
+          <X className="size-3.5 md:size-4" />
         ) : (
-          <BookOpen className="size-4" />
+          <BookOpen className="size-3.5 md:size-4" />
         )}
         {readingMode ? "خروج از مطالعه" : "حالت مطالعه"}
       </ReadingButton>

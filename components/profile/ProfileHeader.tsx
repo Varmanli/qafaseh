@@ -3,6 +3,7 @@ import { CalendarDays, Lock, MapPin, Settings } from "lucide-react";
 import type { ElementType } from "react";
 
 import ReaderRankBadge from "@/components/profile/ReaderRankBadge";
+import ProfileBio from "@/components/profile/ProfileBio";
 import ProfileShare from "@/components/profile/ProfileShare";
 import { Button } from "@/components/ui/button";
 
@@ -105,6 +106,7 @@ export default function ProfileHeader({
               <p dir="ltr" className="truncate text-[10px] text-muted-foreground mt-0.5">
                 @{username}
               </p>
+              {bio?.trim() ? <ProfileBio bio={bio} /> : null}
             </div>
           </div>
 

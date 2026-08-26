@@ -31,16 +31,31 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
     ${filters.minBooks ? sql`AND "bookCount" >= ${filters.minBooks}` : sql``}
     ${filters.minRating ? sql`AND "averageRating" >= ${filters.minRating}` : sql``}`;
   const statement = sql`
-    WITH author_stats AS (
-      SELECT cbc."reference_item_id" AS id,
+    WITH author_book_links AS (
+      SELECT cbc."reference_item_id", cbc."catalog_book_id"
+      FROM "CatalogBookContributor" cbc
+      JOIN "CatalogBook" cb ON cb."id" = cbc."catalog_book_id" AND cb."status" = 'APPROVED'
+      WHERE cbc."role" = 'AUTHOR'
+      UNION
+      SELECT r."id" AS "reference_item_id", cb."id" AS "catalog_book_id"
+      FROM "ReferenceItem" r
+      JOIN "CatalogBook" cb ON lower(cb."author") = lower(r."name") AND cb."status" = 'APPROVED'
+      WHERE r."type" = 'AUTHOR'
+        AND r."status" = 'APPROVED'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "CatalogBookContributor" cbc
+          WHERE cbc."catalog_book_id" = cb."id" AND cbc."role" = 'AUTHOR'
+        )
+    ), author_stats AS (
+      SELECT abl."reference_item_id" AS id,
         count(DISTINCT cb."id")::int AS "bookCount",
         round(avg(b."rating") FILTER (WHERE b."rating" BETWEEN 1 AND 5), 1)::float AS "averageRating",
         count(b."rating") FILTER (WHERE b."rating" BETWEEN 1 AND 5)::int AS "ratingCount"
-      FROM "CatalogBookContributor" cbc
-      JOIN "CatalogBook" cb ON cb."id" = cbc."catalog_book_id" AND cb."status" = 'APPROVED'
+      FROM author_book_links abl
+      JOIN "CatalogBook" cb ON cb."id" = abl."catalog_book_id"
       LEFT JOIN "Book" b ON b."catalog_book_id" = cb."id"
-      WHERE cbc."role" = 'AUTHOR'
-      GROUP BY cbc."reference_item_id"
+      GROUP BY abl."reference_item_id"
     ), global_rating AS (
       SELECT coalesce(avg("rating") FILTER (WHERE "rating" BETWEEN 1 AND 5), 0)::float AS value FROM "Book"
     ), candidates AS (

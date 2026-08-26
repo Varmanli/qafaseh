@@ -28,7 +28,7 @@ export default function BlogArchiveToolbar({
   };
 
   return (
-    <section className="mt-6 grid grid-cols-1 gap-x-3 gap-y-3 sm:mt-8 sm:grid-cols-[minmax(0,1fr)_auto]" aria-label="ابزارهای مرور مجله">
+    <section className="mt-6 grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-3 sm:mt-8 sm:gap-x-3" aria-label="ابزارهای مرور مجله">
       <div className="min-w-0">
         <BlogSearchForm
           q={q}
@@ -38,7 +38,7 @@ export default function BlogArchiveToolbar({
         />
       </div>
 
-      <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:col-span-2 sm:row-start-2 sm:mx-0 sm:px-0">
+      <div className="-mx-4 col-span-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:row-start-2 sm:mx-0 sm:px-0">
         <div className="flex w-max min-w-full gap-2 pb-1">
           <button
             type="button"
@@ -59,7 +59,7 @@ export default function BlogArchiveToolbar({
           ))}
         </div>
       </div>
-      <div className="sm:col-start-2 sm:row-start-1">
+      <div className="col-start-2 row-start-1 shrink-0">
         <BlogArchiveSort q={q} category={category} sort={sort} />
       </div>
     </section>

@@ -5,6 +5,7 @@ import {
   classifyRetryable,
   createImportSession,
   extractionFingerprint,
+  markExtractionStarted,
   transitionImportSession,
 } from "@/lib/importers/iranketab/session";
 
@@ -19,6 +20,9 @@ export const POST = createIranKetabPreviewPost({
         canonicalSourceUrl: canonicalUrl,
       })
     ).id,
+  sessionStarted: async ({ sessionId, adminId }) => {
+    await markExtractionStarted(sessionId, adminId);
+  },
   previewReady: async ({
     sessionId,
     adminId,
