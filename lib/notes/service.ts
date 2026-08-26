@@ -9,7 +9,7 @@ import {
   PublishedBookNoteLike,
   User,
 } from "@/db/schema";
-import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
+import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/content/rich-text";
 
 export class NoteError extends Error {
   constructor(message: string, public status = 400, public code?: string) {
@@ -42,8 +42,6 @@ export type PublicNotesResult =
   | { found: false }
   | { found: true; isPrivate: true }
   | { found: true; isPrivate: false; isOwner: boolean; notes: PublicNote[]; hasMore: boolean };
-
-const PROFILE_NOTE_PLACEHOLDER = "متن یادداشت در نمای پروفایل در دسترس نیست.";
 
 export function isToastCorruptionError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -112,12 +110,13 @@ export async function getPublishedNotesByUsername(
     return { found: true, isPrivate: true };
   }
 
-  // The public profile preview/list only needs note metadata.  Never add
-  // the note body column here: production contains corrupted TOAST
-  // values, and the profile can render safely without the note body.
+  // PersonalBookNote is never queried here. PublishedBookNote exists only
+  // after an explicit publication action, and profile visibility is enforced
+  // above before its content can leave the server.
   const rows = await db
     .select({
       id: PublishedBookNote.id,
+      content: PublishedBookNote.content,
       bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
       catalogBookId: PublishedBookNote.catalogBookId,
       bookEditionId: PublishedBookNote.bookEditionId,
@@ -158,16 +157,19 @@ export async function getPublishedNotesByUsername(
   const hasMore = rows.length > Math.min(opts.limit ?? 10, 50);
   const visibleRows = hasMore ? rows.slice(0, -1) : rows;
 
-  const notes: PublicNote[] = visibleRows.map((r) => ({
-    ...r,
-    content: PROFILE_NOTE_PLACEHOLDER,
-    scope: (r.scope ?? "book") as "book" | "edition",
-    likedByViewer: Boolean(r.likedByViewer),
-    authorUserId: user.id,
-    authorUsername: user.username,
-    authorName: user.name,
-    authorImage: user.image,
-  }));
+  const notes: PublicNote[] = visibleRows
+    // Old or manually-created rows can contain empty rich-text markup. They
+    // are not useful activity items and should not produce an empty card.
+    .filter((row) => Boolean(richTextToPlainText(row.content)))
+    .map((r) => ({
+      ...r,
+      scope: (r.scope ?? "book") as "book" | "edition",
+      likedByViewer: Boolean(r.likedByViewer),
+      authorUserId: user.id,
+      authorUsername: user.username,
+      authorName: user.name,
+      authorImage: user.image,
+    }));
 
   return { found: true, isPrivate: false, isOwner, notes, hasMore };
 }

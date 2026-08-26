@@ -10,6 +10,7 @@ import {
   isReservedUsername,
   normalizeUsername,
 } from "@/lib/profile/username-rules";
+import { toAbsoluteUrl } from "@/lib/seo/site";
 
 import PublicShell from "@/components/PublicShell";
 import LibraryShowcase from "@/components/profile/LibraryShowcase";
@@ -197,6 +198,10 @@ export default async function RootProfilePage({
           visibility={profile.profileVisibility}
           isOwner={isOwner}
           finished={stats.finished}
+          reading={stats.reading}
+          wantToRead={stats.wantToRead}
+          averageRating={stats.averageRating}
+          profileUrl={toAbsoluteUrl(`/${encodeURIComponent(profileUsername)}`)}
           socialLinks={socialLinks(profile)}
         />
 

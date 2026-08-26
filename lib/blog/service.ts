@@ -6,6 +6,7 @@ import { slugify } from "@/lib/book/slug";
 import { decodeBlogCategorySlug, normalizeBlogCategorySlug } from "@/lib/blog/category-slug";
 import { normalizeMediaUrl } from "@/lib/book/cover";
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
+import type { BlogArchiveSort } from "@/components/blog/blog-archive";
 import { extractBlogBookEmbedIds, resolveBlogBookEmbeds, type BlogBookEmbed } from "@/lib/blog/book-embed";
 import type {
   BlogCategoryInput,
@@ -370,11 +371,13 @@ export async function deleteBlogPost(id: string) {
 export async function listPublicBlogPosts({
   q,
   categorySlug,
+  sort = "newest",
   page,
   pageSize = BLOG_PAGE_SIZE,
 }: {
   q?: string;
   categorySlug?: string;
+  sort?: BlogArchiveSort;
   page: number;
   pageSize?: number;
 }): Promise<{
@@ -391,6 +394,9 @@ export async function listPublicBlogPosts({
         ilike(BlogPost.title, term),
         ilike(BlogPost.excerpt, term),
         ilike(BlogPost.content, term),
+        ilike(User.name, term),
+        ilike(BlogCategory.name, term),
+        sql`exists (select 1 from "BlogPostBook" article_book inner join "CatalogBook" book on book.id = article_book.book_id where article_book.post_id = ${BlogPost.id} and (book.title ilike ${term} or book.author ilike ${term}))`,
       )!,
     );
   }
@@ -424,12 +430,19 @@ export async function listPublicBlogPosts({
       .leftJoin(User, eq(BlogPost.createdById, User.id))
       .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
       .where(where)
-      .orderBy(desc(BlogPost.publishedAt), desc(BlogPost.createdAt))
+      .orderBy(
+        ...(sort === "oldest"
+          ? [asc(BlogPost.publishedAt), asc(BlogPost.createdAt)]
+          : sort === "shortest"
+            ? [asc(BlogPost.readingTime), desc(BlogPost.publishedAt)]
+            : [desc(BlogPost.publishedAt), desc(BlogPost.createdAt)]),
+      )
       .limit(pageSize)
       .offset(offset),
     db
       .select({ total: count() })
       .from(BlogPost)
+      .leftJoin(User, eq(BlogPost.createdById, User.id))
       .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
       .where(where),
   ]);
@@ -446,6 +459,15 @@ export async function listPublicBlogPosts({
     page: clampedPage,
     pageCount,
   };
+}
+
+export async function hasPublishedBlogPosts(): Promise<boolean> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(BlogPost)
+    .where(and(eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt)));
+
+  return (row?.total ?? 0) > 0;
 }
 
 export async function getLatestPublishedBlogPosts(

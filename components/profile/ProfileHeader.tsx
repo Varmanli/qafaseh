@@ -3,6 +3,7 @@ import { CalendarDays, Lock, MapPin, Settings } from "lucide-react";
 import type { ElementType } from "react";
 
 import ReaderRankBadge from "@/components/profile/ReaderRankBadge";
+import ProfileShare from "@/components/profile/ProfileShare";
 import { Button } from "@/components/ui/button";
 
 export interface ProfileSocialLink {
@@ -22,6 +23,10 @@ export default function ProfileHeader({
   visibility,
   isOwner,
   finished,
+  reading,
+  wantToRead,
+  averageRating,
+  profileUrl,
   socialLinks,
 }: {
   name: string | null;
@@ -34,6 +39,10 @@ export default function ProfileHeader({
   visibility: "PUBLIC" | "PRIVATE";
   isOwner: boolean;
   finished: number;
+  reading: number;
+  wantToRead: number;
+  averageRating: number | null;
+  profileUrl: string;
   socialLinks: ProfileSocialLink[];
 }) {
   const displayName = name || username;
@@ -99,17 +108,27 @@ export default function ProfileHeader({
             </div>
           </div>
 
-          {/* Settings Button */}
-          {isOwner ? (
-            <div className="mt-3.5 flex w-full items-center justify-center gap-2 sm:mt-0 sm:w-auto sm:justify-end">
+          {/* Profile actions */}
+          <div className="mt-3.5 flex w-full items-center justify-center gap-2 sm:mt-0 sm:w-auto sm:justify-end">
+            <ProfileShare
+              name={displayName}
+              username={username}
+              avatarUrl={image}
+              readCount={finished}
+              readingCount={reading}
+              wantToReadCount={wantToRead}
+              averageRating={averageRating}
+              profileUrl={profileUrl}
+            />
+            {isOwner ? (
               <Button asChild size="sm" variant="outline" className="h-8.5 rounded-lg px-3.5 text-xs font-medium gap-1.5 flex-1 sm:flex-initial">
                 <Link href="/settings/profile">
                   <Settings className="h-3.5 w-3.5" />
                   تنظیمات
                 </Link>
               </Button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
         {/* Meta / Footer info */}

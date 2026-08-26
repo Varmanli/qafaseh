@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import ArticleReadingExperience from "@/components/blog/ArticleReadingExperience";
+import ArticleShare from "@/components/blog/ArticleShare";
 import BlogCard from "@/components/blog/BlogCard";
 import BlogContentRenderer from "@/components/blog/BlogContentRenderer";
 import BlogCoverImage from "@/components/blog/BlogCoverImage";
@@ -182,7 +183,19 @@ export default async function BlogPostPage({
             Reading experience
         ================================================================= */}
 
-        <ArticleReadingExperience headings={preparedContent.headings}>
+        <ArticleReadingExperience
+          headings={preparedContent.headings}
+          shareAction={
+            <ArticleShare
+              title={post.title}
+              description={post.seoDescription || post.excerpt}
+              canonicalUrl={canonicalUrl}
+              coverImage={articleImage}
+              category={post.categoryName}
+              readingTime={post.readingTime}
+            />
+          }
+        >
           {/* ==============================================================
               Breadcrumb
           =============================================================== */}

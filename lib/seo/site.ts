@@ -1,9 +1,12 @@
 export function getSiteOrigin() {
+  const fallbackOrigin = process.env.NODE_ENV === "production"
+    ? "https://qafasehman.ir"
+    : "http://localhost:3000";
   const raw =
     process.env.APP_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
-    "http://localhost:3000";
+    fallbackOrigin;
 
   try {
     const url = new URL(raw);
@@ -12,7 +15,7 @@ export function getSiteOrigin() {
     url.hash = "";
     return url.toString().replace(/\/$/, "");
   } catch {
-    return "http://localhost:3000";
+    return fallbackOrigin;
   }
 }
 

@@ -282,6 +282,7 @@ export default async function MagazineCategoryPage({
 
           <BlogArchiveGrid
             posts={gridPosts}
+            total={archive.total}
             page={archive.page}
             pageCount={archive.pageCount}
             category={categorySlug}

@@ -30,6 +30,7 @@ import BookNotesTabsSection from "@/components/books/BookNotesTabsSection";
 import BookEditionSelector from "@/components/books/BookEditionSelector";
 import BookExternalLinksPanel from "@/components/books/BookExternalLinksPanel";
 import BookCoverImage from "@/components/books/BookCoverImage";
+import BookShare from "@/components/books/BookShare";
 import BookIntroduction from "@/components/books/BookIntroduction";
 import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
 import { getMagazineArticlesForBook } from "@/lib/blog/service";
@@ -361,6 +362,16 @@ export default async function BookPage({
                     averageRating={stats.averageRating}
                     selectedEditionId={selectedEdition?.id ?? null}
                     hidePersonalRating
+                  />
+                  <BookShare
+                    title={book.title}
+                    originalTitle={book.originalTitle}
+                    author={book.author}
+                    translator={presentation.translator}
+                    coverImage={book.displayCoverImage}
+                    canonicalUrl={toAbsoluteUrl(`/book/${encodeURIComponent(book.slug)}`)}
+                    status={entry?.status}
+                    rating={entry?.rating}
                   />
                 </div>
 

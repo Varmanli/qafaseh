@@ -53,9 +53,9 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir https://iranketab.ir https://img.iranketab.ir",
-      "font-src 'self' data:",
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "img-src 'self' data: blob: https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir https://iranketab.ir https://img.iranketab.ir https://lh3.googleusercontent.com",
+      "font-src 'self' data: https://cdn.jsdelivr.net",
       "connect-src 'self' https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir",
       "frame-ancestors 'none'",
     ].join("; "),
@@ -77,6 +77,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    qualities: [60, 75, 78],
     remotePatterns: [
       ...resolveImageHosts().map((hostname) => ({
         protocol: "https" as const,

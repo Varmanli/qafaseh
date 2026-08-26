@@ -95,9 +95,11 @@ function ReadingButton({
 export default function ArticleReadingExperience({
   headings,
   children,
+  shareAction,
 }: {
   headings: ArticleHeading[];
   children: React.ReactNode;
+  shareAction?: React.ReactNode;
 }) {
   const [readingMode, setReadingMode] = useState(false);
 
@@ -235,6 +237,7 @@ export default function ArticleReadingExperience({
         )}
         {readingMode ? "خروج از مطالعه" : "حالت مطالعه"}
       </ReadingButton>
+      {shareAction}
     </div>
   );
 

@@ -1,25 +1,35 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw, SearchX } from "lucide-react";
 
 import BlogCard from "@/components/blog/BlogCard";
-import { buildBlogArchiveHref } from "@/components/blog/blog-archive";
+import { Button } from "@/components/ui/button";
+import {
+  buildBlogArchiveHref,
+  type BlogArchiveSort as BlogArchiveSortValue,
+} from "@/components/blog/blog-archive";
 import type { PublicBlogPostPreview } from "@/lib/blog/service";
 
 export default function BlogArchiveGrid({
   posts,
   page,
   pageCount,
+  total,
+  hasPublishedArticles = total > 0,
   q = "",
   category = "",
+  sort = "newest",
 }: {
   posts: PublicBlogPostPreview[];
   page: number;
   pageCount: number;
+  total: number;
+  hasPublishedArticles?: boolean;
   q?: string;
   category?: string;
+  sort?: BlogArchiveSortValue;
 }) {
   return (
-    <section className="mt-8 sm:mt-10">
+    <section className="mt-4 sm:mt-5">
       {posts.length ? (
         <>
           <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
@@ -34,23 +44,53 @@ export default function BlogArchiveGrid({
               pageCount={pageCount}
               q={q}
               category={category}
+              sort={sort}
             />
           ) : null}
         </>
       ) : (
-        <div className="flex min-h-72 flex-col items-center justify-center text-center">
-          <Search className="h-6 w-6 text-muted-foreground/50" />
-
-          <h3 className="mt-4 text-base font-black text-foreground">
-            نوشته‌ای پیدا نشد
-          </h3>
-
-          <p className="mt-2 text-sm text-muted-foreground">
-            قفسه دیگری را امتحان کنید.
-          </p>
-        </div>
+        <EmptyState
+          hasActiveFilters={Boolean(q.trim() || category.trim())}
+          hasPublishedArticles={hasPublishedArticles}
+        />
       )}
     </section>
+  );
+}
+
+function EmptyState({
+  hasActiveFilters,
+  hasPublishedArticles,
+}: {
+  hasActiveFilters: boolean;
+  hasPublishedArticles: boolean;
+}) {
+  const showClearFilters = hasActiveFilters && hasPublishedArticles;
+  const title = showClearFilters ? "مقاله‌ای پیدا نشد" : "هنوز مقاله‌ای منتشر نشده";
+  const description = showClearFilters
+    ? "نتیجه‌ای مطابق جستجو یا فیلترهای انتخاب‌شده پیدا نشد."
+    : "به‌زودی اولین مقاله‌های مجله قفسه اینجا منتشر می‌شوند.";
+
+  return (
+    <div className="my-12 flex justify-center sm:my-16">
+      <div className="w-full max-w-md rounded-2xl border border-border/70 bg-card/45 px-6 py-7 text-center sm:px-8 sm:py-8">
+        <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <SearchX className="size-5" strokeWidth={1.8} />
+        </div>
+        <h3 className="mt-4 text-base font-black text-foreground">{title}</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-7 text-muted-foreground">
+          {description}
+        </p>
+        {showClearFilters ? (
+          <Button asChild variant="outline" size="sm" className="mt-5 border-border/70 bg-background/50">
+            <Link href="/blog">
+              <RotateCcw className="size-3.5" />
+              پاک کردن فیلترها
+            </Link>
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -59,11 +99,13 @@ function Pagination({
   pageCount,
   q,
   category,
+  sort,
 }: {
   currentPage: number;
   pageCount: number;
   q: string;
   category: string;
+  sort: BlogArchiveSortValue;
 }) {
   return (
     <nav
@@ -75,6 +117,7 @@ function Pagination({
           href={buildBlogArchiveHref({
             q,
             category,
+            sort,
             page: currentPage - 1,
           })}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:border-primary hover:text-primary"
@@ -99,6 +142,7 @@ function Pagination({
                 href={buildBlogArchiveHref({
                   q,
                   category,
+                  sort,
                   page: pageNumber,
                 })}
                 className={
@@ -118,6 +162,7 @@ function Pagination({
           href={buildBlogArchiveHref({
             q,
             category,
+            sort,
             page: currentPage + 1,
           })}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:border-primary hover:text-primary"

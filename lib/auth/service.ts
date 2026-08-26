@@ -13,6 +13,23 @@ import { signJwt } from "@/lib/jwt";
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
+function isGoogleAvatarUrl(value: string | null | undefined) {
+  if (!value) return false;
+  try {
+    return new URL(value).hostname.toLowerCase().endsWith("googleusercontent.com");
+  } catch {
+    return false;
+  }
+}
+
+/** A manually supplied avatar always wins over an OAuth provider image. */
+function resolveGoogleAvatar(existingImage: string | null, googleImage?: string | null) {
+  if (!googleImage?.trim()) return existingImage;
+  return !existingImage || isGoogleAvatarUrl(existingImage)
+    ? googleImage
+    : existingImage;
+}
+
 /** خطای کنترل‌شده‌ی احراز هویت که route handler آن را به پاسخ HTTP تبدیل می‌کند. */
 export class AuthError extends Error {
   constructor(
@@ -218,15 +235,16 @@ export async function findOrCreateGoogleUser(input: {
     .limit(1);
 
   if (existingByGoogle) {
+    const image = resolveGoogleAvatar(existingByGoogle.image, input.image);
     await db
       .update(User)
       .set({
         emailVerified: new Date(),
-        image: input.image ?? existingByGoogle.image ?? null,
+        image,
         updatedAt: new Date(),
       })
       .where(eq(User.id, existingByGoogle.id));
-    return existingByGoogle;
+    return { ...existingByGoogle, image };
   }
 
   const [existingByEmail] = await db
@@ -244,13 +262,14 @@ export async function findOrCreateGoogleUser(input: {
     .limit(1);
 
   if (existingByEmail) {
+    const image = resolveGoogleAvatar(existingByEmail.image, input.image);
     await db.transaction(async (tx) => {
       await tx
         .update(User)
         .set({
           googleId: input.googleId,
           emailVerified: new Date(),
-          image: input.image ?? existingByEmail.image ?? null,
+          image,
           updatedAt: new Date(),
         })
         .where(eq(User.id, existingByEmail.id));
@@ -277,7 +296,7 @@ export async function findOrCreateGoogleUser(input: {
       }
     });
 
-    return existingByEmail;
+    return { ...existingByEmail, image };
   }
 
   const username = await generateUniqueUsername();

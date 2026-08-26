@@ -34,7 +34,9 @@ export interface ReadingStats {
   total: number;
   reading: number;
   finished: number;
+  wantToRead: number;
   favorites: number;
+  averageRating: number | null;
 }
 
 const profileColumns = {
@@ -172,10 +174,12 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
   let total = 0;
   let reading = 0;
   let finished = 0;
+  let wantToRead = 0;
   for (const r of rows) {
     total += r.count;
     if (r.status === "READING") reading = r.count;
     if (r.status === "FINISHED") finished = r.count;
+    if (r.status === "UNREAD") wantToRead = r.count;
   }
 
   const [fav] = await db
@@ -183,7 +187,12 @@ export async function getReadingStats(userId: string): Promise<ReadingStats> {
     .from(Book)
     .where(and(eq(Book.userId, userId), eq(Book.isFavorite, true)));
 
-  return { total, reading, finished, favorites: fav?.count ?? 0 };
+  const [ratingRow] = await db
+    .select({ average: sql<string | null>`round(avg(${Book.rating}) filter (where ${Book.rating} is not null and ${Book.rating} > 0), 1)` })
+    .from(Book)
+    .where(eq(Book.userId, userId));
+
+  return { total, reading, finished, wantToRead, favorites: fav?.count ?? 0, averageRating: ratingRow?.average != null ? Number(ratingRow.average) : null };
 }
 
 export interface PublicBookPreview {
