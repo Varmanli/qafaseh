@@ -56,6 +56,7 @@ import {
   promotionFailure,
   wrapIranKetabCommitError,
 } from "./commit-errors";
+import { referenceInputWithoutIranKetabSeoTitle } from "./reference-profile-input";
 export {
   IranKetabCommitError,
   IRANKETAB_COMMIT_ERROR_MESSAGES,
@@ -69,6 +70,7 @@ export type IranKetabCommitMediaStorage = {
   copy: typeof copyImageUpload;
   delete: typeof deleteImageUpload;
 };
+
 export async function commitIranKetabImport(params: {
   adminId: string;
   sessionId?: string;
@@ -437,7 +439,6 @@ export async function commitIranKetabImport(params: {
           put("countrySlug", profile?.countrySlug);
           put("website", profile?.website);
           put("sourceUrl", profile?.sourceUrl);
-          put("seoTitle", profile?.seoTitle);
           put("seoDescription", profile?.seoDescription);
           if (profile?.metadata && Object.keys(profile.metadata).length) patch.metadata = { ...(row.metadata ?? {}), ...profile.metadata, ...(profile.profileId ? { iranketabProfileId: profile.profileId } : {}) };
           if (entity.profileImageAction === "replace" && images?.profile) patch.coverImage = images.profile;
@@ -453,11 +454,14 @@ export async function commitIranKetabImport(params: {
           });
           resolvedEntityIds.set(entityKey(entity), row.id);
         } else if (entity.action === "CREATE_NEW") {
+          const profileInput = referenceInputWithoutIranKetabSeoTitle(
+            entity.profile,
+          );
           const resolved = await resolveReferenceItem(tx, {
             type: entity.entityType,
             input: {
               name: entity.proposedName,
-              ...entity.profile,
+              ...profileInput,
               metadata: { ...(entity.profile?.metadata ?? {}), ...(entity.profile?.profileId ? { iranketabProfileId: entity.profile.profileId } : {}) },
               imageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.profile ?? entity.profile?.imageUrl,
               bannerImageUrl: referenceImageUrls.get(`${entity.entityType}:${entity.extractedName}`)?.banner ?? entity.profile?.bannerImageUrl,

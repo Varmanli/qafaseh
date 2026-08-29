@@ -334,7 +334,7 @@ test("complete commit persists promoted cover and contributor reference media", 
     entityType: "AUTHOR",
     extractedName: "Media Author",
     proposedName: "Media Author",
-    profile: { description: "Author biography", sourceUrl: "https://www.iranketab.ir/profile/author" },
+    profile: { description: "Author biography", sourceUrl: "https://www.iranketab.ir/profile/author", seoTitle: "کتاب های نویسنده | ایران کتاب", seoDescription: "Author SEO description", metadata: { profileKind: "author" } },
     profileImageAction: "replace",
     bannerImageAction: "preserve",
   };
@@ -343,7 +343,7 @@ test("complete commit persists promoted cover and contributor reference media", 
     entityType: "TRANSLATOR",
     extractedName: "Media Translator",
     proposedName: "Media Translator",
-    profile: { description: "Translator biography", sourceUrl: "https://www.iranketab.ir/profile/translator" },
+    profile: { description: "Translator biography", sourceUrl: "https://www.iranketab.ir/profile/translator", seoTitle: "کتاب های مترجم | ایران کتاب", seoDescription: "Translator SEO description", metadata: { profileKind: "translator" } },
     profileImageAction: "replace",
     bannerImageAction: "preserve",
   };
@@ -352,7 +352,7 @@ test("complete commit persists promoted cover and contributor reference media", 
     entityType: "PUBLISHER",
     extractedName: "Media Publisher",
     proposedName: "Media Publisher",
-    profile: { description: "Publisher biography", sourceUrl: "https://www.iranketab.ir/profile/publisher" },
+    profile: { description: "Publisher biography", sourceUrl: "https://www.iranketab.ir/profile/publisher", seoTitle: "کتاب های ناشر | ایران کتاب", seoDescription: "Publisher SEO description", metadata: { profileKind: "publisher" } },
     profileImageAction: "replace",
     bannerImageAction: "preserve",
   };
@@ -402,11 +402,11 @@ test("complete commit persists promoted cover and contributor reference media", 
   assert.equal(result.catalog.action, "CREATED");
   assert.equal(result.editions[0].action, "CREATED");
 
-  const references = await pool.query(`select type,name,cover_image,description from "ReferenceItem" order by type`);
-  assert.deepEqual(references.rows.map((row) => ({ type: row.type, coverImage: row.cover_image, description: row.description })), [
-    { type: "AUTHOR", coverImage: referenceKey("AUTHOR", "Media Author"), description: "Author biography" },
-    { type: "TRANSLATOR", coverImage: referenceKey("TRANSLATOR", "Media Translator"), description: "Translator biography" },
-    { type: "PUBLISHER", coverImage: referenceKey("PUBLISHER", "Media Publisher"), description: "Publisher biography" },
+  const references = await pool.query(`select type,name,cover_image,description,source_url,seo_title,seo_description,metadata from "ReferenceItem" order by type`);
+  assert.deepEqual(references.rows.map((row) => ({ type: row.type, coverImage: row.cover_image, description: row.description, sourceUrl: row.source_url, seoTitle: row.seo_title, seoDescription: row.seo_description, metadata: row.metadata })), [
+    { type: "AUTHOR", coverImage: referenceKey("AUTHOR", "Media Author"), description: "Author biography", sourceUrl: "https://www.iranketab.ir/profile/author", seoTitle: null, seoDescription: "Author SEO description", metadata: { profileKind: "author" } },
+    { type: "TRANSLATOR", coverImage: referenceKey("TRANSLATOR", "Media Translator"), description: "Translator biography", sourceUrl: "https://www.iranketab.ir/profile/translator", seoTitle: null, seoDescription: "Translator SEO description", metadata: { profileKind: "translator" } },
+    { type: "PUBLISHER", coverImage: referenceKey("PUBLISHER", "Media Publisher"), description: "Publisher biography", sourceUrl: "https://www.iranketab.ir/profile/publisher", seoTitle: null, seoDescription: "Publisher SEO description", metadata: { profileKind: "publisher" } },
   ]);
   const relations = await pool.query(`select (select count(*) from "CatalogBookContributor" where role='AUTHOR') authors, (select count(*) from "BookEditionContributor" where role='TRANSLATOR') translators, (select count(*) from "BookEditionPublisher") publishers`);
   assert.deepEqual(relations.rows[0], { authors: "1", translators: "1", publishers: "1" });
@@ -414,6 +414,43 @@ test("complete commit persists promoted cover and contributor reference media", 
   assert.ok(objects.has(referenceKey("AUTHOR", "Media Author")));
   assert.ok(objects.has(referenceKey("TRANSLATOR", "Media Translator")));
   assert.ok(objects.has(referenceKey("PUBLISHER", "Media Publisher")));
+});
+
+test("reused references retain null and curated SEO titles while importing other profile fields", async () => {
+  const input = fixture(9011, "9781234567897");
+  await pool.query(`insert into "ReferenceItem" (id,type,name,status,seo_title) values
+    ('existing-author','AUTHOR','Existing Author','APPROVED',null),
+    ('existing-translator','TRANSLATOR','Existing Translator','APPROVED','Curated translator title'),
+    ('existing-publisher','PUBLISHER','Existing Publisher','APPROVED',null)`);
+  const profile = (kind: string) => ({
+    description: `${kind} biography`,
+    sourceUrl: `https://www.iranketab.ir/profile/${kind}`,
+    seoTitle: `کتاب های ${kind} | ایران کتاب`,
+    seoDescription: `${kind} SEO description`,
+    metadata: { profileKind: kind },
+    profileId: `${kind}-profile-id`,
+  });
+  const author = { action: "REUSE_EXISTING", entityType: "AUTHOR", entityId: "existing-author", extractedName: "Existing Author", displayName: "Existing Author", profile: profile("author") };
+  const translator = { action: "REUSE_EXISTING", entityType: "TRANSLATOR", entityId: "existing-translator", extractedName: "Existing Translator", displayName: "Existing Translator", profile: profile("translator") };
+  const publisher = { action: "REUSE_EXISTING", entityType: "PUBLISHER", entityId: "existing-publisher", extractedName: "Existing Publisher", displayName: "Existing Publisher", profile: profile("publisher") };
+  const draft = input.prepared.draft as any;
+  draft.catalog.authors = [author];
+  draft.entities = [author, translator, publisher];
+  draft.editions[0].translators = [translator];
+  draft.editions[0].publisher = publisher;
+  (input.extraction as any).book.authors = [{ name: "Existing Author" }];
+  (input.extraction as any).editions[0].translators = [{ name: "Existing Translator" }];
+  (input.extraction as any).editions[0].publisher = { name: "Existing Publisher" };
+  input.prepared = { ...input.prepared, fingerprint: draftFingerprint(draft) };
+
+  await commitIranKetabImport({ adminId: "integration-admin", ...input });
+
+  const references = await pool.query(`select type,description,source_url,seo_title,seo_description,metadata from "ReferenceItem" order by type`);
+  assert.deepEqual(references.rows, [
+    { type: "AUTHOR", description: "author biography", source_url: "https://www.iranketab.ir/profile/author", seo_title: null, seo_description: "author SEO description", metadata: { profileKind: "author", iranketabProfileId: "author-profile-id" } },
+    { type: "TRANSLATOR", description: "translator biography", source_url: "https://www.iranketab.ir/profile/translator", seo_title: "Curated translator title", seo_description: "translator SEO description", metadata: { profileKind: "translator", iranketabProfileId: "translator-profile-id" } },
+    { type: "PUBLISHER", description: "publisher biography", source_url: "https://www.iranketab.ir/profile/publisher", seo_title: null, seo_description: "publisher SEO description", metadata: { profileKind: "publisher", iranketabProfileId: "publisher-profile-id" } },
+  ]);
 });
 
 test("concurrent real commits across pool connections create one import", async () => {
