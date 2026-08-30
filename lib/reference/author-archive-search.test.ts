@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  hasAuthorArchiveSearchChanged,
   parseAuthorArchiveSearchParams,
   toAuthorArchiveSearchParams,
 } from "@/lib/reference/author-archive-search";
@@ -25,4 +26,10 @@ test("authors archive rejects unsupported thresholds and sort values", () => {
   assert.equal(filters.minBooks, null);
   assert.equal(filters.minRating, null);
   assert.equal(filters.sort, "TOP");
+});
+
+test("initial URL state does not count as a search change and reset its page", () => {
+  const filters = parseAuthorArchiveSearchParams({ q: "زولا", page: "5" });
+  assert.equal(hasAuthorArchiveSearchChanged(filters, "زولا"), false);
+  assert.equal(hasAuthorArchiveSearchChanged(filters, "بالزاک"), true);
 });

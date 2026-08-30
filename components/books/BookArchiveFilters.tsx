@@ -9,22 +9,18 @@ import {
   useTransition,
 } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { BookOpen, Search, SlidersHorizontal, X } from "lucide-react";
 import { FiStar } from "react-icons/fi";
 
-import BookArchiveFilterDrawer from "@/components/books/BookArchiveFilterDrawer";
 import BookArchiveFiltersPanel from "@/components/books/BookArchiveFiltersPanel";
+import ArchiveBookCard from "@/components/books/ArchiveBookCard";
 import BookArchiveSortMenu from "@/components/books/BookArchiveSortMenu";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import { Button } from "@/components/ui/button";
+import Pagination from "@/components/ui/Pagination";
+import { ArchiveFilter } from "@/components/archive/ArchiveFilter";
+import { ArchiveSearch as SharedArchiveSearch, ArchiveToolbar } from "@/components/archive/ArchiveToolbar";
 
 import {
   DEFAULT_BOOK_ARCHIVE_FILTERS,
@@ -75,34 +71,6 @@ function getActiveFilterCount(filters: BookArchiveFilters) {
     filters.minYear !== null,
     filters.maxYear !== null,
   ].filter(Boolean).length;
-}
-
-function getPaginationItems(currentPage: number, pageCount: number) {
-  const pages = new Set([
-    1,
-    pageCount,
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-  ]);
-
-  const sortedPages = [...pages]
-    .filter((page) => page >= 1 && page <= pageCount)
-    .sort((a, b) => a - b);
-
-  const items: Array<number | "ellipsis"> = [];
-
-  sortedPages.forEach((page, index) => {
-    const previous = sortedPages[index - 1];
-
-    if (previous && page - previous > 1) {
-      items.push("ellipsis");
-    }
-
-    items.push(page);
-  });
-
-  return items;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -630,187 +598,6 @@ function BookArchiveCard({ book }: { book: BookArchiveItem }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                 Pagination                                 */
-/* -------------------------------------------------------------------------- */
-
-function Pagination({
-  archive,
-  onPatch,
-}: {
-  archive: BookArchiveResult;
-  onPatch: (patch: Partial<BookArchiveFilters>) => void;
-}) {
-  if (archive.pageCount <= 1) {
-    return null;
-  }
-
-  const pageItems = getPaginationItems(archive.page, archive.pageCount);
-
-  return (
-    <nav
-      aria-label="صفحه‌بندی کتاب‌ها"
-      className="
-        mt-8
-
-        flex
-        items-center
-        justify-center
-
-        gap-1.5
-
-        border-t
-        border-border/70
-
-        pt-6
-
-        sm:mt-10
-        sm:gap-2
-        sm:pt-8
-      "
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        disabled={archive.page <= 1}
-        onClick={() =>
-          onPatch({
-            page: archive.page - 1,
-          })
-        }
-        aria-label="صفحه قبل"
-        className="
-          h-9
-          w-9
-
-          rounded-xl
-
-          p-0
-
-          sm:w-auto
-          sm:px-3
-        "
-      >
-        <ChevronRight className="h-4 w-4" />
-
-        <span className="hidden text-xs font-bold sm:inline">قبلی</span>
-      </Button>
-
-      <div className="hidden items-center gap-1 sm:flex">
-        {pageItems.map((item, index) =>
-          item === "ellipsis" ? (
-            <span
-              key={`ellipsis-${index}`}
-              className="
-                flex
-                h-9
-                w-7
-
-                items-center
-                justify-center
-
-                text-xs
-                text-muted-foreground
-              "
-            >
-              …
-            </span>
-          ) : (
-            <Button
-              key={item}
-              type="button"
-              variant="ghost"
-              aria-current={item === archive.page ? "page" : undefined}
-              aria-label={`صفحه ${item.toLocaleString("fa-IR")}`}
-              onClick={() =>
-                onPatch({
-                  page: item,
-                })
-              }
-              className={`
-                h-9
-                min-w-9
-
-                rounded-xl
-
-                px-2
-
-                text-xs
-                font-bold
-                tabular-nums
-
-                ${
-                  item === archive.page
-                    ? `
-                      bg-foreground
-                      text-background
-
-                      hover:bg-foreground
-                      hover:text-background
-                    `
-                    : `
-                      text-muted-foreground
-                      hover:text-foreground
-                    `
-                }
-              `}
-            >
-              {item.toLocaleString("fa-IR")}
-            </Button>
-          ),
-        )}
-      </div>
-
-      <span
-        className="
-          min-w-[76px]
-
-          text-center
-          text-xs
-          font-black
-
-          text-foreground
-
-          sm:hidden
-        "
-      >
-        {archive.page.toLocaleString("fa-IR")}
-
-        <span className="mx-1 text-muted-foreground">/</span>
-
-        {archive.pageCount.toLocaleString("fa-IR")}
-      </span>
-
-      <Button
-        type="button"
-        variant="ghost"
-        disabled={archive.page >= archive.pageCount}
-        onClick={() =>
-          onPatch({
-            page: archive.page + 1,
-          })
-        }
-        aria-label="صفحه بعد"
-        className="
-          h-9
-          w-9
-
-          rounded-xl
-
-          p-0
-
-          sm:w-auto
-          sm:px-3
-        "
-      >
-        <span className="hidden text-xs font-bold sm:inline">بعدی</span>
-
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-    </nav>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /*                                Empty state                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -951,22 +738,15 @@ export default function BookArchiveFilters({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [isPending, startTransition] = useTransition();
-
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(false);
 
   const [draft, setDraft] = useState(filters);
 
   const [searchQuery, setSearchQuery] = useState(filters.q);
 
   const hasPendingSearchRef = useRef(false);
-
-  const desktopFilterButtonRef = useRef<HTMLButtonElement>(null);
-
-  const desktopFilterPanelRef = useRef<HTMLDivElement>(null);
 
   const currentParams = useMemo(
     () => toBookArchiveSearchParams(filters).toString(),
@@ -982,45 +762,6 @@ export default function BookArchiveFilters({
     () => getActiveFilterCount(filters),
     [filters],
   );
-
-  /* ---------------------------------------------------------------------- */
-  /* Desktop filters                                                        */
-  /* ---------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (!desktopFiltersOpen) {
-      return;
-    }
-
-    const closeWhenOutside = (event: PointerEvent) => {
-      const target = event.target as Node;
-
-      if (
-        !desktopFilterButtonRef.current?.contains(target) &&
-        !desktopFilterPanelRef.current?.contains(target)
-      ) {
-        setDesktopFiltersOpen(false);
-      }
-    };
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDesktopFiltersOpen(false);
-
-        desktopFilterButtonRef.current?.focus();
-      }
-    };
-
-    document.addEventListener("pointerdown", closeWhenOutside);
-
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeWhenOutside);
-
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [desktopFiltersOpen]);
 
   /* ---------------------------------------------------------------------- */
   /* Sync URL -> state                                                       */
@@ -1140,42 +881,13 @@ export default function BookArchiveFilters({
       {/* Search + Filter                                                    */}
       {/* ------------------------------------------------------------------ */}
 
-      <section className="relative z-20 mx-auto w-full">
-        <div
-          className="
-            flex
-            items-center
-
-            gap-2
-
-            sm:gap-3
-          "
-        >
-          <ArchiveSearch
+      <ArchiveToolbar label="ابزارهای مرور کتاب‌ها">
+          <SharedArchiveSearch
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder={searchPlaceholder}
+            ariaLabel="جست‌وجوی کتاب"
           />
-
-          {/* Mobile */}
-
-          <div className="lg:hidden">
-            <BookArchiveFilterDrawer
-              open={drawerOpen}
-              onOpenChange={setDrawerOpen}
-              draft={draft}
-              setDraft={setDraft}
-              options={options}
-              pending={isPending}
-              onReset={resetFilters}
-              hideGenreFilter={hideGenreFilter}
-              hideAuthorFilter={hideAuthorFilter}
-              hideTranslatorFilter={hideTranslatorFilter}
-              hidePublisherFilter={hidePublisherFilter}
-              hideCountryFilter={hideCountryFilter}
-              trigger={<FilterButton activeCount={activeFilterCount} />}
-            />
-          </div>
 
           <div className="shrink-0 lg:order-3">
             <BookArchiveSortMenu
@@ -1184,130 +896,51 @@ export default function BookArchiveFilters({
             />
           </div>
 
-          {/* Desktop */}
-
-          <div className="relative hidden lg:block">
-            <FilterButton
-              ref={desktopFilterButtonRef}
-              activeCount={activeFilterCount}
-              expanded={desktopFiltersOpen}
-              controls="book-archive-filters"
-              onClick={() => setDesktopFiltersOpen((open) => !open)}
-            />
-
-            {desktopFiltersOpen ? (
-              <div
-                id="book-archive-filters"
-                ref={desktopFilterPanelRef}
-                role="dialog"
-                aria-label="فیلتر کتاب‌ها"
-                className="
-                  absolute
-                  left-0
-                  top-[calc(100%+10px)]
-                  z-50
-
-                  max-h-[calc(100vh-120px)]
-
-                  w-[360px]
-
-                  overflow-y-auto
-
-                  rounded-[1.4rem]
-
-                  border
-                  border-border
-
-                  bg-card
-
-                  p-4
-
-                  shadow-[0_24px_70px_-24px_rgba(0,0,0,0.45)]
-
-                  xl:w-[380px]
-                "
-              >
-                <div
-                  className="
-                    mb-4
-
-                    flex
-
-                    items-center
-                    justify-between
-
-                    gap-3
-                  "
-                >
-                  <div>
-                    <h2
-                      className="
-                        text-sm
-                        font-black
-
-                        text-foreground
-                      "
-                    >
-                      فیلتر کتاب‌ها
-                    </h2>
-
-                    {activeFilterCount > 0 ? (
-                      <p
-                        className="
-                          mt-1
-
-                          text-[11px]
-                          font-semibold
-
-                          text-muted-foreground
-                        "
-                      >
-                        {activeFilterCount.toLocaleString("fa-IR")} فیلتر فعال
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {hasActiveFilters ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={resetFilters}
-                      className="
-                        h-8
-
-                        rounded-lg
-
-                        px-2.5
-
-                        text-[11px]
-                        font-bold
-
-                        text-muted-foreground
-
-                        hover:text-foreground
-                      "
-                    >
-                      پاک کردن
-                    </Button>
-                  ) : null}
+          <ArchiveFilter
+            title="فیلتر کتاب‌ها"
+            description="نتیجه را بر اساس نیازت محدود کن"
+            label="فیلتر کتاب‌ها"
+            activeCount={activeFilterCount}
+            onReset={hasActiveFilters ? resetFilters : undefined}
+            resetLabel="پاک کردن همه"
+            mobileBeforeContent={
+              <div className="shrink-0 px-4 pb-2 pt-4">
+                <div className="group relative">
+                  <Search aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary" />
+                  <input
+                    type="search"
+                    dir="rtl"
+                    value={draft.q}
+                    onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value, page: 1 }))}
+                    placeholder="نام کتاب، نویسنده، مترجم یا ناشر..."
+                    aria-label="جست‌وجو در فیلتر کتاب‌ها"
+                    className="h-11 w-full rounded-xl border border-border bg-card pr-10 pl-10 text-sm font-semibold text-foreground outline-none placeholder:text-xs placeholder:font-medium placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                  />
+                  {draft.q ? <button type="button" aria-label="پاک کردن جست‌وجو" onClick={() => setDraft((current) => ({ ...current, q: "", page: 1 }))} className="absolute left-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-3.5 w-3.5" /></button> : null}
                 </div>
-
-                <BookArchiveFiltersPanel
-                  draft={draft}
-                  setDraft={setDraft}
-                  options={options}
-                  pending={isPending}
-                  hideGenreFilter={hideGenreFilter}
-                  hideAuthorFilter={hideAuthorFilter}
-                  hideTranslatorFilter={hideTranslatorFilter}
-                  hidePublisherFilter={hidePublisherFilter}
-                  hideCountryFilter={hideCountryFilter}
-                />
               </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
+            }
+            mobileFooter={(close) => (
+              <div className="shrink-0 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+                <Button type="button" onClick={close} className="h-12 w-full rounded-xl text-sm font-black">
+                  {isPending ? "در حال به‌روزرسانی" : "مشاهده کتاب‌ها"}
+                </Button>
+              </div>
+            )}
+          >
+            <BookArchiveFiltersPanel
+              draft={draft}
+              setDraft={setDraft}
+              options={options}
+              pending={isPending}
+              hideGenreFilter={hideGenreFilter}
+              hideAuthorFilter={hideAuthorFilter}
+              hideTranslatorFilter={hideTranslatorFilter}
+              hidePublisherFilter={hidePublisherFilter}
+              hideCountryFilter={hideCountryFilter}
+            />
+          </ArchiveFilter>
+      </ArchiveToolbar>
 
       {/* ------------------------------------------------------------------ */}
       {/* Books                                                              */}
@@ -1352,11 +985,17 @@ export default function BookArchiveFilters({
               "
             >
               {archive.items.map((book) => (
-                <BookArchiveCard key={book.id} book={book} />
+                <ArchiveBookCard key={book.id} book={book} />
               ))}
             </div>
 
-            <Pagination archive={archive} onPatch={patchFilters} />
+            <Pagination
+              currentPage={archive.page}
+              totalPages={archive.pageCount}
+              pathname={pathname}
+              searchParams={searchParams.toString()}
+              ariaLabel="صفحه‌بندی کتاب‌ها"
+            />
           </>
         )}
       </main>

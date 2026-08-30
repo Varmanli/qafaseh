@@ -53,7 +53,7 @@ export default async function BlogArchivePage({
 
   return (
     <PublicShell>
-      <main className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <BlogArchiveToolbar
           categories={categories}
           q={q}
@@ -70,6 +70,7 @@ export default async function BlogArchivePage({
           q={q}
           category={category}
           sort={sort}
+          searchParams={params}
         />
       </main>
     </PublicShell>

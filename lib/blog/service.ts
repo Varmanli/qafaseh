@@ -409,12 +409,19 @@ export async function listPublicBlogPosts({
   }
 
   const where = and(...conditions);
-  const safePage = Math.max(1, page);
+  const totalRows = await db
+    .select({ total: count() })
+    .from(BlogPost)
+    .leftJoin(User, eq(BlogPost.createdById, User.id))
+    .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
+    .where(where);
+  const total = totalRows[0]?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), pageCount);
   const offset = (safePage - 1) * pageSize;
 
-  const [posts, totalRows] = await Promise.all([
-    db
-      .select({
+  const posts = await db
+    .select({
         id: BlogPost.id,
         slug: BlogPost.slug,
         title: BlogPost.title,
@@ -425,38 +432,27 @@ export async function listPublicBlogPosts({
         authorName: User.name,
         categoryName: BlogCategory.name,
         categorySlug: BlogCategory.slug,
-      })
-      .from(BlogPost)
-      .leftJoin(User, eq(BlogPost.createdById, User.id))
-      .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
-      .where(where)
-      .orderBy(
-        ...(sort === "oldest"
-          ? [asc(BlogPost.publishedAt), asc(BlogPost.createdAt)]
-          : sort === "shortest"
-            ? [asc(BlogPost.readingTime), desc(BlogPost.publishedAt)]
-            : [desc(BlogPost.publishedAt), desc(BlogPost.createdAt)]),
-      )
-      .limit(pageSize)
-      .offset(offset),
-    db
-      .select({ total: count() })
-      .from(BlogPost)
-      .leftJoin(User, eq(BlogPost.createdById, User.id))
-      .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
-      .where(where),
-  ]);
-
-  const total = totalRows[0]?.total ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const clampedPage = Math.min(safePage, pageCount);
+    })
+    .from(BlogPost)
+    .leftJoin(User, eq(BlogPost.createdById, User.id))
+    .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
+    .where(where)
+    .orderBy(
+      ...(sort === "oldest"
+        ? [asc(BlogPost.publishedAt), asc(BlogPost.createdAt)]
+        : sort === "shortest"
+          ? [asc(BlogPost.readingTime), desc(BlogPost.publishedAt)]
+          : [desc(BlogPost.publishedAt), desc(BlogPost.createdAt)]),
+    )
+    .limit(pageSize)
+    .offset(offset);
 
   return {
     posts: posts
       .filter((post): post is PublicBlogPostPreview => Boolean(post.publishedAt))
       .map(normalizeBlogBanner),
     total,
-    page: clampedPage,
+    page: safePage,
     pageCount,
   };
 }

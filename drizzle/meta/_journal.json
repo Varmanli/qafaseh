@@ -379,6 +379,13 @@
       "when": 1787100000000,
       "tag": "0053_book_search_index",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1787100000001,
+      "tag": "0054_homepage_curation",
+      "breakpoints": true
     }
   ]
 }

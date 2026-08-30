@@ -583,42 +583,6 @@ export default async function BlogPostPage({
               ) : null}
             </div>
 
-            {/* Related articles */}
-            {relatedPosts.length > 0 ? (
-              <section className="mt-14 sm:mt-16">
-                <div className="mb-6">
-                  <p className="text-[11px] font-bold text-primary">
-                    ادامه خواندن
-                  </p>
-
-                  <h2
-                    className="
-                      mt-1.5
-                      text-2xl
-                      font-black
-                      tracking-tight
-                      text-foreground
-                      sm:text-3xl
-                    "
-                  >
-                    مطالب مرتبط
-                  </h2>
-                </div>
-
-                <div
-                  className="
-                    grid
-                    gap-5
-                    sm:grid-cols-2
-                    xl:grid-cols-3
-                  "
-                >
-                  {relatedPosts.map((item) => (
-                    <BlogCard key={item.id} post={item} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
           </div>
         </ArticleReadingExperience>
       </article>

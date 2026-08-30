@@ -62,3 +62,11 @@ export function toAuthorArchiveSearchParams(filters: AuthorArchiveFilters) {
 export function hasActiveAuthorArchiveFilters(filters: AuthorArchiveFilters) {
   return Boolean(filters.country || filters.minBooks || filters.minRating);
 }
+
+/** A search URL update is only needed after the user actually changes its text. */
+export function hasAuthorArchiveSearchChanged(
+  filters: Pick<AuthorArchiveFilters, "q">,
+  query: string,
+) {
+  return filters.q !== query;
+}

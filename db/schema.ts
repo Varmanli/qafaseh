@@ -1375,6 +1375,48 @@ export const BlogPost = pgTable("BlogPost", {
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
 
+// ---------------- HomeFeaturedAuthor (نویسنده‌های منتخبِ انتخابیِ ادمین) ----------------
+export const HomeFeaturedAuthor = pgTable(
+  "HomeFeaturedAuthor",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    authorId: varchar("author_id")
+      .notNull()
+      .references(() => ReferenceItem.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    authorUnique: unique("HomeFeaturedAuthor_author_id_unique").on(t.authorId),
+    sortOrderIdx: index("HomeFeaturedAuthor_sort_order_idx").on(t.sortOrder),
+  }),
+);
+
+// ---------------- HomeFeaturedBlogPost (مطالب مجله‌ی انتخابیِ ادمین) ----------------
+export const HomeFeaturedBlogPost = pgTable(
+  "HomeFeaturedBlogPost",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    blogPostId: varchar("blog_post_id")
+      .notNull()
+      .references(() => BlogPost.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    postUnique: unique("HomeFeaturedBlogPost_blog_post_id_unique").on(
+      t.blogPostId,
+    ),
+    sortOrderIdx: index("HomeFeaturedBlogPost_sort_order_idx").on(t.sortOrder),
+  }),
+);
+
 // One row per searchable catalog/edition value. It is maintained by database
 // triggers so every importer/admin path has the same searchable representation.
 export const BookSearchIndex = pgTable(

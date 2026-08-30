@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, RotateCcw, SearchX } from "lucide-react";
+import { ArrowLeft, RotateCcw, SearchX } from "lucide-react";
 
 import BlogCard from "@/components/blog/BlogCard";
 import { Button } from "@/components/ui/button";
-import {
-  buildBlogArchiveHref,
-  type BlogArchiveSort as BlogArchiveSortValue,
-} from "@/components/blog/blog-archive";
+import Pagination from "@/components/ui/Pagination";
+import type { BlogArchiveSort as BlogArchiveSortValue } from "@/components/blog/blog-archive";
+import type { PaginationSearchParams } from "@/lib/pagination";
 import type { PublicBlogPostPreview } from "@/lib/blog/service";
 
 export default function BlogArchiveGrid({
@@ -18,6 +17,8 @@ export default function BlogArchiveGrid({
   q = "",
   category = "",
   sort = "newest",
+  pathname = "/blog",
+  searchParams = "",
 }: {
   posts: PublicBlogPostPreview[];
   page: number;
@@ -27,6 +28,8 @@ export default function BlogArchiveGrid({
   q?: string;
   category?: string;
   sort?: BlogArchiveSortValue;
+  pathname?: string;
+  searchParams?: PaginationSearchParams;
 }) {
   return (
     <section className="mt-4 sm:mt-5">
@@ -41,10 +44,10 @@ export default function BlogArchiveGrid({
           {pageCount > 1 ? (
             <Pagination
               currentPage={page}
-              pageCount={pageCount}
-              q={q}
-              category={category}
-              sort={sort}
+              totalPages={pageCount}
+              pathname={pathname}
+              searchParams={searchParams}
+              ariaLabel="صفحه‌بندی مجله"
             />
           ) : null}
         </>
@@ -91,86 +94,5 @@ function EmptyState({
         ) : null}
       </div>
     </div>
-  );
-}
-
-function Pagination({
-  currentPage,
-  pageCount,
-  q,
-  category,
-  sort,
-}: {
-  currentPage: number;
-  pageCount: number;
-  q: string;
-  category: string;
-  sort: BlogArchiveSortValue;
-}) {
-  return (
-    <nav
-      aria-label="صفحه‌بندی مجله"
-      className="mt-14 flex items-center justify-center gap-3"
-    >
-      {currentPage > 1 ? (
-        <Link
-          href={buildBlogArchiveHref({
-            q,
-            category,
-            sort,
-            page: currentPage - 1,
-          })}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:border-primary hover:text-primary"
-          aria-label="صفحه قبل"
-        >
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      ) : null}
-
-      <div className="flex h-10 items-center gap-1 rounded-full border border-border/70 px-2">
-        {Array.from({ length: pageCount })
-          .slice(
-            Math.max(0, currentPage - 3),
-            Math.min(pageCount, currentPage + 2),
-          )
-          .map((_, index) => {
-            const pageNumber = Math.max(0, currentPage - 3) + index + 1;
-
-            return (
-              <Link
-                key={pageNumber}
-                href={buildBlogArchiveHref({
-                  q,
-                  category,
-                  sort,
-                  page: pageNumber,
-                })}
-                className={
-                  pageNumber === currentPage
-                    ? "flex h-7 min-w-7 items-center justify-center rounded-full bg-foreground px-2 text-xs font-black text-background"
-                    : "flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-bold text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                }
-              >
-                {pageNumber.toLocaleString("fa-IR")}
-              </Link>
-            );
-          })}
-      </div>
-
-      {currentPage < pageCount ? (
-        <Link
-          href={buildBlogArchiveHref({
-            q,
-            category,
-            sort,
-            page: currentPage + 1,
-          })}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:border-primary hover:text-primary"
-          aria-label="صفحه بعد"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-      ) : null}
-    </nav>
   );
 }

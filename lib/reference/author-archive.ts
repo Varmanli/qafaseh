@@ -74,7 +74,12 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
       ) AS "topScore" FROM filtered CROSS JOIN bounds
     )
     SELECT *, count(*) OVER()::int AS "totalCount" FROM ranked
-    ORDER BY ${orderBy[filters.sort]} LIMIT ${safeSize} OFFSET ${(filters.page - 1) * safeSize}`;
+    ORDER BY ${orderBy[filters.sort]}
+    LIMIT ${safeSize}
+    OFFSET least(
+      ${(filters.page - 1) * safeSize},
+      greatest((select count(*) from ranked) - 1, 0) / ${safeSize} * ${safeSize}
+    )`;
   const rows = await query<AuthorArchiveItem & { totalCount: number }>(statement);
   const totalCount = rows[0]?.totalCount ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / safeSize));

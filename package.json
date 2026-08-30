@@ -11,6 +11,8 @@
     "start:prod": "npm run start:next",
     "lint": "eslint",
     "test": "tsx --test --test-concurrency=1 lib/**/*.test.ts",
+    "seed:pagination": "tsx --env-file=.env scripts/seed-pagination.ts",
+    "seed:pagination:clean": "tsx --env-file=.env scripts/seed-pagination.ts --clean",
     "email:test": "tsx scripts/test-email.ts",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",

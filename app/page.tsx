@@ -3,14 +3,16 @@ import { getLibraryPath, getProfilePath } from "@/lib/library/paths";
 import {
   getFeaturedBooks,
   getHeroSlides,
-  getLatestHomeBlogPosts,
   getPopularBooks,
   getRecentHomeQuotes,
   HOME_FALLBACK_SLIDES,
   type HeroSlideView,
-  getPopularAuthors,
   getHomepageGenres,
 } from "@/lib/home/service";
+import {
+  getFeaturedAuthors,
+  getFeaturedHomeBlogPosts,
+} from "@/lib/home/curation";
 import PublicShell from "@/components/PublicShell";
 import HomeHeroSlider from "@/components/home/HomeHeroSlider";
 import HomeBookCarousel from "@/components/home/HomeBookCarousel";
@@ -30,18 +32,18 @@ export default async function HomePage() {
     user,
     featuredBooks,
     recentQuotes,
-    latestBlogPosts,
+    featuredBlogPosts,
     dbHeroSlides,
-    popularAuthors,
+    featuredAuthors,
     popularBooks,
     genres,
   ] = await Promise.all([
     userPromise,
     getFeaturedBooks(8),
     userPromise.then((currentUser) => getRecentHomeQuotes(10, currentUser?.id)),
-    getLatestHomeBlogPosts(3),
+    getFeaturedHomeBlogPosts(),
     getHeroSlides(),
-    getPopularAuthors(10),
+    getFeaturedAuthors(),
     getPopularBooks(8),
     getHomepageGenres(5),
   ]);
@@ -115,7 +117,7 @@ export default async function HomePage() {
           </div>
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_400px]">
-            <HomePopularAuthors authors={popularAuthors} />
+            <HomePopularAuthors authors={featuredAuthors} />
           </div>
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_380px]">
@@ -127,7 +129,7 @@ export default async function HomePage() {
           {/* <HomeFeatureCards /> */}
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_520px]">
-            <HomeBlogPreview posts={latestBlogPosts} />
+            <HomeBlogPreview posts={featuredBlogPosts} />
           </div>
         </div>
       </div>

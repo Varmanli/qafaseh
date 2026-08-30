@@ -50,6 +50,10 @@ type FilterKey =
   | "UNREAD"
   | "FAVORITES";
 type SortKey = "NEWEST" | "TITLE" | "RATING";
+type ViewMode = "grid" | "list";
+
+const DEFAULT_VIEW_MODE: ViewMode = "grid";
+const LIBRARY_VIEW_MODE_STORAGE_KEY = "ghafaseh:library:view-mode";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "ALL", label: "همه" },
@@ -83,7 +87,7 @@ export default function UserLibraryPage({
     (initialFilter?.toUpperCase() as FilterKey) || "ALL",
   );
   const [sortBy, setSortBy] = useState<SortKey>("NEWEST");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   const [moreOpen, setMoreOpen] = useState(false);
@@ -106,6 +110,27 @@ export default function UserLibraryPage({
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
+
+  useEffect(() => {
+    try {
+      const storedViewMode = localStorage.getItem(LIBRARY_VIEW_MODE_STORAGE_KEY);
+      if (storedViewMode === "grid" || storedViewMode === "list") {
+        setViewMode(storedViewMode);
+      }
+    } catch {
+      // Storage can be unavailable in restricted browsing contexts.
+    }
+  }, []);
+
+  const handleViewModeChange = (nextViewMode: ViewMode) => {
+    setViewMode(nextViewMode);
+
+    try {
+      localStorage.setItem(LIBRARY_VIEW_MODE_STORAGE_KEY, nextViewMode);
+    } catch {
+      // Keep the selected mode for this session when storage is unavailable.
+    }
+  };
 
   const filteredBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -370,24 +395,18 @@ export default function UserLibraryPage({
             </SheetTrigger>
 
             <SheetContent
-              side="bottom"
+              side="left"
               className="
-        max-h-[88svh]
+        w-3/4
         overflow-y-auto
-        rounded-t-[26px]
-        border-t border-border/50
+        border-r border-border/50
         bg-background
         px-4
-        pb-[max(20px,env(safe-area-inset-bottom))]
+        pb-6
         pt-3
-        sm:left-1/2
         sm:max-w-lg
-        sm:-translate-x-1/2
       "
             >
-              {/* Drag handle */}
-              <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border" />
-
               <SheetHeader className="text-right">
                 <SheetTitle className="text-base font-bold">
                   نمایش کتاب‌ها
@@ -515,7 +534,7 @@ export default function UserLibraryPage({
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setViewMode("grid")}
+                      onClick={() => handleViewModeChange("grid")}
                       className={cn(
                         `
                   flex h-12 items-center justify-center gap-2
@@ -535,7 +554,7 @@ export default function UserLibraryPage({
 
                     <button
                       type="button"
-                      onClick={() => setViewMode("list")}
+                      onClick={() => handleViewModeChange("list")}
                       className={cn(
                         `
                   flex h-12 items-center justify-center gap-2

@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation";
+import Link from "next/link";
 
 import BookArchiveFilters from "@/components/books/BookArchiveFilters";
 import CollapsibleContent from "@/components/content/CollapsibleContent";
@@ -19,6 +20,7 @@ import {
   type ReferenceTypeValue,
 } from "@/lib/validations/reference";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { getSafeAuthorArchiveReturnPath } from "@/lib/reference/author-navigation";
 
 /**
  * نمای عمومی مشترک برای همه‌ی موجودیت‌های مرجع (نویسنده/مترجم/ناشر/کشور/ژانر).
@@ -37,9 +39,17 @@ export default async function ReferencePublicView({
   const entity = await getReferenceEntity(type, ref);
   if (!entity) notFound();
 
+  const authorArchiveReturnPath =
+    type === "AUTHOR"
+      ? getSafeAuthorArchiveReturnPath(searchParams?.from)
+      : null;
+
   if (ref !== entity.slug) {
+    const returnQuery = authorArchiveReturnPath
+      ? `?from=${encodeURIComponent(authorArchiveReturnPath)}`
+      : "";
     permanentRedirect(
-      `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}`,
+      `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}${returnQuery}`,
     );
   }
 
@@ -108,6 +118,8 @@ export default async function ReferencePublicView({
     }
   })();
   const description = entity.description?.trim();
+  const authorArchiveHref =
+    type === "AUTHOR" ? authorArchiveReturnPath ?? "/authors" : null;
 
   return (
     <PublicShell>
@@ -127,6 +139,14 @@ export default async function ReferencePublicView({
           />
 
           <div className="relative w-[90%] mx-auto  py-6 sm:px-7 sm:py-8">
+            {authorArchiveHref ? (
+              <Link
+                href={authorArchiveHref}
+                className="inline-flex text-xs font-bold text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                بازگشت به نویسنده‌ها
+              </Link>
+            ) : null}
             <div className="flex flex-col gap-6">
               <div className="flex items-center gap-4">
                 <div className="relative shrink-0">

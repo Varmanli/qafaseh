@@ -55,7 +55,7 @@ export default async function MagazineCategoryPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
   const requestedSlug = decodeBlogCategorySlug(slug);
@@ -72,7 +72,9 @@ export default async function MagazineCategoryPage({
     permanentRedirect(`/blog/category/${encodeURIComponent(categorySlug)}`);
   }
 
-  const page = Math.max(1, Number((await searchParams).page ?? "1") || 1);
+  const resolvedSearchParams = await searchParams;
+  const rawPage = resolvedSearchParams.page;
+  const page = Math.max(1, Number(typeof rawPage === "string" ? rawPage : "1") || 1);
 
   const archive = await listPublicBlogPosts({
     categorySlug,
@@ -91,7 +93,7 @@ export default async function MagazineCategoryPage({
    * به شکل Feature نمایش داده می‌شود.
    */
   const featuredPost =
-    page === 1 && archive.posts.length > 0 ? archive.posts[0] : null;
+    archive.page === 1 && archive.posts.length > 0 ? archive.posts[0] : null;
 
   const gridPosts = featuredPost ? archive.posts.slice(1) : archive.posts;
 
@@ -268,7 +270,7 @@ export default async function MagazineCategoryPage({
               <p className="text-[11px] font-bold text-primary">آرشیو {name}</p>
 
               <h2 className="mt-1.5 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                {page === 1 ? "مطالب بیشتر" : "نوشته‌های این صفحه"}
+                {archive.page === 1 ? "مطالب بیشتر" : "نوشته‌های این صفحه"}
               </h2>
             </div>
 
@@ -286,6 +288,8 @@ export default async function MagazineCategoryPage({
             page={archive.page}
             pageCount={archive.pageCount}
             category={categorySlug}
+            pathname={`/blog/category/${encodeURIComponent(categorySlug)}`}
+            searchParams={resolvedSearchParams}
           />
         </section>
       </main>

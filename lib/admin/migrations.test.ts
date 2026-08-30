@@ -300,7 +300,18 @@ function preflightFixture(overrides: Partial<{ ledgerRows: Array<{ id: number; h
 test("production preflight permits only migrations newer than the production baseline", () => {
   const result = validatePreflight(preflightFixture());
   assert.equal(result.latestEntry.tag, PRODUCTION_MIGRATION_BASELINE);
-  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds", "0042_add_stopped_book_status", "0043_iranketab_discovery", "0044_iranketab_discovery_import_queue", "0045_iranketab_discovery_scheduler", "0046_iranketab_discovery_scheduler_lease", "0047_iranketab_discovery_review_approval", "0048_iranketab_discovery_auto_import_policy", "0049_first_party_analytics", "0050_magazine_phase1", "0051_magazine_content_graph", "0052_public_route_normalized_keys", "0053_book_search_index"]);
+  assert.deepEqual(result.pending.map((entry: { tag: string }) => entry.tag), ["0034_reading_progress", "0035_personal_book_notes", "0036_reading_history", "0037_public_book_thoughts", "0038_production_schema_reconciliation", "0039_expand_published_book_note_capacity", "0040_curved_the_stranger", "0041_quote_backgrounds", "0042_add_stopped_book_status", "0043_iranketab_discovery", "0044_iranketab_discovery_import_queue", "0045_iranketab_discovery_scheduler", "0046_iranketab_discovery_scheduler_lease", "0047_iranketab_discovery_review_approval", "0048_iranketab_discovery_auto_import_policy", "0049_first_party_analytics", "0050_magazine_phase1", "0051_magazine_content_graph", "0052_public_route_normalized_keys", "0053_book_search_index", "0054_homepage_curation"]);
+});
+
+test("homepage curation migration is journaled and keeps selections referential", () => {
+  const migration = readFileSync("drizzle/0054_homepage_curation.sql", "utf8");
+  assert.ok(journal.entries.some((entry) => entry.tag === "0054_homepage_curation"));
+  assert.match(migration, /"HomeFeaturedAuthor"/);
+  assert.match(migration, /"HomeFeaturedBlogPost"/);
+  assert.match(migration, /REFERENCES "ReferenceItem"\("id"\) ON DELETE CASCADE/);
+  assert.match(migration, /REFERENCES "BlogPost"\("id"\) ON DELETE CASCADE/);
+  assert.match(migration, /UNIQUE\("author_id"\)/);
+  assert.match(migration, /UNIQUE\("blog_post_id"\)/);
 });
 
 test("magazine migration is journaled, additive, and seeds the editorial taxonomy", () => {

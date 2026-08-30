@@ -1,33 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import AuthorArchiveSortMenu from "@/components/reference/AuthorArchiveSortMenu";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import Pagination from "@/components/ui/Pagination";
+import { ArchiveFilter } from "@/components/archive/ArchiveFilter";
+import { ArchiveSearch, ArchiveToolbar } from "@/components/archive/ArchiveToolbar";
 import {
   hasActiveAuthorArchiveFilters,
+  hasAuthorArchiveSearchChanged,
   toAuthorArchiveSearchParams,
   type AuthorArchiveFilters,
 } from "@/lib/reference/author-archive-search";
 import type { AuthorArchiveResult } from "@/lib/reference/author-archive";
+import { buildAuthorProfileHref } from "@/lib/reference/author-navigation";
 
 function FilterFields({
   filters,
@@ -103,31 +93,6 @@ function FilterFields({
   );
 }
 
-function FilterButton({
-  count,
-  onClick,
-}: {
-  count: number;
-  onClick?: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      onClick={onClick}
-      aria-label="فیلتر نویسنده‌ها"
-      className="relative h-12 w-12 shrink-0 rounded-[1rem] border border-border bg-card p-0 text-foreground shadow-[0_2px_8px_-5px_rgba(0,0,0,0.18)] hover:border-primary/40 hover:bg-primary/[0.06] hover:text-primary sm:h-[50px] sm:w-[50px]"
-    >
-      <SlidersHorizontal className="h-[18px] w-[18px]" />
-      {count ? (
-        <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-primary px-1 text-[9px] font-black text-primary-foreground">
-          {count.toLocaleString("fa-IR")}
-        </span>
-      ) : null}
-    </Button>
-  );
-}
-
 export default function AuthorsArchivePage({
   initialFilters,
   result,
@@ -136,18 +101,14 @@ export default function AuthorsArchivePage({
   result: AuthorArchiveResult;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState(initialFilters);
   const [query, setQuery] = useState(initialFilters.q);
-  const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const activeCount =
     Number(Boolean(filters.country)) +
     Number(filters.minBooks !== null) +
     Number(filters.minRating !== null);
-  const currentParams = useMemo(
-    () => toAuthorArchiveSearchParams(initialFilters).toString(),
-    [initialFilters],
-  );
   useEffect(() => {
     setFilters(initialFilters);
     setQuery(initialFilters.q);
@@ -161,14 +122,15 @@ export default function AuthorsArchivePage({
     });
   };
   useEffect(() => {
+    if (!hasAuthorArchiveSearchChanged(filters, query)) return;
+
     const timer = window.setTimeout(() => {
       const next = { ...filters, q: query, page: 1 };
-      if (toAuthorArchiveSearchParams(next).toString() !== currentParams)
-        navigate(next);
+      navigate(next);
     }, 250);
     return () => window.clearTimeout(timer); // navigation is intentionally debounced only for search
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [filters, query]);
   const apply = (next: AuthorArchiveFilters) => navigate(next);
   const reset = () => {
     const next = {
@@ -190,33 +152,15 @@ export default function AuthorsArchivePage({
   };
   return (
     <div className="space-y-6">
-      <section className="relative z-20 flex items-center gap-2 sm:gap-2.5">
-        <div className="group relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute right-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
+      <ArchiveToolbar label="ابزارهای مرور نویسنده‌ها">
+        <ArchiveSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="جستجو در نویسنده‌ها..."
+          ariaLabel="جست‌وجوی نویسنده"
+        />
 
-          <input
-            type="search"
-            dir="rtl"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="جستجو در نویسنده‌ها..."
-            aria-label="جست‌وجوی نویسنده"
-            className="h-11 w-full rounded-2xl border border-border bg-card pr-11 pl-10 text-right text-[13px] font-semibold outline-none shadow-sm transition-all placeholder:text-muted-foreground focus:border-primary/40 focus:ring-[3px] focus:ring-primary/10 sm:h-[50px] sm:text-sm [unicode-bidi:plaintext]"
-          />
-
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              aria-label="پاک کردن جست‌وجو"
-              className="absolute left-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
-        </div>
-
-        <div className="shrink-0">
+        <div className="order-[1] shrink-0 lg:order-3">
           <AuthorArchiveSortMenu
             value={filters.sort}
             onChange={(sort) =>
@@ -229,77 +173,21 @@ export default function AuthorsArchivePage({
           />
         </div>
 
-        <div className="shrink-0 lg:hidden">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <FilterButton count={activeCount} />
-            </SheetTrigger>
-
-            <SheetContent
-              side="bottom"
-              dir="rtl"
-              className="z-[80] max-h-[86dvh] rounded-t-[1.75rem] border-x border-t border-border p-0 text-right sm:left-1/2 sm:max-w-[640px] sm:-translate-x-1/2"
-            >
-              <SheetHeader className="border-b border-border px-4 pt-5 text-right">
-                <SheetTitle>فیلتر نویسنده‌ها</SheetTitle>
-
-                <SheetDescription>
-                  نتیجه را بر اساس کشور، تعداد کتاب و امتیاز محدود کن
-                </SheetDescription>
-
-                {hasActiveAuthorArchiveFilters(filters) ? (
-                  <button
-                    type="button"
-                    onClick={reset}
-                    className="absolute left-12 top-5 text-xs font-bold text-muted-foreground hover:text-foreground"
-                  >
-                    پاک کردن
-                  </button>
-                ) : null}
-              </SheetHeader>
-
-              <div className="overflow-y-auto p-4 pb-6">
-                <FilterFields
-                  filters={filters}
-                  setFilters={setArchiveFilters}
-                  countries={result.countries}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-
-        <div className="relative hidden shrink-0 lg:block">
-          <FilterButton
-            count={activeCount}
-            onClick={() => setOpen((value) => !value)}
+        <ArchiveFilter
+          title="فیلتر نویسنده‌ها"
+          description="نتیجه را بر اساس کشور، تعداد کتاب و امتیاز محدود کن"
+          label="فیلتر نویسنده‌ها"
+          activeCount={activeCount}
+          onReset={hasActiveAuthorArchiveFilters(filters) ? reset : undefined}
+          desktopWidthClassName="w-[360px]"
+        >
+          <FilterFields
+            filters={filters}
+            setFilters={setArchiveFilters}
+            countries={result.countries}
           />
-
-          {open ? (
-            <div className="absolute left-0 top-[calc(100%+10px)] z-50 w-[360px] rounded-[1.4rem] border border-border bg-card p-4 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.45)]">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-black">فیلتر نویسنده‌ها</h2>
-
-                {hasActiveAuthorArchiveFilters(filters) ? (
-                  <button
-                    type="button"
-                    onClick={reset}
-                    className="text-[11px] font-bold text-muted-foreground hover:text-foreground"
-                  >
-                    پاک کردن
-                  </button>
-                ) : null}
-              </div>
-
-              <FilterFields
-                filters={filters}
-                setFilters={setArchiveFilters}
-                countries={result.countries}
-              />
-            </div>
-          ) : null}
-        </div>
-      </section>
+        </ArchiveFilter>
+      </ArchiveToolbar>
       <main
         className={
           isPending ? "opacity-65 transition-opacity" : "transition-opacity"
@@ -325,7 +213,10 @@ export default function AuthorsArchivePage({
               {result.items.map((item) => (
                 <Link
                   key={item.id}
-                  href={`/authors/${encodeURIComponent(item.slug ?? item.name)}`}
+                  href={buildAuthorProfileHref(
+                    item.slug ?? item.name,
+                    searchParams.toString(),
+                  )}
                   className="group block"
                 >
                   <article className="flex flex-col items-center text-center">
@@ -344,30 +235,13 @@ export default function AuthorsArchivePage({
               ))}
             </div>
             {result.pageCount > 1 ? (
-              <div className="mt-8 flex items-center justify-between gap-3 rounded-[1.6rem] border border-border/75 bg-card/70 px-4 py-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={result.page <= 1}
-                  onClick={() => apply({ ...filters, page: result.page - 1 })}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  صفحه قبل
-                </Button>
-                <p className="text-sm text-muted-foreground">
-                  صفحه {result.page.toLocaleString("fa-IR")} از{" "}
-                  {result.pageCount.toLocaleString("fa-IR")}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={result.page >= result.pageCount}
-                  onClick={() => apply({ ...filters, page: result.page + 1 })}
-                >
-                  صفحه بعد
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              </div>
+              <Pagination
+                currentPage={result.page}
+                totalPages={result.pageCount}
+                pathname="/authors"
+                searchParams={searchParams.toString()}
+                ariaLabel="صفحه‌بندی نویسنده‌ها"
+              />
             ) : null}
           </>
         )}
