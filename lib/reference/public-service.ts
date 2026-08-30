@@ -10,9 +10,8 @@ import type { BookPresentationEdition } from "@/lib/book/presentation";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 import { slugify } from "@/lib/book/slug";
 
-// Public profile pages must not read optional biography TOAST values.  The
-// importer/admin projection remains unchanged because those workflows need
-// the stored text.
+// Keep the public profile projection explicit while including the stored
+// profile copy used by the shared public reference view.
 export const PUBLIC_REFERENCE_COLUMNS = {
   id: ReferenceItem.id,
   type: ReferenceItem.type,
@@ -31,8 +30,8 @@ export const PUBLIC_REFERENCE_COLUMNS = {
   countryName: ReferenceItem.countryName,
   countrySlug: ReferenceItem.countrySlug,
   website: ReferenceItem.website,
-  description: sql<string | null>`null`,
-  shortDescription: sql<string | null>`null`,
+  description: ReferenceItem.description,
+  shortDescription: ReferenceItem.shortDescription,
 } as const;
 
 export interface ReferenceEntity {

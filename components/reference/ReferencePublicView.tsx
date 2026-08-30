@@ -1,30 +1,101 @@
-import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
+import { notFound, permanentRedirect } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 
 import BookArchiveFilters from "@/components/books/BookArchiveFilters";
+import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
 import CollapsibleContent from "@/components/content/CollapsibleContent";
 import PublicShell from "@/components/PublicShell";
 import AuthorAvatar from "@/components/reference/AuthorAvatar";
-import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
-import { getMagazineArticlesForAuthor, getMagazineArticlesForGenre } from "@/lib/blog/service";
+
+import {
+  getMagazineArticlesForAuthor,
+  getMagazineArticlesForGenre,
+} from "@/lib/blog/service";
 import {
   type BookArchiveScope,
   getBookArchivePageData,
 } from "@/lib/book/archive-service";
+import { getSafeAuthorArchiveReturnPath } from "@/lib/reference/author-navigation";
 import {
   getReferenceEntity,
   ROUTE_BY_TYPE,
 } from "@/lib/reference/public-service";
+import { buildPageMetadata } from "@/lib/seo/metadata";
 import {
   REFERENCE_TYPE_LABELS,
   type ReferenceTypeValue,
 } from "@/lib/validations/reference";
-import { buildPageMetadata } from "@/lib/seo/metadata";
-import { getSafeAuthorArchiveReturnPath } from "@/lib/reference/author-navigation";
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+type ArchiveConfig = {
+  searchPlaceholder: string;
+  hideGenreFilter?: boolean;
+  hideAuthorFilter?: boolean;
+  hidePublisherFilter?: boolean;
+  hideTranslatorFilter?: boolean;
+  hideCountryFilter?: boolean;
+};
+
+const ARCHIVE_SCOPE_BY_TYPE: Partial<
+  Record<ReferenceTypeValue, (name: string) => BookArchiveScope>
+> = {
+  AUTHOR: (name) => ({ fixedAuthor: name }),
+  GENRE: (name) => ({ fixedGenre: name }),
+  PUBLISHER: (name) => ({ fixedPublisher: name }),
+  TRANSLATOR: (name) => ({ fixedTranslator: name }),
+  COUNTRY: (name) => ({ fixedCountry: name }),
+};
+
+const ARCHIVE_CONFIG_BY_TYPE: Partial<
+  Record<ReferenceTypeValue, ArchiveConfig>
+> = {
+  AUTHOR: {
+    searchPlaceholder: "جست‌وجو در کتاب‌های این نویسنده",
+    hideAuthorFilter: true,
+  },
+  GENRE: {
+    searchPlaceholder: "جست‌وجو در کتاب‌های این ژانر",
+    hideGenreFilter: true,
+  },
+  PUBLISHER: {
+    searchPlaceholder: "جست‌وجو در کتاب‌های این ناشر",
+    hidePublisherFilter: true,
+  },
+  TRANSLATOR: {
+    searchPlaceholder: "جست‌وجو در کتاب‌های این مترجم",
+    hideTranslatorFilter: true,
+  },
+  COUNTRY: {
+    searchPlaceholder: "جست‌وجو در کتاب‌های این کشور",
+    hideCountryFilter: true,
+  },
+};
+
+async function getRelatedMagazinePosts(
+  type: ReferenceTypeValue,
+  entityId: string,
+) {
+  try {
+    if (type === "AUTHOR") {
+      return await getMagazineArticlesForAuthor(entityId);
+    }
+
+    if (type === "GENRE") {
+      return await getMagazineArticlesForGenre(entityId);
+    }
+
+    return [];
+  } catch {
+    // Magazine content must never block the public reference profile.
+    return [];
+  }
+}
 
 /**
- * نمای عمومی مشترک برای همه‌ی موجودیت‌های مرجع (نویسنده/مترجم/ناشر/کشور/ژانر).
- * یک‌بار نوشته می‌شود و در پنج مسیر استفاده می‌گردد.
+ * Shared public view for reference entities such as authors,
+ * translators, publishers, countries and genres.
  */
 export default async function ReferencePublicView({
   type,
@@ -33,11 +104,15 @@ export default async function ReferencePublicView({
 }: {
   type: ReferenceTypeValue;
   slugParam: string;
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: SearchParams;
 }) {
   const ref = decodeURIComponent(slugParam);
+
   const entity = await getReferenceEntity(type, ref);
-  if (!entity) notFound();
+
+  if (!entity) {
+    notFound();
+  }
 
   const authorArchiveReturnPath =
     type === "AUTHOR"
@@ -48,109 +123,87 @@ export default async function ReferencePublicView({
     const returnQuery = authorArchiveReturnPath
       ? `?from=${encodeURIComponent(authorArchiveReturnPath)}`
       : "";
+
     permanentRedirect(
       `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}${returnQuery}`,
     );
   }
 
-  const label = REFERENCE_TYPE_LABELS[type];
-  const archiveScopeByType: Partial<
-    Record<ReferenceTypeValue, BookArchiveScope>
-  > = {
-    AUTHOR: { fixedAuthor: entity.name },
-    GENRE: { fixedGenre: entity.name },
-    PUBLISHER: { fixedPublisher: entity.name },
-    TRANSLATOR: { fixedTranslator: entity.name },
-    COUNTRY: { fixedCountry: entity.name },
-  };
-  const archiveConfigByType: Partial<
-    Record<
-      ReferenceTypeValue,
-      {
-        searchPlaceholder: string;
-        hideGenreFilter?: boolean;
-        hideAuthorFilter?: boolean;
-        hidePublisherFilter?: boolean;
-        hideTranslatorFilter?: boolean;
-        hideCountryFilter?: boolean;
-      }
-    >
-  > = {
-    AUTHOR: {
-      searchPlaceholder: "جست‌وجو در کتاب‌های این نویسنده",
-      hideAuthorFilter: true,
-    },
-    GENRE: {
-      searchPlaceholder: "جست‌وجو در کتاب‌های این ژانر",
-      hideGenreFilter: true,
-    },
-    PUBLISHER: {
-      searchPlaceholder: "جست‌وجو در کتاب‌های این ناشر",
-      hidePublisherFilter: true,
-    },
-    TRANSLATOR: {
-      searchPlaceholder: "جست‌وجو در کتاب‌های این مترجم",
-      hideTranslatorFilter: true,
-    },
-    COUNTRY: {
-      searchPlaceholder: "جست‌وجو در کتاب‌های این کشور",
-      hideCountryFilter: true,
-    },
-  };
+  const archiveScopeFactory = ARCHIVE_SCOPE_BY_TYPE[type];
+  const archiveConfig = ARCHIVE_CONFIG_BY_TYPE[type];
 
-  const archiveScope = archiveScopeByType[type];
-  const archiveConfig = archiveConfigByType[type];
-  const usesArchiveFilters = Boolean(archiveScope && archiveConfig);
+  const archiveScope = archiveScopeFactory?.(entity.name);
 
-  const scopedArchiveData = usesArchiveFilters
-    ? await getBookArchivePageData(searchParams ?? {}, archiveScope)
-    : null;
-  const magazinePosts = await (async () => {
-    try {
-      return type === "AUTHOR"
-        ? await getMagazineArticlesForAuthor(entity.id)
-        : type === "GENRE"
-          ? await getMagazineArticlesForGenre(entity.id)
-          : [];
-    } catch {
-      // Magazine content is secondary to the public reference profile.
-      return [];
-    }
-  })();
+  const [scopedArchiveData, magazinePosts] = await Promise.all([
+    archiveScope && archiveConfig
+      ? getBookArchivePageData(searchParams ?? {}, archiveScope)
+      : Promise.resolve(null),
+
+    getRelatedMagazinePosts(type, entity.id),
+  ]);
+
   const description = entity.description?.trim();
+
   const authorArchiveHref =
-    type === "AUTHOR" ? authorArchiveReturnPath ?? "/authors" : null;
+    type === "AUTHOR" ? (authorArchiveReturnPath ?? "/authors") : null;
+
+  const hasMetaInformation = Boolean(
+    entity.birthYear ||
+    entity.deathYear ||
+    entity.countryName ||
+    entity.website,
+  );
 
   return (
     <PublicShell>
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
+      <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-5 sm:px-6 sm:pt-7">
+        {/* Back navigation */}
+        {authorArchiveHref ? (
+          <nav aria-label="ناوبری نویسنده" className="mb-3 sm:mb-4">
+            <Link
+              href={authorArchiveHref}
+              className="group inline-flex items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+            >
+              <ChevronRight
+                aria-hidden="true"
+                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                strokeWidth={2.25}
+              />
+
+              <span>بازگشت به نویسنده‌ها</span>
+            </Link>
+          </nav>
+        ) : null}
+
+        {/* Reference hero */}
         <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/60 shadow-[0_28px_100px_-72px_rgba(0,0,0,0.75)] backdrop-blur-md">
+          {/* Ambient background */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(103,146,124,0.18),transparent_34%),radial-gradient(circle_at_80%_30%,rgba(103,146,124,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_28%)]"
           />
+
+          {/* Subtle texture */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_center,white_1px,transparent_1px)] [background-size:14px_14px]"
           />
+
+          {/* Top highlight */}
           <div
             aria-hidden="true"
-            className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
+            className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
           />
 
-          <div className="relative w-[90%] mx-auto  py-6 sm:px-7 sm:py-8">
-            {authorArchiveHref ? (
-              <Link
-                href={authorArchiveHref}
-                className="inline-flex text-xs font-bold text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                بازگشت به نویسنده‌ها
-              </Link>
-            ) : null}
+          <div className="relative mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
             <div className="flex flex-col gap-6">
-              <div className="flex items-center gap-4">
+              {/* Identity */}
+              <header className="flex items-center gap-4 sm:gap-5">
                 <div className="relative shrink-0">
-                  <div className="pointer-events-none absolute inset-2 rounded-full bg-primary/15 blur-2xl" />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-2 rounded-full bg-primary/15 blur-2xl"
+                  />
 
                   <AuthorAvatar
                     name={entity.name}
@@ -166,40 +219,41 @@ export default async function ReferencePublicView({
                   />
                 </div>
 
-                <div className="min-w-0 text-right">
+                <div className="min-w-0 flex-1 text-right">
                   <h1 className="line-clamp-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl md:text-[2.2rem]">
                     {entity.name}
                   </h1>
+
                   {entity.originalName ? (
                     <p
                       dir="ltr"
-                      className="mt-2 text-sm font-medium text-muted-foreground"
+                      className="mt-1.5 w-fit text-sm font-medium text-muted-foreground sm:mt-2"
                     >
                       {entity.originalName}
                     </p>
                   ) : null}
 
-                  {entity.birthYear ||
-                  entity.deathYear ||
-                  entity.countryName ||
-                  entity.website ? (
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {hasMetaInformation ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
                       {entity.birthYear || entity.deathYear ? (
-                        <span className="rounded-full border border-border/60 bg-background/60 px-3 py-1">
-                          {`${entity.birthYear ?? "?"} - ${entity.deathYear ?? "اکنون"}`}
+                        <span className="inline-flex items-center rounded-full border border-border/60 bg-background/55 px-3 py-1.5">
+                          {entity.birthYear ?? "؟"} -{" "}
+                          {entity.deathYear ?? "اکنون"}
                         </span>
                       ) : null}
+
                       {entity.countryName ? (
-                        <span className="rounded-full border border-border/60 bg-background/60 px-3 py-1">
+                        <span className="inline-flex items-center rounded-full border border-border/60 bg-background/55 px-3 py-1.5">
                           {entity.countryName}
                         </span>
                       ) : null}
+
                       {entity.website ? (
                         <a
                           href={entity.website}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-full border border-border/60 bg-background/60 px-3 py-1 transition hover:border-primary/40 hover:text-primary"
+                          className="inline-flex items-center rounded-full border border-border/60 bg-background/55 px-3 py-1.5 transition-colors hover:border-primary/40 hover:text-primary"
                         >
                           وب‌سایت
                         </a>
@@ -207,11 +261,12 @@ export default async function ReferencePublicView({
                     </div>
                   ) : null}
                 </div>
-              </div>
+              </header>
 
+              {/* Biography / description */}
               {description ? (
                 <CollapsibleContent
-                  className="border-t border-border/50 pt-5"
+                  className="border-t border-border/50 pt-5 sm:pt-6"
                   fadeClassName="from-card via-card/70"
                 >
                   <p className="max-w-none whitespace-pre-line break-words text-justify text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
@@ -223,8 +278,9 @@ export default async function ReferencePublicView({
           </div>
         </section>
 
-        <div className="mt-6">
-          {scopedArchiveData && archiveConfig ? (
+        {/* Books */}
+        {scopedArchiveData && archiveConfig ? (
+          <section className="mt-6">
             <BookArchiveFilters
               filters={scopedArchiveData.filters}
               options={scopedArchiveData.options}
@@ -236,10 +292,22 @@ export default async function ReferencePublicView({
               hideTranslatorFilter={archiveConfig.hideTranslatorFilter}
               hideCountryFilter={archiveConfig.hideCountryFilter}
             />
-          ) : null}
-        </div>
-        <RelatedMagazineArticles posts={magazinePosts} title={type === "GENRE" ? `مطالب مجله درباره ${entity.name}` : "از مجله قفسه"} description={type === "AUTHOR" ? `مطالب مرتبط با ${entity.name}` : undefined} />
-      </div>
+          </section>
+        ) : null}
+
+        {/* Magazine */}
+        <RelatedMagazineArticles
+          posts={magazinePosts}
+          title={
+            type === "GENRE"
+              ? `مطالب مجله درباره ${entity.name}`
+              : "از مجله قفسه"
+          }
+          description={
+            type === "AUTHOR" ? `مطالب مرتبط با ${entity.name}` : undefined
+          }
+        />
+      </main>
     </PublicShell>
   );
 }
@@ -249,11 +317,17 @@ export async function buildReferenceMetadata(
   slugParam: string,
 ) {
   const entity = await getReferenceEntity(type, decodeURIComponent(slugParam));
+
   const label = REFERENCE_TYPE_LABELS[type];
+
   if (!entity) {
-    return { title: `${label} یافت نشد | قفسه` };
+    return {
+      title: `${label} یافت نشد | قفسه`,
+    };
   }
+
   const image = entity.bannerImage || entity.coverImage;
+
   return buildPageMetadata({
     title: entity.seoTitle || `کتاب‌های ${entity.name}`,
     description:
