@@ -194,6 +194,13 @@ export interface AdminOverview {
     author: string;
     createdAt: Date;
   }[];
+  recentActivities: {
+    id: string;
+    userName: string;
+    action: string;
+    target: string;
+    createdAt: Date;
+  }[];
 }
 
 export async function getAdminOverview(): Promise<AdminOverview> {
@@ -207,6 +214,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     recentUsers,
     recentBooks,
     recentPending,
+    recentActivities,
   ] = await Promise.all([
     db.select({ c: COUNT }).from(User),
     db.select({ c: COUNT }).from(CatalogBook),
@@ -253,6 +261,26 @@ export async function getAdminOverview(): Promise<AdminOverview> {
       .where(eq(CatalogBook.status, "PENDING"))
       .orderBy(desc(CatalogBook.createdAt))
       .limit(6),
+    db.execute<{
+      id: string;
+      user_name: string;
+      action: string;
+      target: string;
+      created_at: Date;
+    }>(sql`
+      SELECT id, user_name, action, target, created_at FROM (
+        SELECT b.id, COALESCE(u.name, u.username, 'کاربر') AS user_name,
+          CASE WHEN b.review IS NOT NULL AND b.review <> '' THEN 'یک ریویو ثبت کرد' ELSE 'کتابی به کتابخانه اضافه کرد' END AS action,
+          b.title AS target, b.created_at
+        FROM "Book" b JOIN "User" u ON u.id = b.user_id
+        UNION ALL
+        SELECT q.id, COALESCE(u.name, u.username, 'کاربر'), 'یک تکه‌کتاب ثبت کرد', COALESCE(cb.title, b.title, 'کتاب'), q.created_at
+        FROM "Quote" q JOIN "User" u ON u.id = q.user_id LEFT JOIN "CatalogBook" cb ON cb.id = q.catalog_book_id LEFT JOIN "Book" b ON b.id = q.book_id
+        UNION ALL
+        SELECT n.id, COALESCE(u.name, u.username, 'کاربر'), 'یک یادداشت منتشر کرد', COALESCE(cb.title, b.title, 'کتاب'), n.created_at
+        FROM "PublishedBookNote" n JOIN "User" u ON u.id = n.user_id LEFT JOIN "CatalogBook" cb ON cb.id = n.catalog_book_id LEFT JOIN "Book" b ON b.id = n.book_id
+      ) activity ORDER BY created_at DESC LIMIT 6
+    `),
   ]);
 
   return {
@@ -267,6 +295,13 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     recentUsers,
     recentBooks,
     recentPending,
+    recentActivities: recentActivities.rows.map((activity) => ({
+      id: activity.id,
+      userName: activity.user_name,
+      action: activity.action,
+      target: activity.target,
+      createdAt: activity.created_at,
+    })),
   };
 }
 
@@ -353,6 +388,7 @@ export interface AdminBookRow {
   coverImage: string | null;
   editionCount: number;
   linkCount: number;
+  libraryCount: number;
   createdByName: string | null;
   createdAt: Date;
 }
@@ -400,9 +436,11 @@ export async function adminListCatalogBooks(opts: {
           select count(*) from "BookExternalLink" bel
           where bel.catalog_book_id = ${CatalogBook.id}
         )::int`,
+        libraryCount: sql<number>`count(distinct ${Book.id})::int`,
       })
       .from(CatalogBook)
       .leftJoin(BookEdition, eq(BookEdition.catalogBookId, CatalogBook.id))
+      .leftJoin(Book, eq(Book.catalogBookId, CatalogBook.id))
       .leftJoin(User, eq(CatalogBook.createdById, User.id))
       .where(where)
       .groupBy(CatalogBook.id, User.id)

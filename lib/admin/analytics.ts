@@ -51,7 +51,7 @@ function fillTrend(days: AnalyticsPeriod, start: Date, rows: { day: string; page
 
 export async function getAdminAnalytics(period: AnalyticsPeriod) {
   const { start, end, previousStart } = periodBounds(period);
-  const [summaryRows, trendRows, bookRows, authorRows, pageRows, engagementRows, totalsRows, todayRows] = await Promise.all([
+  const [summaryRows, trendRows, bookRows, authorRows, pageRows, engagementRows, totalsRows, todayRows, recentSessions] = await Promise.all([
     query<{ pageViews: number; visitors: number; signedInVisitors: number; guestVisitors: number; newVisitors: number }>(sql`
       SELECT count(*)::int AS "pageViews",
         count(DISTINCT "visitor_id")::int AS "visitors",
@@ -123,12 +123,25 @@ export async function getAdminAnalytics(period: AnalyticsPeriod) {
       SELECT count(*)::int AS "pageViews", count(DISTINCT "visitor_id")::int AS "visitors"
       FROM "AnalyticsPageView" WHERE "created_at" >= date_trunc('day', now())
     `),
+    query<{ visitorId: string; userName: string; username: string | null; path: string; ipAddress: string | null; userAgent: string | null; referrer: string | null; createdAt: Date }>(sql`
+      SELECT p."visitor_id" AS "visitorId", COALESCE(u."name", 'مهمان') AS "userName", u."username", p."path",
+        p."ip_address" AS "ipAddress", p."user_agent" AS "userAgent",
+        p."referrer", p."created_at" AS "createdAt"
+      FROM "AnalyticsPageView" p LEFT JOIN "User" u ON u."id" = p."user_id"
+      ORDER BY p."created_at" DESC LIMIT 30
+    `),
   ]);
 
   const summary = summaryRows[0] ?? { pageViews: 0, visitors: 0, signedInVisitors: 0, guestVisitors: 0, newVisitors: 0 };
   const [previous] = await query<{ pageViews: number; visitors: number }>(sql`
     SELECT count(*)::int AS "pageViews", count(DISTINCT "visitor_id")::int AS "visitors"
     FROM "AnalyticsPageView" WHERE "created_at" >= ${previousStart} AND "created_at" < ${start}
+  `);
+  const [yesterday] = await query<{ visitors: number }>(sql`
+    SELECT count(DISTINCT "visitor_id")::int AS "visitors"
+    FROM "AnalyticsPageView"
+    WHERE "created_at" >= date_trunc('day', now()) - interval '1 day'
+      AND "created_at" < date_trunc('day', now())
   `);
 
   return {
@@ -140,12 +153,14 @@ export async function getAdminAnalytics(period: AnalyticsPeriod) {
       visitorsChange: percentageChange(summary.visitors, previous?.visitors ?? 0),
     },
     today: todayRows[0] ?? { pageViews: 0, visitors: 0 },
+    yesterday: yesterday?.visitors ?? 0,
     trend: fillTrend(period, start, trendRows),
     popularBooks: bookRows,
     popularAuthors: authorRows,
     popularPages: pageRows,
     engagement: engagementRows[0] ?? { libraryAdds: 0, startedReading: 0, finishedReading: 0, quotes: 0, publicNotes: 0, privateNotes: 0, activeUsers: 0, newUsers: 0 },
     totals: totalsRows[0] ?? { users: 0, catalogBooks: 0, editions: 0, pendingBooks: 0, pendingEditions: 0, pendingReferences: 0, quotes: 0, notes: 0 },
+    recentSessions,
   };
 }
 

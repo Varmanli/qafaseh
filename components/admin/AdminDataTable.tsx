@@ -98,8 +98,10 @@ export function AdminDataTableSearch({
   className?: string;
 }) {
   return (
-    <div className={cn("relative w-full min-w-0 flex-1 sm:min-w-[280px]", className)}>
-      <Search className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <div className={cn("group relative w-full min-w-0 flex-1 sm:min-w-[280px]", className)}>
+      <span className="pointer-events-none absolute right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl border border-[#7de2b4]/20 bg-[#7de2b4]/10 text-[#7de2b4] transition-colors group-focus-within:bg-[#7de2b4]/15">
+        <Search className="h-4 w-4" />
+      </span>
 
       <input
         type="search"
@@ -107,7 +109,7 @@ export function AdminDataTableSearch({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="h-11 w-full rounded-2xl border border-border/70 bg-card/45 pe-10 ps-4 text-sm font-medium text-foreground shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)] outline-none backdrop-blur-md transition-colors placeholder:text-muted-foreground/70 hover:border-border focus-visible:border-primary/50 focus-visible:ring-[3px] focus-visible:ring-primary/15"
+        className="h-12 w-full rounded-2xl border border-white/10 bg-[#101c17] pr-14 pl-4 text-sm font-bold text-white shadow-[0_14px_38px_rgba(0,0,0,0.16)] outline-none transition-all placeholder:text-white/45 hover:border-[#7de2b4]/30 focus-visible:border-[#7de2b4]/60 focus-visible:ring-[3px] focus-visible:ring-[#7de2b4]/15"
       />
     </div>
   );
@@ -134,7 +136,7 @@ export function AdminDataTable({
   minWidth?: number;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/40 p-3 shadow-[0_28px_90px_-60px_rgba(0,0,0,0.95)] backdrop-blur-md sm:p-4">
+    <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#0e1914] p-3 shadow-[0_28px_90px_-60px_rgba(0,0,0,0.95)] sm:p-4">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-white/20 to-transparent" />
 
       <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/6 blur-3xl" />
@@ -142,7 +144,7 @@ export function AdminDataTable({
 
       <div className="relative overflow-x-auto">
         <table
-          className="w-full border-separate border-spacing-x-2 border-spacing-y-3 text-right text-sm"
+          className="w-full border-collapse text-right text-sm"
           style={{ minWidth: `${minWidth}px` }}
         >
           <thead>
@@ -151,14 +153,14 @@ export function AdminDataTable({
                 <th
                   key={col.key}
                   className={cn(
-                    "whitespace-nowrap px-0 pb-1.5 pt-0 text-xs font-black tracking-tight text-foreground/90",
+                    "whitespace-nowrap px-2 pb-1.5 pt-0 text-center text-xs font-black tracking-tight text-white/65",
                     alignClass[col.align ?? "center"],
                     col.className,
                   )}
                 >
                   <div
                     className={cn(
-                      "flex min-h-11 flex-col justify-center rounded-2xl border border-border/70 bg-background/55 px-4 py-2.5 shadow-[0_16px_46px_-40px_rgba(0,0,0,0.9)] backdrop-blur-md",
+                      "flex min-h-10 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-2.5",
                       contentAlignClass[col.align ?? "center"],
                     )}
                   >
@@ -213,11 +215,8 @@ export function AdminDataTableRow({
   return (
     <tr
       className={cn(
-        "group align-middle",
-        "[&>td:first-child>div]:border-primary/25",
-        "[&>td:first-child>div]:bg-card/75",
-        "[&>td:first-child>div]:font-semibold",
-        "[&>td:first-child>div]:shadow-[0_22px_66px_-50px_rgba(128,167,150,0.7)]",
+        "group align-middle border-b border-white/[0.07] last:border-b-0",
+        "[&>td>div]:bg-transparent",
         className,
       )}
     >
@@ -229,7 +228,7 @@ export function AdminDataTableRow({
 export function AdminDataTableCell({
   children,
   className,
-  align = "center",
+  align = "end",
   islandClassName,
 }: {
   children: ReactNode;
@@ -241,8 +240,8 @@ export function AdminDataTableCell({
     <td className={cn("px-0 py-0 align-middle", alignClass[align], className)}>
       <div
         className={cn(
-          "flex min-h-[58px] flex-col justify-center rounded-[1.25rem] border border-border/70 bg-card/55 px-4 py-3 text-foreground shadow-[0_18px_56px_-50px_rgba(0,0,0,0.9)] backdrop-blur-md transition-all duration-200",
-          "group-hover:border-primary/30 group-hover:bg-card/75",
+          "flex min-h-[66px] flex-col justify-center px-4 py-3 text-white/85 transition-all duration-200",
+          "group-hover:bg-white/[0.025]",
           contentAlignClass[align],
           islandClassName,
         )}

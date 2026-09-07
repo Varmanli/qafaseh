@@ -15,9 +15,8 @@ export function AuthBrandPanel({
 
       <div className="relative z-10 flex px-10 pt-10">
         <BrandLogo
-          {...branding}
-          size="auth"
-          fallbackClassName="border-white/10 bg-white/8 text-emerald-200 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur-xl"
+        {...branding}
+        size="auth"
         />
       </div>
 
@@ -61,7 +60,7 @@ export function AuthBrandPanel({
       </div>
 
       <div className="relative z-10 px-10 pb-10 text-sm text-white/38">
-        © {new Date().getFullYear()} {branding.siteName}
+        © {new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric" }).format(new Date())} {branding.siteName}
       </div>
     </aside>
   );

@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
   if (!path) return new NextResponse(null, { status: 204 });
 
   const visitorId = request.cookies.get(ANALYTICS_VISITOR_COOKIE)?.value || randomUUID();
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ipAddress = forwardedFor || request.headers.get("x-real-ip") || null;
   const [user, content] = await Promise.all([
     getCurrentUser(),
     Promise.resolve(describeAnalyticsContent(path)),
@@ -33,6 +35,9 @@ export async function POST(request: NextRequest) {
     visitorId,
     userId: user?.id,
     path: content.path,
+    ipAddress,
+    userAgent: request.headers.get("user-agent"),
+    referrer: request.headers.get("referer"),
     contentKind: content.contentKind,
     contentSlug: content.contentSlug,
   });

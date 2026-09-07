@@ -1230,13 +1230,9 @@ export default function IranKetabDraftReview({
         </Card>
       ) : null}
       {readiness !== "SUCCESS" ? (
-        <div className="sticky bottom-0 z-20 -mx-3 border-t border-border/70 bg-background/90 px-3 py-3 shadow-[0_-12px_30px_-20px_hsl(var(--foreground)/0.45)] backdrop-blur-xl sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-background/95 px-4 py-3 shadow-[0_-12px_30px_-20px_hsl(var(--foreground)/0.45)] backdrop-blur-xl sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs leading-6 text-muted-foreground">
-              <span className="font-bold text-foreground">اقدام بعدی: </span>
-              {workflowReadinessLabel(readiness)}
-              {!canContinue && readiness !== "COMMITTING" ? " — ابتدا موارد لازم را بررسی کنید." : ""}
-            </div>
+            <div aria-hidden="true" />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 type="button"
@@ -1334,34 +1330,13 @@ function WorkflowActionSummary({
   };
   const item = content[readiness];
   return (
-    <div
-      className={
-        compact
-          ? "min-w-[240px]"
-          : "rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] to-transparent p-4"
-      }
+    <Button
+      type="button"
+      className="h-11 rounded-xl px-6 font-black shadow-sm"
+      disabled={disabled || readiness === "COMMITTING"}
+      onClick={onAction}
     >
-      {!compact ? (
-        <p className="mb-2 text-xs font-bold text-muted-foreground">
-          اقدام بعدی: {workflowReadinessLabel(readiness)}
-        </p>
-      ) : null}
-      <Button
-        type="button"
-        className="h-11 w-full rounded-xl px-6 font-black shadow-sm sm:w-auto"
-        disabled={disabled || readiness === "COMMITTING"}
-        onClick={onAction}
-      >
-        {item.action}
-      </Button>
-      {item.reason ? (
-        <p
-          className="mt-2 max-w-md text-xs leading-6 text-muted-foreground"
-          role="status"
-        >
-          {item.reason}
-        </p>
-      ) : null}
-    </div>
+      {item.action}
+    </Button>
   );
 }

@@ -242,7 +242,7 @@ export default function SiteFooter({
             md:text-right
           "
         >
-          <p>© ۲۰۲۶ {branding.siteName || "قفسه"} — تمامی حقوق محفوظ است.</p>
+          <p>© {new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric" }).format(new Date())} {branding.siteName || "قفسه"} — تمامی حقوق محفوظ است.</p>
 
           <p>ساخته‌شده برای خواندن، یادداشت‌کردن و ساختن یک قفسه شخصی.</p>
         </div>

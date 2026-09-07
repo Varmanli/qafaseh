@@ -39,18 +39,18 @@ function Brand({
 function UserChip({ user }: { user: AdminUser }) {
   const name = user.name?.trim() || user.username || "مدیر";
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5">
-      <Avatar className="h-9 w-9 ring-1 ring-inset ring-border">
+    <div className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-[#101c17] p-2.5 shadow-[0_14px_38px_rgba(0,0,0,0.16)]">
+      <Avatar className="h-9 w-9 ring-1 ring-inset ring-[#7de2b4]/20">
         {user.image && (
           <AvatarImage src={user.image} alt={name} className="object-cover" />
         )}
-        <AvatarFallback className="bg-muted text-sm font-bold text-foreground">
+        <AvatarFallback className="bg-[#7de2b4]/10 text-sm font-bold text-[#7de2b4]">
           {name.charAt(0)}
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-        <p className="truncate text-[11px] text-muted-foreground">
+        <p className="truncate text-sm font-bold text-white/90">{name}</p>
+        <p className="truncate text-[11px] text-white/40">
           مدیر سامانه
         </p>
       </div>
@@ -121,7 +121,7 @@ export default function AdminShell({
       </header>
 
       <div className="flex">
-        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-l border-border p-4 lg:flex lg:flex-col">
+        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-l border-white/10 bg-[#0d1713] p-3 lg:flex lg:flex-col">
           <div className="flex-1">
             <AdminNav />
           </div>

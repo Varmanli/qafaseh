@@ -9,5 +9,5 @@ export default function AdminRichTextEditor(props: {
   className?: string;
   stickyToolbar?: boolean;
 }) {
-  return <RichTextEditor {...props} variant="admin" enableBookEmbeds />;
+  return <RichTextEditor {...props} variant="admin" enableBookEmbeds iconOnly />;
 }

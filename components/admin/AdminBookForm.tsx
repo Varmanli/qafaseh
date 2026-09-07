@@ -460,7 +460,7 @@ export default function AdminBookForm({
   return (
     <div className="mx-auto max-w-7xl pb-10">
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-6">
+        <div className="relative z-0 space-y-6">
           <AdminFormSection title="اطلاعات اصلی کتاب">
             <div className="grid gap-5 lg:grid-cols-2">
               <AdminFormField label="عنوان کتاب" required error={errors.title}>
@@ -615,31 +615,15 @@ export default function AdminBookForm({
             </div>
           </AdminFormSection>
 
-          <AdminFormSection title="تصویر جلد">
-            <div>
-              <AdminFormField label="تصویر جلد">
-                <ImageUploader
-                  value={cover}
-                  onChange={(url) => setCover(url || null)}
-                  folder="covers"
-                  aspect="cover"
-                  placeholder="برای انتخاب جلد کلیک کن یا فایل را رها کن"
-                  description="JPG، PNG یا WEBP تا ۵۰۰ کیلوبایت"
-                  disabled={saving}
-                  className="max-w-[220px]"
-                />
-              </AdminFormField>
-            </div>
-          </AdminFormSection>
-
           <AdminFormSection title="توضیحات">
-            <AdminFormField label="توضیحات" error={errors.description}>
+            <div>
               <AdminRichTextEditor
                 value={form.description}
                 onChange={(value) => setField("description", value)}
                 placeholder="خلاصه، فضای اثر، نکات مهم یا معرفی کوتاه کتاب را اینجا بنویس..."
               />
-            </AdminFormField>
+              {errors.description ? <p className="mt-2 text-xs font-medium text-destructive">{errors.description}</p> : null}
+            </div>
           </AdminFormSection>
 
           <AdminFormSection title="لینک‌های خرید و مطالعه">
@@ -647,15 +631,25 @@ export default function AdminBookForm({
           </AdminFormSection>
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-          <div className="rounded-[1.8rem] border border-primary/15 bg-primary/8 p-5 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.85)]">
-            <p className="text-sm font-black text-foreground">اکشن‌ها</p>
+        <aside className="relative z-30 space-y-3 pt-2 xl:sticky xl:top-20 xl:self-start">
+          <div className="overflow-visible rounded-[1.5rem] border border-primary/15 bg-gradient-to-b from-card to-background/70 p-4 shadow-[0_24px_70px_-56px_rgba(0,0,0,0.85)]">
+            <AdminFormField label="جلد کتاب" className="text-right">
+              <ImageUploader
+                value={cover}
+                onChange={(url) => setCover(url || null)}
+                folder="covers"
+                aspect="cover"
+                placeholder="انتخاب تصویر جلد"
+                disabled={saving}
+                className="mx-auto max-w-[190px]"
+              />
+            </AdminFormField>
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-4 space-y-2 border-t border-border/50 pt-4">
               <Button
                 onClick={submit}
                 disabled={saving || !hasRequiredValues || (isEdit && !isDirty)}
-                className="h-12 w-full rounded-2xl gap-2"
+                className="h-11 w-full rounded-xl gap-2"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -670,7 +664,7 @@ export default function AdminBookForm({
                 variant="ghost"
                 onClick={() => router.push("/admin/books")}
                 disabled={saving}
-                className="h-12 w-full rounded-2xl"
+                className="h-10 w-full rounded-xl"
               >
                 <ArrowRight className="h-4 w-4" />
                 بازگشت به لیست کتاب‌ها
@@ -679,15 +673,22 @@ export default function AdminBookForm({
           </div>
 
           {isEdit ? (
-            <div className="space-y-4 rounded-[1.8rem] border border-border/70 bg-card p-5">
-              <AdminFormField label="وضعیت تأیید">
+            <div className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-card/90 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]">
+              <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+                <span className="text-sm font-black">وضعیت انتشار</span>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400">
+                  {form.status === "APPROVED" ? "فعال" : form.status === "PENDING" ? "در انتظار" : "ردشده"}
+                </span>
+              </div>
+              <div className="space-y-3 p-4">
+              <div className="w-full">
                 <Select
                   value={form.status}
                   onValueChange={(v) =>
                     setField("status", v as FormState["status"])
                   }
                 >
-                  <SelectTrigger className="h-11 rounded-2xl">
+                  <SelectTrigger className="h-12 w-full rounded-xl border-border/70 bg-background/70 px-4">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -696,31 +697,28 @@ export default function AdminBookForm({
                     <SelectItem value="REJECTED">ردشده</SelectItem>
                   </SelectContent>
                 </Select>
-              </AdminFormField>
+              </div>
 
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-3">
-                <label className="flex items-start gap-2 text-xs leading-6 text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={regenerateSlug}
-                    onChange={(e) => setRegenerateSlug(e.target.checked)}
-                    className="mt-1 h-4 w-4 accent-[var(--primary)]"
-                  />
-                  <span>
-                    <span className="flex items-center gap-1 font-bold text-foreground">
-                      <Link2 className="h-3.5 w-3.5" />
-                      بازتولید اسلاگ عمومی
-                    </span>
-                    آدرس فعلی کتاب پایدار می‌ماند. فقط اگر این گزینه را فعال کنی،
-                    اسلاگ از روی عنوان جدید دوباره ساخته می‌شود (ممکن است لینک
-                    قبلی را بشکند).
-                    {initialValues?.slug ? (
-                      <span dir="ltr" className="mt-1 block font-mono text-[11px]">
-                        /book/{initialValues.slug}
-                      </span>
-                    ) : null}
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/60 p-3 transition-colors hover:border-primary/30">
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Link2 className="h-4 w-4" />
                   </span>
-                </label>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-bold text-foreground">لینک عمومی کتاب</span>
+                    <span dir="ltr" className="mt-1 block truncate font-mono text-[10px] text-muted-foreground">
+                      {initialValues?.slug ? `/book/${initialValues.slug}` : "با عنوان کتاب ساخته می‌شود"}
+                    </span>
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={regenerateSlug}
+                  onChange={(e) => setRegenerateSlug(e.target.checked)}
+                  className="h-5 w-5 shrink-0 accent-[var(--primary)]"
+                  aria-label="بازسازی لینک عمومی"
+                />
+              </label>
               </div>
             </div>
           ) : null}

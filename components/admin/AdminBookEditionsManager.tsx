@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import {
   compareEditionSets,
   findDuplicateEditionIds,
@@ -366,9 +367,9 @@ export default function AdminBookEditionsManager({
 
   return (
     <>
-      <AdminFormSection title="نسخه‌ها و ترجمه‌ها">
-        <div className="space-y-5">
-          <div className="relative overflow-hidden rounded-[1.6rem] border border-border/70 bg-gradient-to-br from-background/80 via-card/70 to-background/50 p-4 shadow-sm">
+      <AdminFormSection title="نسخه‌ها و ترجمه‌ها" className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-4xl space-y-4">
+          <div className="relative overflow-hidden rounded-[1.4rem] border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-card/80 to-background/50 p-4 shadow-sm">
             <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-primary/10 blur-3xl" />
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-primary/25 to-transparent" />
 
@@ -378,47 +379,17 @@ export default function AdminBookEditionsManager({
                   {bookTitle}
                 </p>
 
-                {originalTitle ? (
-                  <p
-                    dir="ltr"
-                    className="mt-1 line-clamp-1 text-xs font-semibold text-muted-foreground"
-                  >
-                    {originalTitle}
-                  </p>
-                ) : null}
-
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  {contextLine}
-                </p>
-
-                <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                  برای کتاب کاملاً متفاوت، کتاب جدید بسازید. برای ترجمه، ناشر یا
-                  چاپ متفاوت از همین اثر، نسخه جدید اضافه کنید.
-                </p>
               </div>
 
-              <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-primary/15 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
+              <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
                 {items.length.toLocaleString("fa-IR")} نسخه
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-black text-foreground">
-                نسخه اصلی کتاب
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                این نسخه در کارت‌ها و صفحه کتاب به صورت پیش‌فرض نمایش داده می‌شود.
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-[1.7rem] border border-border/70 bg-background/45 p-4">
-            <p className="text-xs leading-6 text-muted-foreground">
-              نسخه پیش‌فرض نمایش
-            </p>
-            <p className="mt-1 text-sm font-bold text-foreground">
+          <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/50 px-4 py-3 shadow-sm">
+            <span className="text-xs font-bold text-muted-foreground">نسخه اصلی</span>
+            <p className="text-sm font-bold text-foreground">
               {items.find((edition) => edition.id === primaryEditionId)
                 ?.editionLabel ||
                 items.find((edition) => edition.id === primaryEditionId)
@@ -429,21 +400,17 @@ export default function AdminBookEditionsManager({
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/30 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black text-foreground">
                 نسخه‌های ثبت‌شده
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                هر نسخه می‌تواند مترجم، ناشر، جلد، شابک و لینک‌های مخصوص خودش را
-                داشته باشد.
               </p>
             </div>
 
             <Button
               type="button"
               onClick={openCreate}
-              className="h-11 rounded-2xl px-4 font-bold shadow-lg shadow-primary/10"
+              className="h-10 rounded-xl px-4 font-bold shadow-lg shadow-primary/10"
             >
               <Plus className="h-4 w-4" />
               افزودن نسخه / ترجمه
@@ -467,16 +434,13 @@ export default function AdminBookEditionsManager({
                     : null,
                 ].filter(Boolean);
 
-                const secondaryMeta = [
-                  edition.isbn13 ? `شابک ۱۳: ${edition.isbn13}` : null,
-                  edition.isbn10 ? `شابک ۱۰: ${edition.isbn10}` : null,
-                  edition.sourceName ? `منبع: ${edition.sourceName}` : null,
-                ].filter(Boolean);
-
                 return (
                   <div
                     key={edition.id}
-                    className="group relative overflow-hidden rounded-[1.7rem] border border-border/70 bg-card/75 p-4 shadow-[0_18px_60px_-46px_rgba(0,0,0,0.45)] transition-colors hover:border-primary/25 hover:bg-card"
+                    className={cn(
+                      "group relative overflow-hidden rounded-[1.5rem] border bg-card/75 p-4 shadow-[0_18px_60px_-46px_rgba(0,0,0,0.45)] transition-all hover:-translate-y-0.5 hover:bg-card",
+                      isCurrentPrimary ? "border-primary/35 ring-1 ring-primary/10" : "border-border/70 hover:border-primary/25",
+                    )}
                   >
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-primary/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
@@ -536,20 +500,6 @@ export default function AdminBookEditionsManager({
                             </p>
                           )}
 
-                          {secondaryMeta.length > 0 ? (
-                            <p className="mt-3 line-clamp-2 text-xs leading-6 text-muted-foreground">
-                              {secondaryMeta.join(" • ")}
-                            </p>
-                          ) : null}
-
-                          {edition.coverFilename ? (
-                            <p className="mt-2 line-clamp-1 text-[11px] leading-5 text-muted-foreground/80">
-                              نام پیشنهادی فایل:{" "}
-                              <span dir="ltr" className="font-mono">
-                                {edition.coverFilename}
-                              </span>
-                            </p>
-                          ) : null}
                         </div>
                       </div>
 

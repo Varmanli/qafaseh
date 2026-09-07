@@ -100,36 +100,6 @@ export const ADMIN_NAV: AdminNavEntry[] = [
           icon: FileText,
         },
         {
-          href: "/admin/books/import-links",
-          label: "ورود از ایران‌کتاب",
-          icon: SearchCheck,
-        },
-        {
-          href: "/admin/books/import-history",
-          label: "تاریخچه ورود ایران‌کتاب",
-          icon: FileText,
-        },
-        {
-          href: "/admin/iranketab-discovery/items",
-          label: "نامزدهای کشف ایران‌کتاب",
-          icon: SearchCheck,
-        },
-        {
-          href: "/admin/iranketab-discovery/sources",
-          label: "منابع کشف ایران‌کتاب",
-          icon: Tags,
-        },
-        {
-          href: "/admin/iranketab-discovery/jobs",
-          label: "صف ورود کشف ایران‌کتاب",
-          icon: FileText,
-        },
-        {
-          href: "/admin/iranketab-discovery/dashboard",
-          label: "داشبورد کشف ایران‌کتاب",
-          icon: BarChart3,
-        },
-        {
           href: "/admin/books/covers",
           label: "مدیریت کاورها",
           icon: Images,
@@ -139,6 +109,22 @@ export const ADMIN_NAV: AdminNavEntry[] = [
           label: "تأیید اطلاعات جدید",
           icon: BadgeCheck,
         },
+      ],
+    },
+  },
+  {
+    type: "group",
+    group: {
+      id: "book-import",
+      label: "ورود کتاب",
+      icon: SearchCheck,
+      children: [
+        { href: "/admin/books/import-links", label: "ورود از ایران‌کتاب", icon: SearchCheck },
+        { href: "/admin/books/import-history", label: "تاریخچه ورود ایران‌کتاب", icon: FileText },
+        { href: "/admin/iranketab-discovery/items", label: "نامزدهای کشف ایران‌کتاب", icon: SearchCheck },
+        { href: "/admin/iranketab-discovery/sources", label: "منابع کشف ایران‌کتاب", icon: Tags },
+        { href: "/admin/iranketab-discovery/jobs", label: "صف ورود کشف ایران‌کتاب", icon: FileText },
+        { href: "/admin/iranketab-discovery/dashboard", label: "داشبورد کشف ایران‌کتاب", icon: BarChart3 },
       ],
     },
   },
@@ -338,19 +324,14 @@ function NavGroup({
 
   return (
     <div
-      className={cn(
-        "rounded-[1.4rem] border transition-colors",
-        active || open
-          ? "border-primary/15 bg-primary/[0.035]"
-          : "border-transparent",
-      )}
+      className="rounded-[1.4rem]"
     >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         className={cn(
-          "group flex w-full items-center justify-between gap-3 rounded-[1.35rem] px-3 py-3 text-right text-sm font-black transition-all",
+          "group flex w-full items-center justify-between gap-3 rounded-[1.35rem] px-3 py-3 text-right text-[13px] font-black transition-all",
           active
             ? "text-primary"
             : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
@@ -410,16 +391,12 @@ export default function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
     useState<Record<string, boolean>>(defaultOpenGroups);
 
   useEffect(() => {
-    setOpenGroups((current) => ({
-      ...current,
-      ...getDefaultOpenGroups(pathname),
-    }));
+    setOpenGroups(getDefaultOpenGroups(pathname));
   }, [pathname]);
 
   function toggleGroup(id: string) {
     setOpenGroups((current) => ({
-      ...current,
-      [id]: !current[id],
+      ...Object.fromEntries(Object.keys(current).map((groupId) => [groupId, groupId === id ? !current[id] : false])),
     }));
   }
 

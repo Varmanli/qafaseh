@@ -96,7 +96,9 @@ function estimateReadingTime(html: string) {
   const plain = stripHtml(html);
   if (!plain) return 1;
   const words = plain.split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
+  // 300 words/minute gives a more realistic estimate for Persian magazine
+  // articles; 200 made long-form posts look noticeably slower than they are.
+  return Math.max(1, Math.round(words / 300));
 }
 
 function normalizeBlogBanner<T extends { bannerImage: string }>(post: T): T {

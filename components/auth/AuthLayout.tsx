@@ -26,7 +26,6 @@ export function AuthLayout({
               <BrandLogo
                 {...branding}
                 size="auth"
-                fallbackClassName="border-white/10 bg-white/8 text-emerald-200 shadow-[0_12px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl"
               />
             </div>
 

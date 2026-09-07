@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, ExternalLink, Loader2, Plus, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -32,16 +33,18 @@ export default function AdminReferenceCombobox({
   localOptions?: string[];
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Option[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
     if (!open) return;
 
     const onMouseDown = (event: MouseEvent) => {
-      if (!wrapRef.current?.contains(event.target as Node)) {
+      if (!wrapRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) {
         setOpen(false);
       }
     };
@@ -57,6 +60,18 @@ export default function AdminReferenceCombobox({
       document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("keydown", onEscape);
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !wrapRef.current) return;
+    const updatePosition = () => {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (rect) setMenuPosition({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => { window.removeEventListener("resize", updatePosition); window.removeEventListener("scroll", updatePosition, true); };
   }, [open]);
 
   useEffect(() => {
@@ -119,7 +134,7 @@ export default function AdminReferenceCombobox({
   }, [trimmedValue, visibleItems.length]);
 
   return (
-    <div className="relative" ref={wrapRef}>
+    <div className={cn("relative", open && "z-[1000] isolate")} ref={wrapRef}>
       <div className="relative">
         <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -166,7 +181,7 @@ export default function AdminReferenceCombobox({
       </div>
 
       {open ? (
-        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-[1.2rem] border border-border/80 bg-card/95 p-1.5 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+        createPortal(<div ref={menuRef} style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, width: menuPosition.width }} className="z-[9999] overflow-hidden rounded-[1.2rem] border border-border/80 bg-card/95 p-1.5 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.85)] backdrop-blur-xl">
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {visibleItems.map((item, index) => {
               const isCreate = item.id === "__create__";
@@ -217,7 +232,7 @@ export default function AdminReferenceCombobox({
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           ) : null}
-        </div>
+        </div>, document.body)
       ) : null}
     </div>
   );

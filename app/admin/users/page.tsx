@@ -135,7 +135,7 @@ export default function AdminUsersPage() {
           placeholder="نام، نام‌کاربری یا ایمیل..."
         />
         <Select value={role} onValueChange={setRole}>
-          <SelectTrigger className="h-11 w-full rounded-2xl sm:w-48">
+          <SelectTrigger className="h-12 w-full rounded-2xl sm:w-52">
             <SelectValue placeholder="نقش" />
           </SelectTrigger>
           <SelectContent>
@@ -161,7 +161,7 @@ export default function AdminUsersPage() {
         {rows.map((u) => (
           <AdminDataTableRow key={u.id}>
             <AdminDataTableCell>
-              <Link href={`/admin/users/${u.id}`} className="flex items-center gap-2.5">
+              <Link href={`/admin/users/${u.id}`} className="flex w-full items-center justify-start gap-2.5 text-right">
                 <Avatar className="h-9 w-9 ring-1 ring-inset ring-border">
                   {u.image && (
                     <AvatarImage src={u.image} alt="" className="object-cover" />

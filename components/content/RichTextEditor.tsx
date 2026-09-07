@@ -37,6 +37,7 @@ export default function RichTextEditor({
   ariaLabel,
   enableBookEmbeds = false,
   stickyToolbar = false,
+  iconOnly = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -46,6 +47,7 @@ export default function RichTextEditor({
   ariaLabel?: string;
   enableBookEmbeds?: boolean;
   stickyToolbar?: boolean;
+  iconOnly?: boolean;
 }) {
   const isNote = variant === "note";
   const [bookPickerOpen, setBookPickerOpen] = useState(false);
@@ -129,6 +131,7 @@ export default function RichTextEditor({
       <div className={cn(
         "flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border/70 bg-card/90 p-2 sm:flex-wrap sm:gap-2 sm:p-3",
         stickyToolbar && "sticky top-14 z-30",
+        iconOnly && "[&>button>span:last-child]:hidden [&>button]:px-2.5",
       )}>
         <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} icon={<Bold />} label="ضخیم" compact={isNote} />
         <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} icon={<Italic />} label="مورب" compact={isNote} />

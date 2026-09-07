@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 
 import AdminBookForm from "@/components/admin/AdminBookForm";
 import AdminBookEditionsManager from "@/components/admin/AdminBookEditionsManager";
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { requireAdmin } from "@/lib/admin/permissions";
 import { getAdminCatalogBookForEdit } from "@/lib/admin/service";
 
@@ -20,10 +19,6 @@ export default async function AdminEditBookPage({
 
   return (
     <div>
-      <AdminPageHeader
-        title="ویرایش کتاب"
-        description={`ویرایش «${book.title}» در کاتالوگ سراسری`}
-      />
       <AdminBookForm
         mode="edit"
         bookId={book.id}

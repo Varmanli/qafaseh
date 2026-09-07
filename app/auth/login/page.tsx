@@ -106,7 +106,8 @@ function LoginForm() {
         return;
       }
 
-      toast.success("خوش آمدید!");
+      const displayName = data.user?.name?.trim() || data.user?.username?.trim() || "دوست عزیز";
+      toast.success(`${displayName} عزیز، به قفسه خوش آمدید.`);
       router.push(redirectTo);
       router.refresh();
     } catch {

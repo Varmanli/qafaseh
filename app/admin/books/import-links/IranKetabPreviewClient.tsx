@@ -548,13 +548,12 @@ export default function IranKetabPreviewClient({
             <section className="rounded-2xl border border-border/70 bg-card/45 p-3 sm:p-4">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {stats.map(([label, value, help]) => (
-                <Card key={label} className="min-h-[108px] border-border/60 bg-card/70 shadow-none">
-                  <CardContent className="flex h-full flex-col justify-between p-3.5">
-                    <div className="flex items-baseline justify-between gap-2"><p className="text-2xl font-black tabular-nums text-foreground">
+                <Card key={label} className="min-h-[82px] border-border/60 bg-card/70 shadow-none">
+                  <CardContent className="flex h-full items-center justify-between gap-3 p-3">
+                    <p className="text-xl font-black tabular-nums text-foreground">
                       {value.toLocaleString("fa-IR")}
-                    </p><p className="text-xs font-bold text-foreground/90">{label}</p></div><p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-                      {help}
                     </p>
+                    <p className="text-right text-xs font-bold leading-5 text-foreground/90">{label}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -595,7 +594,7 @@ export default function IranKetabPreviewClient({
                 </section>
               );
             })() : null}
-            <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-end">
+            <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-4 py-3 shadow-[0_-16px_32px_-24px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-end sm:px-8">
               {result ? <Button type="button" onClick={() => setShowSamePageReview(true)} variant="outline" className="h-10 rounded-xl font-bold">بررسی کاورها</Button> : null}
               <Button type="button" variant="outline" onClick={handleNewImport} className="h-10 rounded-xl">افزودن کتاب جدید</Button>
               <Button

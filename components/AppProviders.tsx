@@ -19,7 +19,20 @@ export default function AppProviders({
       <OnboardingProvider>
         <ConfirmProvider>
           {children}
-          <Toaster position="top-center" />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 4200,
+              className:
+                "!mt-3 !rounded-2xl !border !border-emerald-200/20 !bg-[#10231d]/95 !px-5 !py-3 !text-sm !font-bold !text-emerald-50 !shadow-[0_18px_50px_rgba(0,0,0,0.28)] !backdrop-blur-xl",
+              success: {
+                iconTheme: {
+                  primary: "#8ee6bd",
+                  secondary: "#10231d",
+                },
+              },
+            }}
+          />
           <PerformanceMonitor />
           <DisablePwa />
           <PwaInstallPrompt />

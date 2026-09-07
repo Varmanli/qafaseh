@@ -1,15 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
-  FileUp,
-  Images,
+  ArrowDownUp,
   Loader2,
   Pencil,
-  Plus,
   Trash2,
   X,
 } from "lucide-react";
@@ -56,15 +53,15 @@ interface AdminBookRow {
   coverImage: string | null;
   editionCount: number;
   linkCount: number;
+  libraryCount: number;
   createdByName: string | null;
   createdAt: string;
 }
 
 const COLUMNS: AdminColumn[] = [
   { key: "book", label: "کتاب" },
-  { key: "genre", label: "ژانر" },
-  { key: "editions", label: "نسخه‌ها" },
-  { key: "status", label: "وضعیت" },
+  { key: "author", label: "نویسنده" },
+  { key: "library", label: "افزوده‌شدن به کتابخانه" },
   { key: "creator", label: "سازنده" },
   { key: "date", label: "تاریخ" },
   { key: "actions", label: "عملیات", align: "center" },
@@ -103,6 +100,11 @@ export default function AdminBooksPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [librarySort, setLibrarySort] = useState<"asc" | "desc">("desc");
+  const sortedRows = useMemo(
+    () => [...rows].sort((a, b) => librarySort === "desc" ? b.libraryCount - a.libraryCount : a.libraryCount - b.libraryCount),
+    [rows, librarySort],
+  );
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams({ page: String(page) });
@@ -227,41 +229,13 @@ export default function AdminBooksPage() {
           </SelectContent>
         </Select>
 
-        <Button
-          asChild
-          className="h-11 w-full gap-2 rounded-2xl font-bold sm:w-auto sm:px-5"
-        >
-          <Link href="/admin/books/new">
-            <Plus className="h-4 w-4" />
-            افزودن کتاب
-          </Link>
-        </Button>
-
-        <Button
-          asChild
-          variant="outline"
-          className="h-11 w-full gap-2 rounded-2xl border-border/80 bg-background/60 font-bold sm:w-auto sm:px-5"
-        >
-          <Link href="/admin/books/import">
-            <FileUp className="h-4 w-4" />
-            ورود گروهی کتاب‌ها
-          </Link>
-        </Button>
-
-        <Button
-          asChild
-          variant="outline"
-          className="h-11 w-full gap-2 rounded-2xl border-border/80 bg-background/60 font-bold sm:w-auto sm:px-5"
-        >
-          <Link href="/admin/books/covers">
-            <Images className="h-4 w-4" />
-            مدیریت کاورها
-          </Link>
-        </Button>
       </AdminDataTableToolbar>
 
       <AdminDataTable
-        columns={COLUMNS}
+        columns={COLUMNS.map((column) => column.key === "library" ? {
+          ...column,
+          label: <button type="button" onClick={() => setLibrarySort((value) => value === "desc" ? "asc" : "desc")} className="inline-flex items-center gap-1.5 transition-colors hover:text-[#7de2b4]" title="مرتب‌سازی بر اساس تعداد افزودن به کتابخانه">{column.label}<ArrowDownUp className="h-3.5 w-3.5" /></button>,
+        } : column)}
         loading={loading}
         isEmpty={rows.length === 0}
         footer={
@@ -272,35 +246,18 @@ export default function AdminBooksPage() {
           />
         }
       >
-        {rows.map((book) => (
+        {sortedRows.map((book) => (
           <AdminDataTableRow key={book.id}>
             <AdminDataTableCell>
               <BookCell book={book} />
             </AdminDataTableCell>
 
-            <AdminDataTableCell>
-              <GenreCell value={book.genre} />
-            </AdminDataTableCell>
+            <AdminDataTableCell><span className="w-full whitespace-nowrap text-right text-sm font-bold text-white/75">{book.author || "نویسنده نامشخص"}</span></AdminDataTableCell>
 
-            <AdminDataTableCell>
-              <EditionCell
-                primaryEditionLabel={book.primaryEditionLabel}
-                primaryEditionPublisher={book.primaryEditionPublisher}
-                editionCount={book.editionCount}
-                linkCount={book.linkCount}
-              />
-            </AdminDataTableCell>
+            <AdminDataTableCell align="center"><span className="whitespace-nowrap rounded-xl border border-[#7de2b4]/15 bg-[#7de2b4]/10 px-3 py-1.5 text-sm font-black tabular-nums text-[#7de2b4]">{book.libraryCount.toLocaleString("fa-IR")} نفر</span></AdminDataTableCell>
 
-            <AdminDataTableCell>
-              <AdminBadge
-                className={cn("border font-black", STATUS_BADGE[book.status])}
-              >
-                {STATUS_LABEL[book.status]}
-              </AdminBadge>
-            </AdminDataTableCell>
-
-            <AdminDataTableCell>
-              <span className="line-clamp-1 text-xs font-medium text-muted-foreground">
+            <AdminDataTableCell align="center">
+              <span className="line-clamp-1 text-center text-xs font-medium text-muted-foreground">
                 {book.createdByName || "—"}
               </span>
             </AdminDataTableCell>
@@ -369,7 +326,7 @@ export default function AdminBooksPage() {
 
 function BookCell({ book }: { book: AdminBookRow }) {
   return (
-    <div className="flex min-w-[220px] items-center gap-3">
+    <div className="flex w-full min-w-[220px] items-center justify-start gap-3 text-right" dir="rtl">
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-muted shadow-sm">
         <BookCoverImage
           src={book.coverImage}
@@ -380,14 +337,11 @@ function BookCell({ book }: { book: AdminBookRow }) {
         />
       </div>
 
-      <div className="min-w-0">
-        <p className="line-clamp-1 text-sm font-black text-foreground">
+      <div className="min-w-0 flex-1 text-right">
+        <p className="truncate whitespace-nowrap text-right text-sm font-black text-white">
           {book.title}
         </p>
 
-        <p className="mt-1 line-clamp-1 text-xs font-medium text-muted-foreground">
-          {book.author || "نویسنده نامشخص"}
-        </p>
       </div>
     </div>
   );
