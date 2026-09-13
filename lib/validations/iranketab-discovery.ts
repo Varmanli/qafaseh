@@ -50,6 +50,10 @@ export const iranKetabDiscoverySourceInputSchema = z.object({
   metadata: metadataSchema.nullable().optional(),
 });
 
+export const iranKetabPublisherImportSchema = z.object({
+  url: z.string().trim().min(1, "لینک انتشارات الزامی است").max(2048),
+});
+
 export const updateIranKetabDiscoverySourceSchema =
   iranKetabDiscoverySourceInputSchema
     .omit({ enabled: true })

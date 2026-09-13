@@ -1,7 +1,7 @@
-import IranKetabDiscoveryDashboardClient from "@/components/admin/IranKetabDiscoveryDashboardClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function IranKetabDiscoveryDashboardPage() {
-  return <IranKetabDiscoveryDashboardClient />;
+  redirect("/admin/iranketab-discovery/sources");
 }

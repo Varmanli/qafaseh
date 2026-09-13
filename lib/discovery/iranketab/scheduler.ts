@@ -193,12 +193,13 @@ async function scheduleSource(sourceId: string, crawlIntervalMinutes: number, no
 
 async function enqueueEligibleSourceItems(sourceId: string, minimumQueueScore: number) {
   const items = await db
-    .select({ id: IranKetabDiscoveryItem.id, status: IranKetabDiscoveryItem.status, priorityScore: IranKetabDiscoveryItem.priorityScore, importConfidence: IranKetabDiscoveryItem.importConfidence })
+    .select({ id: IranKetabDiscoveryItem.id, status: IranKetabDiscoveryItem.status, priorityScore: IranKetabDiscoveryItem.priorityScore, importConfidence: IranKetabDiscoveryItem.importConfidence, sourceType: IranKetabDiscoverySource.sourceType, importMode: IranKetabDiscoverySource.importMode })
     .from(IranKetabDiscoveryItem)
     .innerJoin(IranKetabDiscoveryMembership, eq(IranKetabDiscoveryMembership.discoveryItemId, IranKetabDiscoveryItem.id))
-    .where(and(eq(IranKetabDiscoveryMembership.discoverySourceId, sourceId), eq(IranKetabDiscoveryItem.status, "SCORED"), eq(IranKetabDiscoveryItem.importConfidence, "HIGH"), gte(IranKetabDiscoveryItem.priorityScore, minimumQueueScore)))
+    .innerJoin(IranKetabDiscoverySource, eq(IranKetabDiscoverySource.id, IranKetabDiscoveryMembership.discoverySourceId))
+    .where(and(eq(IranKetabDiscoveryMembership.discoverySourceId, sourceId), eq(IranKetabDiscoveryItem.status, "SCORED"), or(and(eq(IranKetabDiscoverySource.sourceType, "PUBLISHER"), eq(IranKetabDiscoverySource.importMode, "AUTO_IMPORT")), and(eq(IranKetabDiscoveryItem.importConfidence, "HIGH"), gte(IranKetabDiscoveryItem.priorityScore, minimumQueueScore)))))
     .orderBy(desc(IranKetabDiscoveryItem.priorityScore));
-  const eligible = items.filter((item) => isAutoQueueEligible(item, minimumQueueScore));
+  const eligible = items.filter((item) => item.sourceType === "PUBLISHER" && item.importMode === "AUTO_IMPORT" || isAutoQueueEligible(item, minimumQueueScore));
   if (!eligible.length) return [];
   await db
     .update(IranKetabDiscoveryItem)

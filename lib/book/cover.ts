@@ -13,6 +13,10 @@ function storagePublicBase() {
   ).replace(/\/+$/, "");
 }
 
+function usesLocalUploadDriver() {
+  return process.env.NODE_ENV === "development" && process.env.UPLOAD_DRIVER !== "s3";
+}
+
 export type EditionCoverLike = {
   coverImage?: string | null;
   coverUrl?: string | null;
@@ -51,13 +55,14 @@ export function normalizeMediaUrl(input?: string | null): string | null {
   if (raw.startsWith("/")) {
     const key = normalizePath(raw);
     if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes|quote-backgrounds)\//i.test(key)) {
-      return `${storagePublicBase()}/${key}`;
+      return usesLocalUploadDriver() ? `/uploads/${key}` : `${storagePublicBase()}/${key}`;
     }
     return raw;
   }
   if (raw.startsWith("uploads/")) return `/${normalizePath(raw)}`;
   if (/^(blog|books|covers|authors|avatars|references|publishers|translators|settings|quotes|quote-backgrounds)\//i.test(raw)) {
-    return `${storagePublicBase()}/${normalizePath(raw)}`;
+    const key = normalizePath(raw);
+    return usesLocalUploadDriver() ? `/uploads/${key}` : `${storagePublicBase()}/${key}`;
   }
 
   return null;

@@ -121,10 +121,7 @@ export const ADMIN_NAV: AdminNavEntry[] = [
       children: [
         { href: "/admin/books/import-links", label: "ورود از ایران‌کتاب", icon: SearchCheck },
         { href: "/admin/books/import-history", label: "تاریخچه ورود ایران‌کتاب", icon: FileText },
-        { href: "/admin/iranketab-discovery/items", label: "نامزدهای کشف ایران‌کتاب", icon: SearchCheck },
-        { href: "/admin/iranketab-discovery/sources", label: "منابع کشف ایران‌کتاب", icon: Tags },
-        { href: "/admin/iranketab-discovery/jobs", label: "صف ورود کشف ایران‌کتاب", icon: FileText },
-        { href: "/admin/iranketab-discovery/dashboard", label: "داشبورد کشف ایران‌کتاب", icon: BarChart3 },
+        { href: "/admin/iranketab-discovery/sources", label: "ورود خودکار ناشر", icon: Tags },
       ],
     },
   },

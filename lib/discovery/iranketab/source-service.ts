@@ -12,6 +12,7 @@ import type {
   UpdateIranKetabDiscoverySourceInput,
 } from "@/lib/validations/iranketab-discovery";
 import { canonicalIranKetabDiscoverySourceUrl, prepareIranKetabDiscoverySourceCreateValues } from "./source-policy";
+import type { IranKetabPublisherSource } from "./publisher-source";
 
 export { prepareIranKetabDiscoverySourceCreateValues } from "./source-policy";
 
@@ -175,6 +176,70 @@ export async function createIranKetabDiscoverySource(
     .values({ ...values, createdById: adminId })
     .returning({ id: IranKetabDiscoverySource.id });
   return source;
+}
+
+export async function createOrResumeIranKetabPublisherSource(
+  input: IranKetabPublisherSource,
+  adminId: string,
+) {
+  const sourceUrl = canonicalIranKetabDiscoverySourceUrl(input.sourceUrl);
+  const sourceKey = input.sourceKey.trim().toLowerCase();
+  const [existing] = await db
+    .select({
+      id: IranKetabDiscoverySource.id,
+    })
+    .from(IranKetabDiscoverySource)
+    .where(
+      or(
+        eq(IranKetabDiscoverySource.sourceUrl, sourceUrl),
+        eq(IranKetabDiscoverySource.sourceKey, sourceKey),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(IranKetabDiscoverySource)
+      .set({
+        name: input.name,
+        sourceType: "PUBLISHER",
+        sourceUrl,
+        sourceKey,
+        importance: 100,
+        enabled: true,
+        autoQueue: true,
+        importMode: "AUTO_IMPORT",
+        minimumQueueScore: 0,
+        crawlIntervalMinutes: 1440,
+        nextCrawlAt: new Date(),
+        metadata: { workflow: "PUBLISHER_AUTO_IMPORT" },
+        lastErrorCode: null,
+        lastErrorMessage: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(IranKetabDiscoverySource.id, existing.id));
+    return { id: existing.id, reused: true };
+  }
+
+  const source = await createIranKetabDiscoverySource(
+    {
+      name: input.name,
+      sourceType: "PUBLISHER",
+      sourceUrl,
+      sourceKey,
+      importance: 100,
+      enabled: true,
+      crawlIntervalMinutes: 1440,
+      autoQueue: true,
+      importMode: "AUTO_IMPORT",
+      minimumQueueScore: 0,
+      parserVersion: 1,
+      nextCrawlAt: new Date(),
+      metadata: { workflow: "PUBLISHER_AUTO_IMPORT" },
+    },
+    adminId,
+  );
+  return { id: source.id, reused: false };
 }
 
 export async function updateIranKetabDiscoverySource(

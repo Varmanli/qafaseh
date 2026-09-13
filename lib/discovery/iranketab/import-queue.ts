@@ -1,16 +1,23 @@
 import { and, asc, desc, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 
 import { databaseDiagnosticTarget, db } from "@/db";
-import { IranKetabDiscoveryImportJob, IranKetabDiscoveryItem, IranKetabDiscoveryMembership, IranKetabDiscoverySource, IranKetabImportSession } from "@/db/schema";
+import { IranKetabDiscoveryImportJob, IranKetabDiscoveryItem, IranKetabDiscoveryMembership, IranKetabDiscoverySource, IranKetabImportSession, IranKetabPreviewOperation } from "@/db/schema";
 import { commitIranKetabImportSession, IranKetabCommitServiceError } from "@/lib/importers/iranketab/commit-service";
 import {
   IranKetabDiscoveryImportBridgeError,
   startDiscoveryImport,
 } from "./import-bridge";
+import { canonicalIranKetabSourceIdentity } from "@/lib/importers/iranketab/server-hardening";
 
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_PAGE_SIZE = 25;
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_MAX_ATTEMPTS = 3;
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_LEASE_MS = 10 * 60_000;
+const PUBLISHER_RECOVERY_MARKER = "publisherAutoRecoveryV3";
+const PUBLISHER_TRANSIENT_ERRORS = [
+  "این کتاب هم‌اکنون در حال دریافت است.",
+  "کاور آماده‌شده نیازمند آماده‌سازی مجدد است.",
+  "فقط نامزدهای تأییدشده برای ورود قابل آماده‌سازی هستند.",
+] as const;
 
 type JobStatus = (typeof IranKetabDiscoveryImportJob.$inferSelect)["status"];
 type ClaimedJobRow = {
@@ -167,7 +174,7 @@ async function resolveQueueOrigins(itemIds: string[], preferredSourceId?: string
 }
 
 /** Atomically selects one runnable job with SKIP LOCKED and attaches a lease. */
-export async function claimNextImportJob(workerId: string) {
+export async function claimNextImportJob(workerId: string, discoverySourceId?: string) {
   const now = new Date();
   const leaseExpiredAt = new Date(now.getTime() - IRANKETAB_DISCOVERY_IMPORT_JOB_LEASE_MS);
   await finalizeMissingDiscoveryItemJobs(now);
@@ -196,13 +203,23 @@ export async function claimNextImportJob(workerId: string) {
       .where(inArray(IranKetabDiscoveryItem.id, exhausted.map((job) => job.discoveryItemId)));
   }
 
+  const scopedSourceId = discoverySourceId ?? (workerId.startsWith("publisher:") ? workerId.slice("publisher:".length) : undefined);
+  const sourceFilter = scopedSourceId
+    ? sql`AND job."discovery_source_id" = ${scopedSourceId}`
+    : sql`AND NOT EXISTS (
+        SELECT 1
+        FROM "IranKetabDiscoverySource" AS source
+        WHERE source."id" = job."discovery_source_id"
+          AND source."import_mode" = 'AUTO_IMPORT'
+      )`;
   const result = await db.execute(sql`
     WITH candidate AS (
       SELECT "id"
-      FROM "IranKetabDiscoveryImportJob"
+      FROM "IranKetabDiscoveryImportJob" AS job
       WHERE
-        ("status" = 'PENDING' AND "available_at" <= ${now} AND "attempts" < "max_attempts")
-        OR ("status" = 'PROCESSING' AND "locked_at" <= ${leaseExpiredAt} AND "attempts" < "max_attempts")
+        (("status" = 'PENDING' AND "available_at" <= ${now} AND "attempts" < "max_attempts")
+        OR ("status" = 'PROCESSING' AND "locked_at" <= ${leaseExpiredAt} AND "attempts" < "max_attempts"))
+        ${sourceFilter}
       ORDER BY "priority" DESC, "created_at" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1
@@ -468,7 +485,8 @@ function workerLogDetails(
 }
 
 /** Bounded worker pass for cron/admin invocations; AUTO_IMPORT commits only through commit-service. */
-export async function processDiscoveryImportQueueBatch(workerId: string, limit = 10, actorId = workerId) {
+export async function processDiscoveryImportQueueBatch(workerId: string, limit = 10, actorId = workerId, discoverySourceId?: string) {
+  if (discoverySourceId) workerId = `publisher:${discoverySourceId}`;
   const results = [];
   for (let index = 0; index < Math.max(0, Math.min(100, Math.trunc(limit))); index += 1) {
     const result = await processDiscoveryImportQueue(workerId, actorId);
@@ -476,6 +494,61 @@ export async function processDiscoveryImportQueueBatch(workerId: string, limit =
     results.push(result);
   }
   return { processed: results.length, results };
+}
+
+/** Re-queues one broken publisher run once, after concurrent workers left orphaned previews. */
+export async function recoverPublisherImportFailures(discoverySourceId: string) {
+  const [source] = await db
+    .select({ id: IranKetabDiscoverySource.id, metadata: IranKetabDiscoverySource.metadata })
+    .from(IranKetabDiscoverySource)
+    .where(eq(IranKetabDiscoverySource.id, discoverySourceId))
+    .limit(1);
+  if (!source || source.metadata?.[PUBLISHER_RECOVERY_MARKER]) return { requeued: 0 };
+
+  const failed = await db
+    .select({ jobId: IranKetabDiscoveryImportJob.id, itemId: IranKetabDiscoveryItem.id, canonicalUrl: IranKetabDiscoveryItem.canonicalUrl })
+    .from(IranKetabDiscoveryImportJob)
+    .innerJoin(IranKetabDiscoveryItem, eq(IranKetabDiscoveryImportJob.discoveryItemId, IranKetabDiscoveryItem.id))
+    .where(and(
+      eq(IranKetabDiscoveryImportJob.discoverySourceId, discoverySourceId),
+      eq(IranKetabDiscoveryImportJob.status, "FAILED"),
+      or(
+        and(
+          gte(IranKetabDiscoveryImportJob.attempts, IRANKETAB_DISCOVERY_IMPORT_JOB_MAX_ATTEMPTS),
+          or(...PUBLISHER_TRANSIENT_ERRORS.slice(0, 2).map((message) => eq(IranKetabDiscoveryImportJob.lastErrorMessage, message))),
+        ),
+        and(
+          gte(IranKetabDiscoveryImportJob.attempts, 1),
+          eq(IranKetabDiscoveryImportJob.lastErrorMessage, PUBLISHER_TRANSIENT_ERRORS[2]),
+        ),
+      ),
+    ));
+  if (!failed.length) return { requeued: 0 };
+
+  const now = new Date();
+  const jobIds = failed.map((row) => row.jobId);
+  const itemIds = failed.map((row) => row.itemId);
+  const identities = failed.flatMap((row) => {
+    try { return [canonicalIranKetabSourceIdentity(row.canonicalUrl)]; } catch { return []; }
+  });
+
+  await db.transaction(async (tx) => {
+    await tx.update(IranKetabDiscoveryImportJob).set({
+      status: "PENDING", attempts: 0, availableAt: now, lockedAt: null, lockedBy: null, completedAt: null, updatedAt: now,
+    }).where(and(inArray(IranKetabDiscoveryImportJob.id, jobIds), eq(IranKetabDiscoveryImportJob.status, "FAILED")));
+    await tx.update(IranKetabDiscoveryItem).set({
+      status: "QUEUED", nextRetryAt: null, leaseExpiresAt: null, updatedAt: now,
+    }).where(and(inArray(IranKetabDiscoveryItem.id, itemIds), eq(IranKetabDiscoveryItem.status, "FAILED")));
+    if (identities.length) {
+      await tx.update(IranKetabPreviewOperation).set({
+        status: "FAILED", leaseExpiresAt: null, expiresAt: null, retryable: true, errorCode: "PUBLISHER_AUTO_RECOVERY", errorMessage: "پردازش قبلی ناشر نیمه‌کاره بود و دوباره در صف قرار گرفت.", updatedAt: now,
+      }).where(and(inArray(IranKetabPreviewOperation.sourceIdentity, identities), eq(IranKetabPreviewOperation.status, "PROCESSING")));
+    }
+    await tx.update(IranKetabDiscoverySource).set({
+      metadata: { ...(source.metadata ?? {}), [PUBLISHER_RECOVERY_MARKER]: true }, updatedAt: now,
+    }).where(eq(IranKetabDiscoverySource.id, discoverySourceId));
+  });
+  return { requeued: failed.length };
 }
 
 function queueLog(event: string, details: Record<string, unknown>) {

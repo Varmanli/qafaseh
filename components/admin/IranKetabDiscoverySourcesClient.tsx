@@ -1,87 +1,181 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Edit3, Loader2, Play, Plus, Power, RefreshCw } from "lucide-react";
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { AdminActionButton, AdminDataTable, AdminDataTableActions, AdminDataTableCell, AdminDataTablePagination, AdminDataTableRow, AdminDataTableSearch } from "@/components/admin/AdminDataTable";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { apiFetch, crawlStatusLabels, DiscoveryBadge, formatDate, Score, SourceTypeBadge, sourceTypeLabels } from "./IranKetabDiscoveryUi";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Plus, RefreshCw } from "lucide-react";
 
-type Source = { id: string; name: string; sourceType: string; sourceUrl: string; sourceKey: string; importance: number; enabled: boolean; parserVersion: number; crawlIntervalMinutes: number; autoQueue: boolean; importMode: "MANUAL_REVIEW" | "AUTO_IMPORT"; minimumQueueScore: number; crawlStatus: string; lastCrawledAt: string | null; nextCrawlAt: string | null; discoveredBookCount: number; newBookCount: number };
-type SourceForm = { name: string; sourceType: string; sourceUrl: string; sourceKey: string; importance: number; enabled: boolean; parserVersion: number; crawlIntervalMinutes: number; autoQueue: boolean; importMode: "MANUAL_REVIEW" | "AUTO_IMPORT"; minimumQueueScore: number };
-const initialForm: SourceForm = { name: "", sourceType: "CURATED_LIST", sourceUrl: "", sourceKey: "", importance: 50, enabled: true, parserVersion: 1, crawlIntervalMinutes: 1440, autoQueue: false, importMode: "MANUAL_REVIEW", minimumQueueScore: 85 };
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { apiFetch, DiscoveryBadge, formatDate } from "./IranKetabDiscoveryUi";
+
+type Source = {
+  id: string;
+  name: string;
+  sourceUrl: string;
+  crawlStatus: string;
+  discoveredBookCount: number;
+  newBookCount: number;
+  updatedAt: string;
+};
+
+type PublisherStatus = {
+  source: {
+    crawlStatus: string;
+    discoveredBookCount: number;
+    newBookCount: number;
+    lastErrorMessage: string | null;
+  };
+  run: {
+    pagesFetched: number;
+    booksFound: number;
+    startedAt: string;
+    completedAt: string | null;
+  } | null;
+  counts: {
+    items: Record<string, number>;
+    jobs: Record<string, number>;
+  };
+  logs: Array<{ label: string; status: string }>;
+};
 
 export default function IranKetabDiscoverySourcesClient() {
   const [sources, setSources] = useState<Source[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState("");
+  const [publisherUrl, setPublisherUrl] = useState("");
+  const [publisherSourceId, setPublisherSourceId] = useState<string | null>(null);
+  const [publisherStatus, setPublisherStatus] = useState<PublisherStatus | null>(null);
+  const [publisherProcessing, setPublisherProcessing] = useState(false);
+  const publisherProcessingRef = useRef(false);
+  const [publisherWorking, setPublisherWorking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [runningSourceId, setRunningSourceId] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<{ source?: Source } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const loadSources = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const data = await apiFetch<{ sources: Source[]; totalPages: number }>(`/api/admin/iranketab-discovery/sources?${new URLSearchParams({ page: String(page), q })}`);
-      setSources(data.sources); setTotalPages(data.totalPages);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "بارگذاری منابع ناموفق بود"); }
-    finally { setLoading(false); }
-  }, [page, q]);
+      const data = await apiFetch<{ sources: Source[] }>(
+        "/api/admin/iranketab-discovery/sources?page=1&sourceType=PUBLISHER",
+      );
+      setSources(data.sources);
+      setPublisherSourceId((current) => current ?? data.sources[0]?.id ?? null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "بارگذاری ورودهای قبلی ناموفق بود");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
-  useEffect(() => { const timer = setTimeout(() => setPage(1), 250); return () => clearTimeout(timer); }, [q]);
-
-  async function toggle(source: Source) {
-    try { await apiFetch(`/api/admin/iranketab-discovery/sources/${source.id}/enabled`, { method: "PATCH", body: JSON.stringify({ enabled: !source.enabled }) }); await load(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "تغییر وضعیت ناموفق بود"); }
-  }
-
-  async function runDiscovery(source: Source) {
-    setRunningSourceId(source.id); setError(""); setNotice("");
+  const kickPublisherQueue = useCallback(async () => {
+    if (!publisherSourceId || publisherProcessingRef.current) return;
+    publisherProcessingRef.current = true;
+    setPublisherProcessing(true);
     try {
-      const data = await apiFetch<{ result: { status: "SUCCEEDED" | "FAILED"; errorMessage?: string; run?: { booksFound: number } } }>("/api/admin/iranketab-discovery/run", { method: "POST", body: JSON.stringify({ sourceId: source.id }) });
-      if (data.result.status === "FAILED") throw new Error(data.result.errorMessage ?? "اجرای کشف منبع ناموفق بود");
-      setNotice(`کشف منبع انجام شد${data.result.run ? `؛ ${data.result.run.booksFound.toLocaleString("fa-IR")} کتاب یافت شد` : ""}.`);
-      await load();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "اجرای کشف منبع ناموفق بود"); }
-    finally { setRunningSourceId(null); }
+      await apiFetch("/api/admin/iranketab-discovery/publisher/process", {
+        method: "POST",
+        body: JSON.stringify({ sourceId: publisherSourceId }),
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "پردازش صف ورود ناموفق بود");
+    } finally {
+      publisherProcessingRef.current = false;
+      setPublisherProcessing(false);
+    }
+  }, [publisherSourceId]);
+
+  const refreshPublisherStatus = useCallback(async () => {
+    if (!publisherSourceId) return;
+    try {
+      const nextStatus = await apiFetch<PublisherStatus>(
+          `/api/admin/iranketab-discovery/publisher/status?sourceId=${encodeURIComponent(publisherSourceId)}`,
+        );
+      setPublisherStatus(nextStatus);
+      if ((nextStatus.counts.jobs.PENDING ?? 0) > 0) void kickPublisherQueue();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "بارگذاری وضعیت ورود ناموفق بود");
+    }
+  }, [kickPublisherQueue, publisherSourceId]);
+
+  useEffect(() => { void loadSources(); }, [loadSources]);
+  useEffect(() => {
+    if (!publisherSourceId) return;
+    void refreshPublisherStatus();
+    const timer = setInterval(() => void refreshPublisherStatus(), 5000);
+    return () => clearInterval(timer);
+  }, [publisherSourceId, refreshPublisherStatus]);
+
+  async function startPublisherImport(event: React.FormEvent) {
+    event.preventDefault();
+    setPublisherWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const data = await apiFetch<{ source: { id: string } }>(
+        "/api/admin/iranketab-discovery/publisher",
+        { method: "POST", body: JSON.stringify({ url: publisherUrl }) },
+      );
+      setPublisherSourceId(data.source.id);
+      setPublisherUrl("");
+      setNotice("ورود شروع شد. وضعیت مراحل و لاگ‌ها در همین صفحه به‌روز می‌شود.");
+      await loadSources();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "شروع ورود خودکار ناموفق بود");
+    } finally {
+      setPublisherWorking(false);
+    }
   }
 
   return <div className="space-y-6">
-    <AdminPageHeader title="منابع کشف ایران‌کتاب" description="فهرست‌های منتخب، جوایز و مجموعه‌هایی که نامزدهای باارزش را معرفی می‌کنند." action={<Button onClick={() => setDialog({})}><Plus className="h-4 w-4" />افزودن منبع</Button>} />
+    <AdminPageHeader
+      title="ورود خودکار از ایران‌کتاب"
+      description="لینک صفحهٔ یک انتشارات را وارد کنید؛ بقیهٔ مراحل خودکار انجام می‌شود."
+      action={<Button variant="outline" onClick={() => void loadSources()} disabled={loading}><RefreshCw className="h-4 w-4" />به‌روزرسانی</Button>}
+    />
     {error ? <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p> : null}
     {notice ? <p role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">{notice}</p> : null}
-    <div className="flex flex-wrap gap-3"><AdminDataTableSearch value={q} onChange={setQ} placeholder="جست‌وجوی نام، کلید یا نشانی منبع" /><Button variant="outline" onClick={() => void load()} disabled={loading}><RefreshCw className="h-4 w-4" />به‌روزرسانی</Button></div>
-    <AdminDataTable loading={loading} isEmpty={!sources.length} emptyText="منبع کشفی ثبت نشده است" minWidth={1040} columns={[{ key: "source", label: "منبع", align: "start" }, { key: "type", label: "نوع" }, { key: "importMode", label: "روش ورود" }, { key: "importance", label: "اهمیت" }, { key: "enabled", label: "وضعیت" }, { key: "crawl", label: "آخرین اجرا" }, { key: "counts", label: "کشف" }, { key: "actions", label: "عملیات" }]} footer={<AdminDataTablePagination page={page} totalPages={totalPages} onPageChange={setPage} />}>
-      {sources.map((source) => <AdminDataTableRow key={source.id}>
-        <AdminDataTableCell align="start"><p className="font-bold">{source.name}</p><p className="mt-1 max-w-72 truncate text-xs text-muted-foreground" dir="ltr">{source.sourceUrl}</p></AdminDataTableCell>
-        <AdminDataTableCell><SourceTypeBadge value={source.sourceType} /></AdminDataTableCell>
-        <AdminDataTableCell><DiscoveryBadge value={source.importMode} label={source.importMode === "AUTO_IMPORT" ? "ورود خودکار" : "بررسی دستی"} /></AdminDataTableCell>
-        <AdminDataTableCell><Score value={source.importance} /></AdminDataTableCell>
-        <AdminDataTableCell><DiscoveryBadge value={source.enabled ? "SUCCEEDED" : "PAUSED"} label={source.enabled ? "فعال" : "غیرفعال"} /></AdminDataTableCell>
-        <AdminDataTableCell><DiscoveryBadge value={source.crawlStatus} label={crawlStatusLabels[source.crawlStatus] ?? source.crawlStatus} /><p className="mt-1 text-[11px] text-muted-foreground">{formatDate(source.lastCrawledAt)}</p></AdminDataTableCell>
-        <AdminDataTableCell><span className="font-bold">{source.discoveredBookCount.toLocaleString("fa-IR")}</span><p className="mt-1 text-[11px] text-muted-foreground">{source.newBookCount.toLocaleString("fa-IR")} جدید</p></AdminDataTableCell>
-        <AdminDataTableCell><AdminDataTableActions><AdminActionButton icon={runningSourceId === source.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} title={source.enabled ? "کشف" : "برای کشف ابتدا منبع را فعال کنید"} onClick={() => void runDiscovery(source)} disabled={!source.enabled || runningSourceId !== null} /><AdminActionButton icon={<Edit3 className="h-4 w-4" />} title="ویرایش" onClick={() => setDialog({ source })} /><AdminActionButton icon={<Power className="h-4 w-4" />} title={source.enabled ? "غیرفعال کردن" : "فعال کردن"} onClick={() => void toggle(source)} /></AdminDataTableActions></AdminDataTableCell>
-      </AdminDataTableRow>)}
-    </AdminDataTable>
-    <SourceDialog state={dialog} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); void load(); }} />
+
+    <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+      <h2 className="text-base font-black">شروع ورود کتاب‌های انتشارات</h2>
+      <p className="mt-1 text-sm text-muted-foreground">فقط لینک را بفرستید؛ صفحه‌بندی، کتاب‌ها و ورود تدریجی در پس‌زمینه مدیریت می‌شود.</p>
+      <form onSubmit={startPublisherImport} className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <Input dir="ltr" type="url" value={publisherUrl} onChange={(event) => setPublisherUrl(event.target.value)} placeholder="https://www.iranketab.ir/publisher/1800-..." required className="flex-1 bg-background" />
+        <Button type="submit" disabled={publisherWorking}>
+          <span className="relative inline-flex h-4 w-4" aria-hidden="true">
+            <Loader2 className={`absolute inset-0 h-4 w-4 ${publisherWorking ? "animate-spin opacity-100" : "opacity-0"}`} />
+            <Plus className={`absolute inset-0 h-4 w-4 ${publisherWorking ? "opacity-0" : "opacity-100"}`} />
+          </span>
+          {publisherWorking ? "در حال شروع…" : "شروع ورود"}
+        </Button>
+      </form>
+    </section>
+
+    {publisherStatus ? <PublisherProgress status={publisherStatus} processing={publisherProcessing} /> : null}
+
+    <section className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-black">انتشاراتی که تاکنون وارد شده‌اند</h2><p className="mt-1 text-sm text-muted-foreground">برای دیدن گزارش هر مورد، روی آن کلیک کنید.</p></div>{loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}</div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {sources.map((source) => <button key={source.id} type="button" onClick={() => setPublisherSourceId(source.id)} className={`rounded-xl border p-4 text-right transition-colors hover:border-primary/50 ${publisherSourceId === source.id ? "border-primary bg-primary/5" : ""}`}>
+          <div className="flex items-center justify-between gap-2"><span className="font-bold">{source.name}</span><DiscoveryBadge value={source.crawlStatus} label={source.crawlStatus === "SUCCEEDED" ? "آماده" : source.crawlStatus === "RUNNING" ? "در حال اجرا" : source.crawlStatus === "FAILED" ? "خطادار" : "متوقف"} /></div>
+          <p className="mt-2 text-xs text-muted-foreground">{source.discoveredBookCount.toLocaleString("fa-IR")} کتاب پیدا شده · {source.newBookCount.toLocaleString("fa-IR")} مورد جدید</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">آخرین تغییر: {formatDate(source.updatedAt)}</p>
+        </button>)}
+      </div>
+      {!loading && !sources.length ? <p className="py-6 text-center text-sm text-muted-foreground">هنوز ورود خودکاری ثبت نشده است.</p> : null}
+    </section>
   </div>;
 }
 
-function SourceDialog({ state, onClose, onSaved }: { state: { source?: Source } | null; onClose: () => void; onSaved: () => void }) {
-  const source = state?.source;
-  const [form, setForm] = useState<SourceForm>(initialForm);
-  const [error, setError] = useState(""); const [saving, setSaving] = useState(false);
-  useEffect(() => setForm(source ? { name: source.name, sourceType: source.sourceType, sourceUrl: source.sourceUrl, sourceKey: source.sourceKey, importance: source.importance, enabled: source.enabled, parserVersion: source.parserVersion, crawlIntervalMinutes: source.crawlIntervalMinutes, autoQueue: source.autoQueue, importMode: source.importMode, minimumQueueScore: source.minimumQueueScore } : initialForm), [source, state]);
-  function set<K extends keyof SourceForm>(key: K, value: SourceForm[K]) { setForm((current) => ({ ...current, [key]: value })); }
-  async function submit(event: React.FormEvent) { event.preventDefault(); setSaving(true); setError(""); try { const { enabled: _enabled, ...updateValues } = form; await apiFetch(source ? `/api/admin/iranketab-discovery/sources/${source.id}` : "/api/admin/iranketab-discovery/sources", { method: source ? "PATCH" : "POST", body: JSON.stringify(source ? updateValues : form) }); onSaved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "ذخیره منبع ناموفق بود"); } finally { setSaving(false); } }
-  return <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}><DialogContent className="max-w-xl"><DialogHeader><DialogTitle>{source ? "ویرایش منبع کشف" : "افزودن منبع کشف"}</DialogTitle></DialogHeader><form onSubmit={submit} className="grid gap-4 pt-2"><Field label="نام منبع"><Input value={form.name} onChange={(e) => set("name", e.target.value)} required /></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="نوع"><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.sourceType} onChange={(e) => set("sourceType", e.target.value)}>{Object.entries(sourceTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field><Field label="اهمیت (۰ تا ۱۰۰)"><Input type="number" min="0" max="100" value={form.importance} onChange={(e) => set("importance", Number(e.target.value))} required /></Field></div><Field label="نشانی ایران‌کتاب"><Input dir="ltr" type="url" value={form.sourceUrl} onChange={(e) => set("sourceUrl", e.target.value)} required /></Field><Field label="کلید پایدار"><Input dir="ltr" value={form.sourceKey} onChange={(e) => set("sourceKey", e.target.value)} required /></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="فاصله اجرا (دقیقه)"><Input type="number" min="5" max="43200" value={form.crawlIntervalMinutes} onChange={(e) => set("crawlIntervalMinutes", Number(e.target.value))} required /></Field><Field label="حداقل امتیاز صف"><Input type="number" min="0" max="100" value={form.minimumQueueScore} onChange={(e) => set("minimumQueueScore", Number(e.target.value))} required /></Field></div><Field label="روش ورود"><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.importMode} onChange={(e) => set("importMode", e.target.value as SourceForm["importMode"])}><option value="MANUAL_REVIEW">بررسی دستی</option><option value="AUTO_IMPORT">ورود خودکار</option></select></Field><label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={form.autoQueue} onChange={(e) => set("autoQueue", e.target.checked)} />افزودن خودکار نامزدهای واجد شرایط به صف</label>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}<div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>انصراف</Button><Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}ذخیره</Button></div></form></DialogContent></Dialog>;
+function PublisherProgress({ status, processing }: { status: PublisherStatus; processing: boolean }) {
+  const hasPendingJobs = (status.counts.jobs.PENDING ?? 0) > 0 || (status.counts.jobs.PROCESSING ?? 0) > 0;
+  const isRunning = status.source.crawlStatus === "RUNNING" || hasPendingJobs;
+  const stage = status.source.crawlStatus === "FAILED" ? "متوقف‌شده با خطا" : status.source.crawlStatus === "RUNNING" ? "در حال خواندن صفحه‌های ناشر" : hasPendingJobs ? "در حال ورود تدریجی کتاب‌ها" : "آخرین اجرا تکمیل شده";
+  const badge = status.source.crawlStatus === "FAILED" ? "FAILED" : isRunning ? "RUNNING" : "SUCCEEDED";
+
+  return <section className="rounded-2xl border bg-card p-5 shadow-sm" aria-live="polite">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-black">گزارش ورود</h2><p className="mt-1 text-sm text-primary">مرحلهٔ فعلی: {stage}</p>{processing ? <p className="mt-1 text-xs text-muted-foreground">پردازش خودکار صف در حال اجراست…</p> : null}</div><DiscoveryBadge value={badge} label={stage} /></div>
+    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="صفحه خوانده‌شده" value={status.run?.pagesFetched ?? 0} /><Metric label="کتاب شناسایی‌شده" value={status.run?.booksFound ?? 0} /><Metric label="در صف ورود" value={status.counts.items.QUEUED ?? 0} /><Metric label="واردشده" value={status.counts.jobs.COMPLETED ?? 0} /></div>
+    <div className="mt-5 grid gap-2"><p className="text-sm font-bold">لاگ مراحل</p>{status.logs.map((log, index) => <div key={`${log.label}-${index}`} className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs"><span className={log.status === "error" ? "text-destructive" : log.status === "warning" ? "text-amber-600" : log.status === "done" ? "text-emerald-600" : "text-primary"}>●</span><span className="break-all">{log.label}</span></div>)}</div>
+  </section>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="grid gap-2"><Label>{label}</Label>{children}</div>; }
+function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded-xl border bg-background px-3 py-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-lg font-black tabular-nums">{value.toLocaleString("fa-IR")}</p></div>; }

@@ -29,6 +29,7 @@ type BookShareProps = {
   translator?: string | null;
   coverImage?: string | null;
   canonicalUrl: string;
+  shareUrl?: string;
   status?: BookStatus | null;
   rating?: number | null;
 };
@@ -38,6 +39,7 @@ export default function BookShare(props: BookShareProps) {
   const [note, setNote] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const shareUrl = props.shareUrl ?? props.canonicalUrl;
   const shareText = useMemo(() => buildShareText(props, note), [props, note]);
 
   useEffect(() => {
@@ -56,17 +58,17 @@ export default function BookShare(props: BookShareProps) {
 
   const share = async () => {
     try {
-      await shareWithDevice({ title: props.title, text: shareText, url: props.canonicalUrl });
+      await shareWithDevice({ title: props.title, text: shareText, url: shareUrl });
     } catch {
       // Native-share cancellation is a normal user action.
     }
   };
 
   const actions = [
-    { label: "تلگرام", Icon: ImTelegram, href: shareDestinationUrl("telegram", { title: props.title, text: shareText, url: props.canonicalUrl }) },
-    { label: "واتس‌اپ", Icon: ImWhatsapp, href: shareDestinationUrl("whatsapp", { title: props.title, text: shareText, url: props.canonicalUrl }) },
-    { label: "X", Icon: FiTwitter, href: shareDestinationUrl("x", { title: props.title, text: shareText, url: props.canonicalUrl }) },
-    { label: "لینکدین", Icon: ImLinkedin2, href: shareDestinationUrl("linkedin", { title: props.title, text: shareText, url: props.canonicalUrl }) },
+    { label: "تلگرام", Icon: ImTelegram, href: shareDestinationUrl("telegram", { title: props.title, text: shareText, url: shareUrl }) },
+    { label: "واتس‌اپ", Icon: ImWhatsapp, href: shareDestinationUrl("whatsapp", { title: props.title, text: shareText, url: shareUrl }) },
+    { label: "X", Icon: FiTwitter, href: shareDestinationUrl("x", { title: props.title, text: shareText, url: shareUrl }) },
+    { label: "لینکدین", Icon: ImLinkedin2, href: shareDestinationUrl("linkedin", { title: props.title, text: shareText, url: shareUrl }) },
   ];
   const status = getStatus(props.status);
 
@@ -94,8 +96,8 @@ export default function BookShare(props: BookShareProps) {
               <span className="text-[10px] tabular-nums text-muted-foreground/65">{note.length.toLocaleString("fa-IR")} / ۱۸۰</span>
             </div>
             <Textarea id="book-share-note" value={note} maxLength={180} onChange={(event) => setNote(event.target.value)} placeholder="چیزی درباره این کتاب بنویس..." className="mt-2 min-h-[76px] resize-none rounded-xl border-border/60 bg-background/35 px-3.5 py-2.5 text-right text-sm leading-6 placeholder:text-muted-foreground/60 focus-visible:border-primary/60 focus-visible:ring-primary/20" />
-            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">این یادداشت همراه مشخصات کتاب و لینک قفسه به اشتراک گذاشته می‌شود.</p>
-            <Button type="button" onClick={() => copy(recommendationText(shareText, props.canonicalUrl), setCopiedText)} className={`mt-3 h-11 w-full rounded-xl bg-primary text-sm font-black text-primary-foreground transition-colors hover:bg-primary/90 ${copiedText ? "bg-primary/85" : ""}`}>
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">این یادداشت همراه مشخصات کتاب و لینک کوتاه آن به اشتراک گذاشته می‌شود.</p>
+            <Button type="button" onClick={() => copy(recommendationText(shareText, shareUrl), setCopiedText)} className={`mt-3 h-11 w-full rounded-xl bg-primary text-sm font-black text-primary-foreground transition-colors hover:bg-primary/90 ${copiedText ? "bg-primary/85" : ""}`}>
               {copiedText ? <Check className="size-4" /> : <Copy className="size-4" />}{copiedText ? "متن آماده اشتراک‌گذاری کپی شد" : "اشتراک‌گذاری با یادداشت من"}
             </Button>
           </div>
@@ -109,10 +111,10 @@ export default function BookShare(props: BookShareProps) {
           </div>
 
           <div className="mt-4">
-            <label htmlFor="book-share-link" className="text-xs font-bold text-muted-foreground">لینک کتاب</label>
+            <label htmlFor="book-share-link" className="text-xs font-bold text-muted-foreground">لینک کوتاه کتاب</label>
             <div className="mt-2 flex items-center gap-2" dir="ltr">
-              <Input id="book-share-link" readOnly value={props.canonicalUrl} className="h-8 min-w-0 flex-1 border-border/50 bg-muted/20 text-left text-[10px] text-muted-foreground/75" />
-              <Button type="button" variant="outline" size="sm" onClick={() => copy(props.canonicalUrl, setCopiedLink)} className={`h-8 shrink-0 text-xs ${copiedLink ? "border-primary/35 bg-primary/10 text-primary" : "border-border/60"}`}>
+              <Input id="book-share-link" readOnly value={shareUrl} className="h-8 min-w-0 flex-1 border-border/50 bg-muted/20 text-left text-[10px] text-muted-foreground/75" />
+              <Button type="button" variant="outline" size="sm" onClick={() => copy(shareUrl, setCopiedLink)} className={`h-8 shrink-0 text-xs ${copiedLink ? "border-primary/35 bg-primary/10 text-primary" : "border-border/60"}`}>
                 {copiedLink ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}<span dir="rtl">{copiedLink ? "کپی شد" : "کپی لینک"}</span>
               </Button>
             </div>

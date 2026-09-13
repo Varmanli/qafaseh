@@ -40,6 +40,7 @@ import {
   serializeJsonLd,
 } from "@/lib/seo/structured-data";
 import { toAbsoluteUrl } from "@/lib/seo/site";
+import { encodeShortBookKey } from "@/lib/book/short-link";
 
 export const dynamic = "force-dynamic";
 
@@ -370,6 +371,7 @@ export default async function BookPage({
                     translator={presentation.translator}
                     coverImage={book.displayCoverImage}
                     canonicalUrl={toAbsoluteUrl(`/book/${encodeURIComponent(book.slug)}`)}
+                    shareUrl={toAbsoluteUrl(`/b/${encodeShortBookKey(book.id)}`)}
                     status={entry?.status}
                     rating={entry?.rating}
                   />

@@ -45,3 +45,4 @@ next-env.d.ts
 
 # Runtime local uploads (local storage driver / S3 fallback)
 /public/uploads/
+/.local-upload-metadata/

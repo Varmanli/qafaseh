@@ -14,6 +14,7 @@ import { analyzeIranKetabExtraction } from "./match-analysis";
 import type { AnalysisData } from "./match-analysis";
 import { assertExtractionCollectionLimits } from "./collection-limits";
 import { canonicalIranKetabSourceIdentity } from "./server-hardening";
+import { throttleExternalRequest } from "./external-request-throttle";
 import type { AcquirePreviewOperationResult, IranKetabPreviewPayload } from "./preview-operation";
 
 type Gate = { user: { id: string } } | { error: NextResponse };
@@ -121,6 +122,8 @@ export function createIranKetabPreviewPost(dependencies: Dependencies) {
         url: fetched.canonicalUrl,
         html: fetched.html,
         enrichProfiles: dependencies.enrichProfiles ?? true,
+        profileFetcher: (profileUrl, init) =>
+          throttleExternalRequest(() => fetch(profileUrl, init)),
       });
       assertExtractionCollectionLimits(extraction);
       const data = await dependencies.loadAnalysisData(extraction);
