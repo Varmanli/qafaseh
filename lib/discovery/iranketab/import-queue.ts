@@ -302,23 +302,26 @@ export async function failImportJob(jobId: string, error: unknown) {
   if (!current) throw new IranKetabDiscoveryImportQueueError("IMPORT_JOB_NOT_FOUND");
   if (current.status !== "PROCESSING") return current;
   const failure = normalizeError(error);
-  const retry = current.attempts < current.maxAttempts && isRetryableQueueFailure(failure.code);
+  const waitForExistingImport = failure.code === "DISCOVERY_IMPORT_ALREADY_RUNNING";
+  const retry = !waitForExistingImport && current.attempts < current.maxAttempts && isRetryableQueueFailure(failure.code);
+  const requeue = waitForExistingImport || retry;
   const now = new Date();
   const [updated] = await db
     .update(IranKetabDiscoveryImportJob)
     .set({
-      status: retry ? "PENDING" : "FAILED",
-      availableAt: retry ? new Date(now.getTime() + retryDelayMs(current.attempts)) : current.availableAt,
+      status: requeue ? "PENDING" : "FAILED",
+      ...(waitForExistingImport ? { attempts: Math.max(0, current.attempts - 1) } : {}),
+      availableAt: requeue ? new Date(now.getTime() + retryDelayMs(current.attempts)) : current.availableAt,
       lockedAt: null,
       lockedBy: null,
-      completedAt: retry ? null : now,
+      completedAt: requeue ? null : now,
       lastErrorCode: failure.code,
       lastErrorMessage: failure.message,
       updatedAt: now,
     })
     .where(and(eq(IranKetabDiscoveryImportJob.id, jobId), eq(IranKetabDiscoveryImportJob.status, "PROCESSING")))
     .returning();
-  if (updated && retry)
+  if (updated && requeue)
     await db
       .update(IranKetabDiscoveryItem)
       .set({ status: "QUEUED", failureCode: failure.code, failureReason: failure.message, updatedAt: now })

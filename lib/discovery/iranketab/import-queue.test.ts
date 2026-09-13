@@ -32,10 +32,17 @@ test("worker receives the explicitly aliased discovery item ID from the raw clai
 
 test("failed jobs back off exponentially and become terminal after max attempts", async () => {
   const queue = await readFile(queuePath, "utf8");
-  assert.match(queue, /const retry = current\.attempts < current\.maxAttempts/);
-  assert.match(queue, /status: retry \? "PENDING" : "FAILED"/);
+  assert.match(queue, /current\.attempts < current\.maxAttempts && isRetryableQueueFailure\(failure\.code\)/);
+  assert.match(queue, /status: requeue \? "PENDING" : "FAILED"/);
   assert.match(queue, /15_000 \* 2 \*\* Math\.max\(0, attempts - 1\)/);
   assert.match(queue, /inArray\(IranKetabDiscoveryItem\.status, \["FAILED", "NEEDS_REVIEW", "APPROVED", "IMPORTING"\]\)/);
+});
+
+test("in-progress preview collisions return to the queue without consuming an attempt", async () => {
+  const queue = await readFile(queuePath, "utf8");
+  assert.match(queue, /const waitForExistingImport = failure\.code === "DISCOVERY_IMPORT_ALREADY_RUNNING"/);
+  assert.match(queue, /attempts: Math\.max\(0, current\.attempts - 1\)/);
+  assert.match(queue, /const requeue = waitForExistingImport \|\| retry/);
 });
 
 test("missing-candidate jobs are finalized before claim and cannot be manually retried", async () => {

@@ -42,6 +42,12 @@ test("preview failures persist failure state and retry information on the discov
   assert.match(bridge, /failureReason,/);
 });
 
+test("an active preview is treated as a temporary queue collision", async () => {
+  const bridge = await readFile(bridgePath, "utf8");
+  assert.match(bridge, /code === "IRANKETAB_IMPORT_IN_PROGRESS"/);
+  assert.match(bridge, /DISCOVERY_IMPORT_ALREADY_RUNNING/);
+});
+
 test("a successful preview leaves IMPORTING and awaits explicit importer review", async () => {
   const bridge = await readFile(bridgePath, "utf8");
   assert.match(bridge, /await markDiscoveryItemPreviewReady\(item\.id, sessionId\)/);

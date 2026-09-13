@@ -184,7 +184,10 @@ export async function startDiscoveryImport(discoveryItemId: string, actorId: str
     const code = payload?.error?.code ?? "IMPORT_PREPARATION_FAILED";
     const message = payload?.error?.message ?? "آماده‌سازی ورود کتاب ناموفق بود.";
     if (createdSessionId) await markDiscoveryItemFailed(item.id, code, message, createdSessionId);
-    throw new IranKetabDiscoveryImportBridgeError("IMPORT_PREPARATION_FAILED", message);
+    throw new IranKetabDiscoveryImportBridgeError(
+      code === "IRANKETAB_IMPORT_IN_PROGRESS" ? "DISCOVERY_IMPORT_ALREADY_RUNNING" : "IMPORT_PREPARATION_FAILED",
+      message,
+    );
   }
 
   if (!createdSessionId)
