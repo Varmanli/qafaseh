@@ -12,7 +12,7 @@ import { canonicalIranKetabSourceIdentity } from "@/lib/importers/iranketab/serv
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_PAGE_SIZE = 25;
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_MAX_ATTEMPTS = 3;
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_LEASE_MS = 10 * 60_000;
-const PUBLISHER_RECOVERY_MARKER = "publisherAutoRecoveryV3";
+const PUBLISHER_RECOVERY_MARKER = "publisherAutoRecoveryV4";
 const PUBLISHER_TRANSIENT_ERRORS = [
   "این کتاب هم‌اکنون در حال دریافت است.",
   "کاور آماده‌شده نیازمند آماده‌سازی مجدد است.",
