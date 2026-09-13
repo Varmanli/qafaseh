@@ -90,7 +90,7 @@ export default function IranKetabDiscoverySourcesClient() {
           `/api/admin/iranketab-discovery/publisher/status?sourceId=${encodeURIComponent(publisherSourceId)}`,
         );
       setPublisherStatus(nextStatus);
-      if ((nextStatus.counts.jobs.PENDING ?? 0) > 0) void kickPublisherQueue();
+      if ((nextStatus.counts.jobs.PENDING ?? 0) > 0 || (nextStatus.counts.jobs.FAILED ?? 0) > 0) void kickPublisherQueue();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "بارگذاری وضعیت ورود ناموفق بود");
     }
