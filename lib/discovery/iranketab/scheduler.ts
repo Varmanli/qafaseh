@@ -34,9 +34,6 @@ export { calculateNextCrawlAt, isAutoQueueEligible, selectDueDiscoverySources } 
  */
 export async function runScheduledDiscovery() {
   const now = new Date();
-  if (process.env.ENABLE_AUTO_IMPORTER !== "true") {
-    return { ranAt: now, dueCount: 0, results: [], disabled: true };
-  }
   const candidates = await db
     .select({
       id: IranKetabDiscoverySource.id,

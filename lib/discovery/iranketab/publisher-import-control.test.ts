@@ -18,14 +18,19 @@ test("publisher controls are durable, serialized, and exposed to admins", async 
   assert.match(client, /تلاش مجدد خطاها/);
 });
 
-test("publisher worker repairs the queue, finishes explicitly, and is run by the cron tick", async () => {
-  const [queue, tick] = await Promise.all([
+test("publisher worker repairs the queue, finishes explicitly, and starts with the app", async () => {
+  const [queue, tick, instrumentation, worker] = await Promise.all([
     readFile(`${root}/lib/discovery/iranketab/import-queue.ts`, "utf8"),
     readFile(`${root}/app/api/internal/iranketab-discovery/tick/route.ts`, "utf8"),
+    readFile(`${root}/instrumentation.ts`, "utf8"),
+    readFile(`${root}/lib/discovery/iranketab/background-worker.ts`, "utf8"),
   ]);
   assert.match(queue, /reconcilePublisherImportQueue/);
   assert.match(queue, /completePublisherImportWhenIdle/);
   assert.match(queue, /publisherImportStatus: "COMPLETED"/);
   assert.match(tick, /getActiveIranKetabPublisherImport/);
   assert.match(tick, /processPublisherImportQueue/);
+  assert.match(instrumentation, /startIranKetabBackgroundWorker/);
+  assert.match(worker, /setInterval/);
+  assert.match(worker, /runScheduledDiscovery/);
 });

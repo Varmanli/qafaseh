@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const source = await getIranKetabDiscoverySource(sourceId);
   if (!source) return apiError("منبع کشف یافت نشد", 404, "DISCOVERY_SOURCE_NOT_FOUND");
 
-  const [itemRows, jobRows, latestRun] = await Promise.all([
+  const [itemRows, jobRows, failedJobs, latestRun] = await Promise.all([
     db
       .select({ status: IranKetabDiscoveryItem.status, count: sql<number>`count(*)::int` })
       .from(IranKetabDiscoveryMembership)
@@ -35,6 +35,24 @@ export async function GET(req: NextRequest) {
       .from(IranKetabDiscoveryImportJob)
       .where(eq(IranKetabDiscoveryImportJob.discoverySourceId, sourceId))
       .groupBy(IranKetabDiscoveryImportJob.status),
+    db
+      .select({
+        id: IranKetabDiscoveryImportJob.id,
+        discoveryItemId: IranKetabDiscoveryImportJob.discoveryItemId,
+        lastErrorCode: IranKetabDiscoveryImportJob.lastErrorCode,
+        lastErrorMessage: IranKetabDiscoveryImportJob.lastErrorMessage,
+        updatedAt: IranKetabDiscoveryImportJob.updatedAt,
+        titleHint: IranKetabDiscoveryItem.titleHint,
+        canonicalUrl: IranKetabDiscoveryItem.canonicalUrl,
+      })
+      .from(IranKetabDiscoveryImportJob)
+      .innerJoin(IranKetabDiscoveryItem, eq(IranKetabDiscoveryImportJob.discoveryItemId, IranKetabDiscoveryItem.id))
+      .where(and(
+        eq(IranKetabDiscoveryImportJob.discoverySourceId, sourceId),
+        eq(IranKetabDiscoveryImportJob.status, "FAILED"),
+      ))
+      .orderBy(desc(IranKetabDiscoveryImportJob.updatedAt))
+      .limit(20),
     db
       .select({
         status: IranKetabDiscoveryRun.status,
@@ -74,7 +92,7 @@ export async function GET(req: NextRequest) {
     run,
     counts: { items, jobs },
     progress: buildProgress(items),
-    backgroundWorkerEnabled: process.env.ENABLE_AUTO_IMPORTER === "true",
+    errors: failedJobs,
     logs,
   });
 }

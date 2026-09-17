@@ -11,18 +11,17 @@ release. Do not put their values in source control.
 | `JWT_SECRET` | Existing application authentication secret. |
 | `APP_URL`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_BASE_URL` | The final HTTPS application URL. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_BASE_URL` | Required for preview media and catalog cover promotion. |
-| `IRANKETAB_DISCOVERY_WORKER_SECRET` | Separate high-entropy secret for the internal worker tick. |
-| `IRANKETAB_DISCOVERY_WORKER_ACTOR_ID` | ID of an existing administrator; used only for importer ownership/audit. |
 
 Optional bounds are `IRANKETAB_DISCOVERY_WORKER_BATCH_SIZE` (default 10,
 maximum 25), `IRANKETAB_DISCOVERY_SCHEDULER_SOURCE_BATCH_SIZE` (default 10,
 maximum 25), and `IRANKETAB_COVER_PREPARATION_CONCURRENCY` (default 3,
 maximum 6).
 
-The same tick advances exactly one active publisher import. Publisher
-pause/resume state is stored in PostgreSQL, so closing the admin page does not
-pause the workflow. Keep the tick scheduled at least once per minute; the UI
-also advances one book at a time while an administrator is watching it.
+Every Node server starts the publisher worker automatically; no feature flag or
+worker env variable is required. Publisher pause/resume state is stored in
+PostgreSQL, so closing the admin page does not pause the workflow. The guarded
+HTTP tick remains available as an optional maintenance pass when its secret and
+admin actor are configured.
 
 ## Deployment sequence
 
@@ -34,9 +33,9 @@ also advances one book at a time while an administrator is watching it.
    `drizzle.__drizzle_migrations`. Migration `0048` is additive: it adds the
    import policy enum, source policy field, source-aware job foreign key, and
    its index. Existing sources remain `MANUAL_REVIEW` by design.
-4. Restart all web instances after migrations. No separate process binary is
-   required, but configure a platform cron to call the worker tick once per
-   minute:
+4. Restart all web instances after migrations. No separate process or cron is
+   required for publisher imports; each Node instance starts the bounded worker
+   automatically. If the optional guarded maintenance tick is used:
 
 ```sh
 curl --fail --silent --show-error \
