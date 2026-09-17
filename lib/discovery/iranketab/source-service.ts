@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, ilike, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -23,7 +23,8 @@ export class IranKetabDiscoverySourceError extends Error {
     public readonly code:
       | "DISCOVERY_SOURCE_NOT_FOUND"
       | "DISCOVERY_SOURCE_ALREADY_EXISTS"
-      | "DISCOVERY_SOURCE_NOT_EMPTY",
+      | "DISCOVERY_SOURCE_NOT_EMPTY"
+      | "INVALID_PUBLISHER_SOURCE",
   ) {
     super(code);
   }
@@ -41,6 +42,9 @@ const sourceSelection = {
   crawlIntervalMinutes: IranKetabDiscoverySource.crawlIntervalMinutes,
   autoQueue: IranKetabDiscoverySource.autoQueue,
   importMode: IranKetabDiscoverySource.importMode,
+  publisherImportStatus: IranKetabDiscoverySource.publisherImportStatus,
+  publisherImportStartedAt: IranKetabDiscoverySource.publisherImportStartedAt,
+  publisherImportCompletedAt: IranKetabDiscoverySource.publisherImportCompletedAt,
   minimumQueueScore: IranKetabDiscoverySource.minimumQueueScore,
   parserVersion: IranKetabDiscoverySource.parserVersion,
   lastCrawledAt: IranKetabDiscoverySource.lastCrawledAt,
@@ -240,6 +244,75 @@ export async function createOrResumeIranKetabPublisherSource(
     adminId,
   );
   return { id: source.id, reused: false };
+}
+
+/** Serializes publisher controls and makes the selected publisher the only active one. */
+export async function activateIranKetabPublisherImport(id: string) {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('iranketab-publisher-import-control'))`);
+    const [source] = await tx
+      .select({
+        id: IranKetabDiscoverySource.id,
+        sourceType: IranKetabDiscoverySource.sourceType,
+        importMode: IranKetabDiscoverySource.importMode,
+      })
+      .from(IranKetabDiscoverySource)
+      .where(eq(IranKetabDiscoverySource.id, id))
+      .limit(1);
+    if (!source) throw new IranKetabDiscoverySourceError("DISCOVERY_SOURCE_NOT_FOUND");
+    if (source.sourceType !== "PUBLISHER" || source.importMode !== "AUTO_IMPORT")
+      throw new IranKetabDiscoverySourceError("INVALID_PUBLISHER_SOURCE");
+
+    const now = new Date();
+    await tx
+      .update(IranKetabDiscoverySource)
+      .set({ publisherImportStatus: "PAUSED", updatedAt: now })
+      .where(and(
+        eq(IranKetabDiscoverySource.sourceType, "PUBLISHER"),
+        eq(IranKetabDiscoverySource.publisherImportStatus, "RUNNING"),
+        ne(IranKetabDiscoverySource.id, id),
+      ));
+    const [updated] = await tx
+      .update(IranKetabDiscoverySource)
+      .set({
+        publisherImportStatus: "RUNNING",
+        publisherImportStartedAt: now,
+        publisherImportCompletedAt: null,
+        enabled: true,
+        updatedAt: now,
+      })
+      .where(eq(IranKetabDiscoverySource.id, id))
+      .returning({ id: IranKetabDiscoverySource.id, publisherImportStatus: IranKetabDiscoverySource.publisherImportStatus });
+    return updated!;
+  });
+}
+
+/** Pause is cooperative: an already claimed book finishes, then no next book is claimed. */
+export async function pauseIranKetabPublisherImport(id: string) {
+  const [updated] = await db
+    .update(IranKetabDiscoverySource)
+    .set({ publisherImportStatus: "PAUSED", updatedAt: new Date() })
+    .where(and(
+      eq(IranKetabDiscoverySource.id, id),
+      eq(IranKetabDiscoverySource.sourceType, "PUBLISHER"),
+      eq(IranKetabDiscoverySource.importMode, "AUTO_IMPORT"),
+    ))
+    .returning({ id: IranKetabDiscoverySource.id, publisherImportStatus: IranKetabDiscoverySource.publisherImportStatus });
+  if (!updated) throw new IranKetabDiscoverySourceError("DISCOVERY_SOURCE_NOT_FOUND");
+  return updated;
+}
+
+export async function getActiveIranKetabPublisherImport() {
+  const [source] = await db
+    .select({ id: IranKetabDiscoverySource.id })
+    .from(IranKetabDiscoverySource)
+    .where(and(
+      eq(IranKetabDiscoverySource.sourceType, "PUBLISHER"),
+      eq(IranKetabDiscoverySource.importMode, "AUTO_IMPORT"),
+      eq(IranKetabDiscoverySource.publisherImportStatus, "RUNNING"),
+    ))
+    .limit(1);
+  return source ?? null;
 }
 
 export async function updateIranKetabDiscoverySource(

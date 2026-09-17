@@ -179,6 +179,7 @@ export async function claimNextImportJob(workerId: string, discoverySourceId?: s
   const leaseExpiredAt = new Date(now.getTime() - IRANKETAB_DISCOVERY_IMPORT_JOB_LEASE_MS);
   await finalizeMissingDiscoveryItemJobs(now);
   await recoverAbandonedImportingItems(leaseExpiredAt, now);
+  await recoverAbandonedImportJobs(leaseExpiredAt, now);
   // Exhausted jobs are terminal before workers consider the next claim.
   const exhausted = await db
     .update(IranKetabDiscoveryImportJob)
@@ -205,7 +206,13 @@ export async function claimNextImportJob(workerId: string, discoverySourceId?: s
 
   const scopedSourceId = discoverySourceId ?? (workerId.startsWith("publisher:") ? workerId.slice("publisher:".length) : undefined);
   const sourceFilter = scopedSourceId
-    ? sql`AND job."discovery_source_id" = ${scopedSourceId}`
+    ? sql`AND job."discovery_source_id" = ${scopedSourceId}
+        AND EXISTS (
+          SELECT 1
+          FROM "IranKetabDiscoverySource" AS source
+          WHERE source."id" = job."discovery_source_id"
+            AND (source."import_mode" <> 'AUTO_IMPORT' OR source."publisher_import_status" = 'RUNNING')
+        )`
     : sql`AND NOT EXISTS (
         SELECT 1
         FROM "IranKetabDiscoverySource" AS source
@@ -281,6 +288,50 @@ async function recoverAbandonedImportingItems(leaseExpiredAt: Date, now: Date) {
           AND job."locked_at" <= ${leaseExpiredAt}
       )
   `);
+}
+
+/** A killed worker can leave the job and candidate in different lifecycle states. */
+async function recoverAbandonedImportJobs(leaseExpiredAt: Date, now: Date) {
+  const rows = await db.transaction(async (tx) => {
+    const result = await tx.execute(sql`
+      UPDATE "IranKetabDiscoveryImportJob" AS job
+      SET "status" = 'PENDING',
+          "available_at" = ${now},
+          "locked_at" = NULL,
+          "locked_by" = NULL,
+          "completed_at" = NULL,
+          "updated_at" = ${now}
+      WHERE job."status" = 'PROCESSING'
+        AND job."locked_at" <= ${leaseExpiredAt}
+        AND EXISTS (
+          SELECT 1
+          FROM "IranKetabDiscoveryItem" AS item
+          WHERE item."id" = job."discovery_item_id"
+            AND item."status" <> 'IMPORTED'
+        )
+      RETURNING job."discovery_item_id" AS "discoveryItemId"
+    `);
+    const recovered = (result as unknown as { rows: Array<{ discoveryItemId: string }> }).rows;
+    if (!recovered.length) return recovered;
+    await tx
+      .update(IranKetabDiscoveryItem)
+      .set({
+        status: "QUEUED",
+        importSessionId: null,
+        failureCode: null,
+        failureReason: null,
+        nextRetryAt: null,
+        leaseExpiresAt: null,
+        updatedAt: now,
+      })
+      .where(and(
+        inArray(IranKetabDiscoveryItem.id, recovered.map((row) => row.discoveryItemId)),
+        sql`${IranKetabDiscoveryItem.status} <> 'IMPORTED'`,
+      ));
+    return recovered;
+  });
+  if (!rows.length) return;
+  queueLog("abandoned_jobs_requeued", { discoveryItemIds: rows.map((row) => row.discoveryItemId) });
 }
 
 export async function completeImportJob(jobId: string) {
@@ -497,6 +548,139 @@ export async function processDiscoveryImportQueueBatch(workerId: string, limit =
     results.push(result);
   }
   return { processed: results.length, results };
+}
+
+/** Repairs missing queue rows, processes a bounded batch, and closes the publisher when no work remains. */
+export async function processPublisherImportQueue(
+  discoverySourceId: string,
+  workerId: string,
+  actorId: string,
+  limit = 1,
+) {
+  const [source] = await db
+    .select({ status: IranKetabDiscoverySource.publisherImportStatus })
+    .from(IranKetabDiscoverySource)
+    .where(and(
+      eq(IranKetabDiscoverySource.id, discoverySourceId),
+      eq(IranKetabDiscoverySource.sourceType, "PUBLISHER"),
+      eq(IranKetabDiscoverySource.importMode, "AUTO_IMPORT"),
+    ))
+    .limit(1);
+  if (!source) throw new IranKetabDiscoveryImportQueueError("DISCOVERY_SOURCE_NOT_FOUND");
+  if (source.status !== "RUNNING")
+    return { processed: 0, results: [], state: source.status, repaired: 0 };
+
+  await recoverPublisherImportFailures(discoverySourceId);
+  const repaired = await reconcilePublisherImportQueue(discoverySourceId);
+  const imports = await processDiscoveryImportQueueBatch(workerId, limit, actorId, discoverySourceId);
+  const state = await completePublisherImportWhenIdle(discoverySourceId);
+  return { ...imports, state, repaired: repaired.queued };
+}
+
+/** Publisher AUTO_IMPORT accepts every scored item and restores any missing active job. */
+export async function reconcilePublisherImportQueue(discoverySourceId: string) {
+  const rows = await db
+    .select({ id: IranKetabDiscoveryItem.id, status: IranKetabDiscoveryItem.status })
+    .from(IranKetabDiscoveryMembership)
+    .innerJoin(IranKetabDiscoveryItem, eq(IranKetabDiscoveryMembership.discoveryItemId, IranKetabDiscoveryItem.id))
+    .where(and(
+      eq(IranKetabDiscoveryMembership.discoverySourceId, discoverySourceId),
+      inArray(IranKetabDiscoveryItem.status, ["SCORED", "QUEUED"]),
+    ))
+    .orderBy(desc(IranKetabDiscoveryItem.priorityScore))
+    .limit(100);
+  if (!rows.length) return { queued: 0, results: [] };
+
+  const scoredIds = rows.filter((row) => row.status === "SCORED").map((row) => row.id);
+  if (scoredIds.length) {
+    await db
+      .update(IranKetabDiscoveryItem)
+      .set({ status: "QUEUED", failureCode: null, failureReason: null, updatedAt: new Date() })
+      .where(inArray(IranKetabDiscoveryItem.id, scoredIds));
+  }
+  const results = await enqueueManyDiscoveryItems(rows.map((row) => row.id), discoverySourceId);
+  return { queued: results.filter((result) => !("error" in result)).length, results };
+}
+
+/** An explicit admin action retries all terminal failures for this publisher. */
+export async function retryPublisherImportFailures(discoverySourceId: string) {
+  const failed = await db
+    .select({ jobId: IranKetabDiscoveryImportJob.id, itemId: IranKetabDiscoveryImportJob.discoveryItemId })
+    .from(IranKetabDiscoveryImportJob)
+    .where(and(
+      eq(IranKetabDiscoveryImportJob.discoverySourceId, discoverySourceId),
+      eq(IranKetabDiscoveryImportJob.status, "FAILED"),
+    ))
+    .orderBy(desc(IranKetabDiscoveryImportJob.createdAt));
+  const retryable = [...new Map(failed.map((row) => [row.itemId, row])).values()];
+  if (!retryable.length) return { requeued: 0 };
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(IranKetabDiscoveryImportJob)
+      .set({
+        status: "PENDING",
+        attempts: 0,
+        availableAt: now,
+        lockedAt: null,
+        lockedBy: null,
+        completedAt: null,
+        updatedAt: now,
+      })
+      .where(inArray(IranKetabDiscoveryImportJob.id, retryable.map((row) => row.jobId)));
+    await tx
+      .update(IranKetabDiscoveryItem)
+      .set({
+        status: "QUEUED",
+        importSessionId: null,
+        failureCode: null,
+        failureReason: null,
+        nextRetryAt: null,
+        leaseExpiresAt: null,
+        updatedAt: now,
+      })
+      .where(and(
+        inArray(IranKetabDiscoveryItem.id, retryable.map((row) => row.itemId)),
+        sql`${IranKetabDiscoveryItem.status} <> 'IMPORTED'`,
+      ));
+  });
+  return { requeued: retryable.length };
+}
+
+async function completePublisherImportWhenIdle(discoverySourceId: string) {
+  const [activeJobs, openItems] = await Promise.all([
+    db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(IranKetabDiscoveryImportJob)
+      .where(and(
+        eq(IranKetabDiscoveryImportJob.discoverySourceId, discoverySourceId),
+        inArray(IranKetabDiscoveryImportJob.status, ["PENDING", "PROCESSING"]),
+      )),
+    db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(IranKetabDiscoveryMembership)
+      .innerJoin(IranKetabDiscoveryItem, eq(IranKetabDiscoveryMembership.discoveryItemId, IranKetabDiscoveryItem.id))
+      .where(and(
+        eq(IranKetabDiscoveryMembership.discoverySourceId, discoverySourceId),
+        inArray(IranKetabDiscoveryItem.status, ["DISCOVERED", "SCORED", "QUEUED", "IMPORTING", "APPROVED"]),
+      )),
+  ]);
+  if ((activeJobs[0]?.total ?? 0) > 0 || (openItems[0]?.total ?? 0) > 0) return "RUNNING" as const;
+  const [completed] = await db
+    .update(IranKetabDiscoverySource)
+    .set({ publisherImportStatus: "COMPLETED", publisherImportCompletedAt: new Date(), updatedAt: new Date() })
+    .where(and(
+      eq(IranKetabDiscoverySource.id, discoverySourceId),
+      eq(IranKetabDiscoverySource.publisherImportStatus, "RUNNING"),
+    ))
+    .returning({ status: IranKetabDiscoverySource.publisherImportStatus });
+  if (completed) return completed.status;
+  const [source] = await db
+    .select({ status: IranKetabDiscoverySource.publisherImportStatus })
+    .from(IranKetabDiscoverySource)
+    .where(eq(IranKetabDiscoverySource.id, discoverySourceId))
+    .limit(1);
+  return source?.status ?? "COMPLETED";
 }
 
 /** Re-queues one broken publisher run once, after concurrent workers left orphaned previews. */

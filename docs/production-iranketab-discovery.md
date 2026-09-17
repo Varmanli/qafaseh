@@ -19,6 +19,11 @@ maximum 25), `IRANKETAB_DISCOVERY_SCHEDULER_SOURCE_BATCH_SIZE` (default 10,
 maximum 25), and `IRANKETAB_COVER_PREPARATION_CONCURRENCY` (default 3,
 maximum 6).
 
+The same tick advances exactly one active publisher import. Publisher
+pause/resume state is stored in PostgreSQL, so closing the admin page does not
+pause the workflow. Keep the tick scheduled at least once per minute; the UI
+also advances one book at a time while an administrator is watching it.
+
 ## Deployment sequence
 
 1. Create a verified database backup and keep it outside the application

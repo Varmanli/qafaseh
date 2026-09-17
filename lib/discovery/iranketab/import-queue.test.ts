@@ -70,6 +70,9 @@ test("abandoned processing jobs are reclaimed after their lease and terminal fai
   assert.match(queue, /MAX_ATTEMPTS_EXHAUSTED/);
   assert.match(queue, /status: "FAILED", failureCode: failure\.code, failureReason: failure\.message/);
   assert.match(queue, /recoverAbandonedImportingItems/);
+  assert.match(queue, /recoverAbandonedImportJobs/);
+  assert.match(queue, /item\."status" <> 'IMPORTED'/);
+  assert.match(queue, /"status" = 'PENDING'/);
   assert.match(queue, /SET "status" = 'QUEUED'/);
 });
 

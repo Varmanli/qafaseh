@@ -63,6 +63,9 @@ export async function GET(req: NextRequest) {
       id: source.id,
       name: source.name,
       crawlStatus: source.crawlStatus,
+      publisherImportStatus: source.publisherImportStatus,
+      publisherImportStartedAt: source.publisherImportStartedAt,
+      publisherImportCompletedAt: source.publisherImportCompletedAt,
       discoveredBookCount: source.discoveredBookCount,
       newBookCount: source.newBookCount,
       lastErrorCode: source.lastErrorCode,
@@ -70,6 +73,8 @@ export async function GET(req: NextRequest) {
     },
     run,
     counts: { items, jobs },
+    progress: buildProgress(items),
+    backgroundWorkerEnabled: process.env.ENABLE_AUTO_IMPORTER === "true",
     logs,
   });
 }
@@ -78,19 +83,34 @@ function toCounts(rows: Array<{ status: string; count: number }>) {
   return Object.fromEntries(rows.map((row) => [row.status, row.count]));
 }
 
+function buildProgress(items: Record<string, number>) {
+  const total = Object.values(items).reduce((sum, value) => sum + value, 0);
+  const imported = items.IMPORTED ?? 0;
+  const attention = (items.NEEDS_REVIEW ?? 0) + (items.FAILED ?? 0);
+  const finished = imported + attention + (items.SKIPPED ?? 0);
+  return {
+    total,
+    imported,
+    attention,
+    remaining: Math.max(0, total - finished),
+    percent: total ? Math.round((finished / total) * 100) : 0,
+  };
+}
+
 function buildLogs(
-  source: { crawlStatus: string; lastErrorMessage: string | null },
+  source: { crawlStatus: string; publisherImportStatus: string; lastErrorMessage: string | null },
   run: { status: string; pagesFetched: number; booksFound: number; itemsInserted: number; diagnostics?: unknown; errorMessage?: string | null } | null,
   items: Record<string, number>,
   jobs: Record<string, number>,
 ) {
   const diagnostics = run?.diagnostics as { lastPageUrl?: string | null; stoppedReason?: string } | null;
   const logs = [
-    { label: "منبع انتشارات آماده و فعال شد", status: "done" },
+    { label: source.publisherImportStatus === "RUNNING" ? "این ناشر، ورودی فعال سیستم است" : source.publisherImportStatus === "PAUSED" ? "ورود این ناشر متوقف شده است" : source.publisherImportStatus === "COMPLETED" ? "صف این ناشر تعیین‌تکلیف شده است" : "منبع انتشارات آماده است", status: source.publisherImportStatus === "PAUSED" ? "warning" : "done" },
     { label: run ? `${run.pagesFetched} صفحه خوانده شد` : "در انتظار شروع خواندن صفحه‌ها", status: run ? "done" : "active" },
     { label: run ? `${run.booksFound} کتاب شناسایی شد` : "در انتظار شناسایی کتاب‌ها", status: run ? "done" : "pending" },
     { label: `${items.QUEUED ?? 0} کتاب در صف ورود قرار گرفت`, status: items.QUEUED ? "active" : run ? "done" : "pending" },
     { label: `${jobs.COMPLETED ?? 0} کتاب وارد شد`, status: jobs.COMPLETED ? "done" : "active" },
+    { label: `${jobs.PENDING ?? 0} کار منتظر و ${jobs.PROCESSING ?? 0} کار در حال پردازش است`, status: jobs.PENDING || jobs.PROCESSING ? "active" : "done" },
     { label: `${items.NEEDS_REVIEW ?? 0} مورد نیازمند بررسی داخلی است`, status: items.NEEDS_REVIEW ? "warning" : "done" },
     ...(diagnostics?.lastPageUrl ? [{ label: `آخرین صفحه: ${diagnostics.lastPageUrl}`, status: "info" }] : []),
     ...(diagnostics?.stoppedReason ? [{ label: `پایان پیمایش: ${stoppedReasonLabel(diagnostics.stoppedReason)}`, status: "info" }] : []),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Loader2, Pause, Play, Plus, RefreshCw, RotateCcw } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ type Source = {
   name: string;
   sourceUrl: string;
   crawlStatus: string;
+  publisherImportStatus: "IDLE" | "RUNNING" | "PAUSED" | "COMPLETED";
   discoveredBookCount: number;
   newBookCount: number;
   updatedAt: string;
@@ -21,6 +22,9 @@ type Source = {
 type PublisherStatus = {
   source: {
     crawlStatus: string;
+    publisherImportStatus: "IDLE" | "RUNNING" | "PAUSED" | "COMPLETED";
+    publisherImportStartedAt: string | null;
+    publisherImportCompletedAt: string | null;
     discoveredBookCount: number;
     newBookCount: number;
     lastErrorMessage: string | null;
@@ -35,6 +39,8 @@ type PublisherStatus = {
     items: Record<string, number>;
     jobs: Record<string, number>;
   };
+  progress: { total: number; imported: number; attention: number; remaining: number; percent: number };
+  backgroundWorkerEnabled: boolean;
   logs: Array<{ label: string; status: string }>;
 };
 
@@ -46,9 +52,12 @@ export default function IranKetabDiscoverySourcesClient() {
   const [publisherProcessing, setPublisherProcessing] = useState(false);
   const publisherProcessingRef = useRef(false);
   const [publisherWorking, setPublisherWorking] = useState(false);
+  const [publisherControlWorking, setPublisherControlWorking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const activePublisherSourceId = sources.find((source) => source.publisherImportStatus === "RUNNING")?.id
+    ?? (publisherStatus?.source.publisherImportStatus === "RUNNING" ? publisherSourceId : null);
 
   const loadSources = useCallback(async () => {
     setLoading(true);
@@ -58,7 +67,11 @@ export default function IranKetabDiscoverySourcesClient() {
         "/api/admin/iranketab-discovery/sources?page=1&sourceType=PUBLISHER",
       );
       setSources(data.sources);
-      setPublisherSourceId((current) => current ?? data.sources[0]?.id ?? null);
+      setPublisherSourceId((current) =>
+        current && data.sources.some((source) => source.id === current)
+          ? current
+          : data.sources.find((source) => source.publisherImportStatus === "RUNNING")?.id ?? data.sources[0]?.id ?? null,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "بارگذاری ورودهای قبلی ناموفق بود");
     } finally {
@@ -67,13 +80,13 @@ export default function IranKetabDiscoverySourcesClient() {
   }, []);
 
   const kickPublisherQueue = useCallback(async () => {
-    if (!publisherSourceId || publisherProcessingRef.current) return;
+    if (!activePublisherSourceId || publisherProcessingRef.current) return;
     publisherProcessingRef.current = true;
     setPublisherProcessing(true);
     try {
       await apiFetch("/api/admin/iranketab-discovery/publisher/process", {
         method: "POST",
-        body: JSON.stringify({ sourceId: publisherSourceId }),
+        body: JSON.stringify({ sourceId: activePublisherSourceId }),
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "پردازش صف ورود ناموفق بود");
@@ -81,20 +94,23 @@ export default function IranKetabDiscoverySourcesClient() {
       publisherProcessingRef.current = false;
       setPublisherProcessing(false);
     }
-  }, [publisherSourceId]);
+  }, [activePublisherSourceId]);
 
   const refreshPublisherStatus = useCallback(async () => {
     if (!publisherSourceId) return;
     try {
       const nextStatus = await apiFetch<PublisherStatus>(
           `/api/admin/iranketab-discovery/publisher/status?sourceId=${encodeURIComponent(publisherSourceId)}`,
-        );
+      );
       setPublisherStatus(nextStatus);
-      if ((nextStatus.counts.jobs.PENDING ?? 0) > 0 || (nextStatus.counts.jobs.FAILED ?? 0) > 0) void kickPublisherQueue();
+      setSources((current) => current.map((source) => source.id === publisherSourceId
+        ? { ...source, publisherImportStatus: nextStatus.source.publisherImportStatus }
+        : source));
+      if (activePublisherSourceId) void kickPublisherQueue();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "بارگذاری وضعیت ورود ناموفق بود");
     }
-  }, [kickPublisherQueue, publisherSourceId]);
+  }, [activePublisherSourceId, kickPublisherQueue, publisherSourceId]);
 
   useEffect(() => { void loadSources(); }, [loadSources]);
   useEffect(() => {
@@ -125,6 +141,25 @@ export default function IranKetabDiscoverySourcesClient() {
     }
   }
 
+  async function controlPublisher(action: "PAUSE" | "RESUME" | "RETRY_FAILED") {
+    if (!publisherSourceId) return;
+    setPublisherControlWorking(true);
+    setError("");
+    setNotice("");
+    try {
+      const data = await apiFetch<{ message: string }>(
+        "/api/admin/iranketab-discovery/publisher/control",
+        { method: "POST", body: JSON.stringify({ sourceId: publisherSourceId, action }) },
+      );
+      setNotice(data.message);
+      await Promise.all([loadSources(), refreshPublisherStatus()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تغییر وضعیت ورود ناموفق بود");
+    } finally {
+      setPublisherControlWorking(false);
+    }
+  }
+
   return <div className="space-y-6">
     <AdminPageHeader
       title="ورود خودکار از ایران‌کتاب"
@@ -149,13 +184,13 @@ export default function IranKetabDiscoverySourcesClient() {
       </form>
     </section>
 
-    {publisherStatus ? <PublisherProgress status={publisherStatus} processing={publisherProcessing} /> : null}
+    {publisherStatus ? <PublisherProgress status={publisherStatus} processing={publisherProcessing} controlWorking={publisherControlWorking} onControl={controlPublisher} /> : null}
 
     <section className="rounded-2xl border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3"><div><h2 className="text-base font-black">انتشاراتی که تاکنون وارد شده‌اند</h2><p className="mt-1 text-sm text-muted-foreground">برای دیدن گزارش هر مورد، روی آن کلیک کنید.</p></div>{loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}</div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {sources.map((source) => <button key={source.id} type="button" onClick={() => setPublisherSourceId(source.id)} className={`rounded-xl border p-4 text-right transition-colors hover:border-primary/50 ${publisherSourceId === source.id ? "border-primary bg-primary/5" : ""}`}>
-          <div className="flex items-center justify-between gap-2"><span className="font-bold">{source.name}</span><DiscoveryBadge value={source.crawlStatus} label={source.crawlStatus === "SUCCEEDED" ? "آماده" : source.crawlStatus === "RUNNING" ? "در حال اجرا" : source.crawlStatus === "FAILED" ? "خطادار" : "متوقف"} /></div>
+          <div className="flex items-center justify-between gap-2"><span className="font-bold">{source.name}</span><DiscoveryBadge value={publisherBadgeValue(source.publisherImportStatus)} label={publisherStatusLabel(source.publisherImportStatus)} /></div>
           <p className="mt-2 text-xs text-muted-foreground">{source.discoveredBookCount.toLocaleString("fa-IR")} کتاب پیدا شده · {source.newBookCount.toLocaleString("fa-IR")} مورد جدید</p>
           <p className="mt-1 text-[11px] text-muted-foreground">آخرین تغییر: {formatDate(source.updatedAt)}</p>
         </button>)}
@@ -165,17 +200,36 @@ export default function IranKetabDiscoverySourcesClient() {
   </div>;
 }
 
-function PublisherProgress({ status, processing }: { status: PublisherStatus; processing: boolean }) {
-  const hasPendingJobs = (status.counts.jobs.PENDING ?? 0) > 0 || (status.counts.jobs.PROCESSING ?? 0) > 0;
-  const isRunning = status.source.crawlStatus === "RUNNING" || hasPendingJobs;
-  const stage = status.source.crawlStatus === "FAILED" ? "متوقف‌شده با خطا" : status.source.crawlStatus === "RUNNING" ? "در حال خواندن صفحه‌های ناشر" : hasPendingJobs ? "در حال ورود تدریجی کتاب‌ها" : "آخرین اجرا تکمیل شده";
-  const badge = status.source.crawlStatus === "FAILED" ? "FAILED" : isRunning ? "RUNNING" : "SUCCEEDED";
+function PublisherProgress({ status, processing, controlWorking, onControl }: { status: PublisherStatus; processing: boolean; controlWorking: boolean; onControl: (action: "PAUSE" | "RESUME" | "RETRY_FAILED") => void }) {
+  const publisherState = status.source.publisherImportStatus;
+  const hasFailures = (status.counts.jobs.FAILED ?? 0) > 0;
+  const stage = status.source.crawlStatus === "RUNNING"
+    ? "در حال خواندن صفحه‌های ناشر"
+    : publisherState === "RUNNING"
+      ? "در حال ورود کتاب‌ها"
+      : publisherState === "PAUSED"
+        ? "متوقف‌شده؛ آمادهٔ ادامه"
+        : publisherState === "COMPLETED"
+          ? hasFailures || status.progress.attention ? "تمام‌شده با موارد نیازمند بررسی" : "همهٔ کتاب‌ها وارد شدند"
+          : "آمادهٔ شروع";
+  const badge = publisherBadgeValue(publisherState);
 
   return <section className="rounded-2xl border bg-card p-5 shadow-sm" aria-live="polite">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-black">گزارش ورود</h2><p className="mt-1 text-sm text-primary">مرحلهٔ فعلی: {stage}</p>{processing ? <p className="mt-1 text-xs text-muted-foreground">پردازش خودکار صف در حال اجراست…</p> : null}</div><DiscoveryBadge value={badge} label={stage} /></div>
-    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="صفحه خوانده‌شده" value={status.run?.pagesFetched ?? 0} /><Metric label="کتاب شناسایی‌شده" value={status.run?.booksFound ?? 0} /><Metric label="در صف ورود" value={status.counts.items.QUEUED ?? 0} /><Metric label="واردشده" value={status.counts.jobs.COMPLETED ?? 0} /></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-base font-black">گزارش ورود</h2><p className="mt-1 text-sm text-primary">مرحلهٔ فعلی: {stage}</p>{processing ? <p className="mt-1 text-xs text-muted-foreground">کتاب جاری در حال پردازش است…</p> : null}</div><div className="flex flex-wrap items-center gap-2"><DiscoveryBadge value={badge} label={stage} />{publisherState === "RUNNING" ? <Button size="sm" variant="outline" onClick={() => onControl("PAUSE")} disabled={controlWorking}><Pause className="h-4 w-4" />توقف</Button> : <Button size="sm" onClick={() => onControl("RESUME")} disabled={controlWorking}><Play className="h-4 w-4" />{publisherState === "PAUSED" ? "ادامه" : "فعال‌کردن"}</Button>}{hasFailures ? <Button size="sm" variant="outline" onClick={() => onControl("RETRY_FAILED")} disabled={controlWorking}><RotateCcw className="h-4 w-4" />تلاش مجدد خطاها</Button> : null}</div></div>
+    <div className="mt-4 overflow-hidden rounded-full bg-muted"><div className="h-2 bg-primary transition-all" style={{ width: `${status.progress.percent}%` }} /></div>
+    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground"><span>{status.progress.percent.toLocaleString("fa-IR")}٪ تعیین‌تکلیف‌شده</span><span>{status.progress.remaining.toLocaleString("fa-IR")} مورد باقی‌مانده</span></div>
+    {!status.backgroundWorkerEnabled && publisherState === "RUNNING" ? <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">پردازش پس‌زمینه روی سرور فعال نیست؛ تا زمان فعال‌کردن worker، این صفحه را باز نگه دارید.</p> : null}
+    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label="صفحه خوانده‌شده" value={status.run?.pagesFetched ?? 0} /><Metric label="کل کتاب‌ها" value={status.progress.total} /><Metric label="در صف ورود" value={(status.counts.jobs.PENDING ?? 0) + (status.counts.jobs.PROCESSING ?? 0)} /><Metric label="واردشده" value={status.progress.imported} /><Metric label="نیازمند بررسی" value={status.progress.attention} /></div>
     <div className="mt-5 grid gap-2"><p className="text-sm font-bold">لاگ مراحل</p>{status.logs.map((log, index) => <div key={`${log.label}-${index}`} className="flex items-start gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs"><span className={log.status === "error" ? "text-destructive" : log.status === "warning" ? "text-amber-600" : log.status === "done" ? "text-emerald-600" : "text-primary"}>●</span><span className="break-all">{log.label}</span></div>)}</div>
   </section>;
 }
 
 function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded-xl border bg-background px-3 py-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-lg font-black tabular-nums">{value.toLocaleString("fa-IR")}</p></div>; }
+
+function publisherStatusLabel(status: Source["publisherImportStatus"]) {
+  return ({ IDLE: "آماده", RUNNING: "فعال", PAUSED: "متوقف", COMPLETED: "تمام‌شده" } as const)[status];
+}
+
+function publisherBadgeValue(status: Source["publisherImportStatus"]) {
+  return ({ IDLE: "IDLE", RUNNING: "RUNNING", PAUSED: "PAUSED", COMPLETED: "SUCCEEDED" } as const)[status];
+}

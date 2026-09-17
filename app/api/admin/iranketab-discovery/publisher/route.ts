@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { assertAdminApi } from "@/lib/admin/permissions";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { runManualDiscoverySource, IranKetabDiscoveryScheduleError } from "@/lib/discovery/iranketab/scheduler";
-import { createOrResumeIranKetabPublisherSource } from "@/lib/discovery/iranketab/source-service";
+import { activateIranKetabPublisherImport, createOrResumeIranKetabPublisherSource, pauseIranKetabPublisherImport } from "@/lib/discovery/iranketab/source-service";
 import { parseIranKetabPublisherSource } from "@/lib/discovery/iranketab/publisher-source";
 import { iranKetabPublisherImportSchema } from "@/lib/validations/iranketab-discovery";
 
@@ -27,8 +27,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const source = await createOrResumeIranKetabPublisherSource(publisher, gate.user.id);
+    await activateIranKetabPublisherImport(source.id);
     const result = await runManualDiscoverySource(source.id);
-    if (result.status === "FAILED") return apiError(result.errorMessage, 502, result.errorCode);
+    if (result.status === "FAILED") {
+      await pauseIranKetabPublisherImport(source.id);
+      return apiError(result.errorMessage, 502, result.errorCode);
+    }
     return apiSuccess({ source, result, message: "ورود خودکار کتاب‌های انتشارات شروع شد." });
   } catch (error) {
     if (error instanceof IranKetabDiscoveryScheduleError) {

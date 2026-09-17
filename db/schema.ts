@@ -172,6 +172,10 @@ export const IranKetabDiscoveryImportMode = pgEnum(
   "IranKetabDiscoveryImportMode",
   ["MANUAL_REVIEW", "AUTO_IMPORT"],
 );
+export const IranKetabPublisherImportStatus = pgEnum(
+  "IranKetabPublisherImportStatus",
+  ["IDLE", "RUNNING", "PAUSED", "COMPLETED"],
+);
 export const IranKetabDiscoveryItemStatus = pgEnum(
   "IranKetabDiscoveryItemStatus",
   [
@@ -905,6 +909,11 @@ export const IranKetabDiscoverySource = pgTable(
       .notNull(),
     autoQueue: boolean("auto_queue").default(false).notNull(),
     importMode: IranKetabDiscoveryImportMode("import_mode").default("MANUAL_REVIEW").notNull(),
+    publisherImportStatus: IranKetabPublisherImportStatus("publisher_import_status")
+      .default("IDLE")
+      .notNull(),
+    publisherImportStartedAt: timestamp("publisher_import_started_at", { mode: "date" }),
+    publisherImportCompletedAt: timestamp("publisher_import_completed_at", { mode: "date" }),
     minimumQueueScore: integer("minimum_queue_score").default(85).notNull(),
     parserVersion: integer("parser_version").default(1).notNull(),
     lastCrawledAt: timestamp("last_crawled_at", { mode: "date" }),
@@ -937,6 +946,9 @@ export const IranKetabDiscoverySource = pgTable(
       t.crawlStatus,
       t.crawlLeaseExpiresAt,
     ),
+    oneRunningPublisher: uniqueIndex("IranKetabDiscoverySource_one_running_publisher")
+      .on(t.publisherImportStatus)
+      .where(sql`${t.sourceType} = 'PUBLISHER' and ${t.publisherImportStatus} = 'RUNNING'`),
     importanceRange: check(
       "IranKetabDiscoverySource_importance_range_check",
       sql`${t.importance} between 0 and 100`,

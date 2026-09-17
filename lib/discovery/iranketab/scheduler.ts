@@ -53,6 +53,11 @@ export async function runScheduledDiscovery() {
       and(
         eq(IranKetabDiscoverySource.enabled, true),
         or(
+          ne(IranKetabDiscoverySource.sourceType, "PUBLISHER"),
+          ne(IranKetabDiscoverySource.importMode, "AUTO_IMPORT"),
+          eq(IranKetabDiscoverySource.publisherImportStatus, "RUNNING"),
+        ),
+        or(
           ne(IranKetabDiscoverySource.crawlStatus, "RUNNING"),
           isNull(IranKetabDiscoverySource.crawlLeaseExpiresAt),
           lte(IranKetabDiscoverySource.crawlLeaseExpiresAt, now),
@@ -77,6 +82,11 @@ export async function runScheduledDiscovery() {
         and(
           eq(IranKetabDiscoverySource.id, source.id),
           eq(IranKetabDiscoverySource.enabled, true),
+          or(
+            ne(IranKetabDiscoverySource.sourceType, "PUBLISHER"),
+            ne(IranKetabDiscoverySource.importMode, "AUTO_IMPORT"),
+            eq(IranKetabDiscoverySource.publisherImportStatus, "RUNNING"),
+          ),
           or(
             ne(IranKetabDiscoverySource.crawlStatus, "RUNNING"),
             isNull(IranKetabDiscoverySource.crawlLeaseExpiresAt),
