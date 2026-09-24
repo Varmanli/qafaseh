@@ -80,7 +80,7 @@ export default function UserMenu({
         onboardingTarget: "profile-menu-library",
       },
       {
-        label: "داشبورد",
+        label: "گزارش مطالعه",
         href: "/dashboard",
         icon: BarChart3,
         onboardingTarget: "profile-menu-dashboard",

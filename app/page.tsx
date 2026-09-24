@@ -26,8 +26,27 @@ import HomeGenreDiscovery from "@/components/home/HomeGenreDiscovery";
 
 export const dynamic = "force-dynamic";
 
+function createHomePerfMeter(enabled: boolean, requestId: string) {
+  return async function measure<T>(operation: string, fn: () => Promise<T>): Promise<T> {
+    if (!enabled) return fn();
+    const start = performance.now();
+    try {
+      return await fn();
+    } finally {
+      console.info("[home-perf]", {
+        requestId,
+        operation,
+        durationMs: Math.round(performance.now() - start),
+      });
+    }
+  }
+}
+
 export default async function HomePage() {
-  const userPromise = getCurrentUser();
+  const perf = process.env.HOME_PERF === "1";
+  const requestId = perf ? crypto.randomUUID() : "";
+  const measure = createHomePerfMeter(perf, requestId);
+  const userPromise = measure("session", getCurrentUser);
   const [
     user,
     featuredBooks,
@@ -37,16 +56,16 @@ export default async function HomePage() {
     featuredAuthors,
     popularBooks,
     genres,
-  ] = await Promise.all([
+  ] = await measure("all homepage data", () => Promise.all([
     userPromise,
-    getFeaturedBooks(8),
-    userPromise.then((currentUser) => getRecentHomeQuotes(10, currentUser?.id)),
-    getFeaturedHomeBlogPosts(),
-    getHeroSlides(),
-    getFeaturedAuthors(),
-    getPopularBooks(8),
-    getHomepageGenres(5),
-  ]);
+    measure("featured books", () => getFeaturedBooks(8)),
+    measure("recent quotes", () => userPromise.then((currentUser) => getRecentHomeQuotes(10, currentUser?.id))),
+    measure("featured blog posts", getFeaturedHomeBlogPosts),
+    measure("hero slides", getHeroSlides),
+    measure("featured authors", getFeaturedAuthors),
+    measure("popular books", () => getPopularBooks(8)),
+    measure("genres", () => getHomepageGenres(5)),
+  ]));
 
   // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
   // کتاب‌های اخیر عمومی (به‌صورت شفاف با برچسب «تازه‌ترین‌ها»).
