@@ -1,5 +1,7 @@
 import { splitStoredGenres } from "@/lib/book/genres";
 import type { DiscoveryCollection } from "@/lib/book/discover-config";
+import { discoveryDay, distinctiveGenres, isBroadGenre, rankRecommendations, RECOMMENDATION_WEIGHTS } from "@/lib/book/recommendation-ranking";
+export { distinctiveGenres } from "@/lib/book/recommendation-ranking";
 
 // One canonical catalog work per row. Edition length is optional; there is no
 // book-level category, topic, rating, or public visibility column in the schema.
@@ -30,32 +32,28 @@ export function genresOf(book: Pick<CatalogDiscoverySignals, "genre">): string[]
 
 export function scoreCollection(book: CatalogDiscoverySignals, collection: DiscoveryCollection) {
   const genres = new Set(genresOf(book));
-  const metadataScore = collection.genres.some((genre) => genres.has(genre.toLocaleLowerCase("fa"))) ? 4 : 0;
-  const editorialScore = book.slug && collection.editorialBookSlugs?.includes(book.slug) ? 2 : 0;
+  const matched = collection.genres.filter((genre) => genres.has(genre.toLocaleLowerCase("fa")));
+  const metadataScore = matched.some((genre) => !isBroadGenre(genre))
+    ? RECOMMENDATION_WEIGHTS.specificGenre
+    : matched.length ? RECOMMENDATION_WEIGHTS.broadGenre : 0;
+  const editorialScore = book.slug && collection.editorialBookSlugs?.includes(book.slug) ? RECOMMENDATION_WEIGHTS.editorial : 0;
   return { metadataScore, editorialScore, score: metadataScore + editorialScore };
 }
 
-export function selectDiscoveryIds(candidates: CatalogDiscoverySignals[], collection: DiscoveryCollection, limit = 20): string[] {
-  return candidates.filter(isPublicDiscoveryBook)
+export function selectDiscoveryIds(candidates: CatalogDiscoverySignals[], collection: DiscoveryCollection, limit = 20, day = discoveryDay()): string[] {
+  const scored = candidates.filter(isPublicDiscoveryBook)
     .map((book) => ({ book, score: scoreCollection(book, collection).score }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score || a.book.id.localeCompare(b.book.id))
-    .slice(0, limit).map(({ book }) => book.id);
+    .filter(({ score }) => score > 0);
+  return rankRecommendations(scored, limit, `${day}:collection:${collection.slug}`).map(({ book }) => book.id);
 }
 
-// Canonical-book page-count tertiles: 323 and 415 (49 of 230 local works have
-// an approved edition with length, audited 2026-09-24). Missing gets no score.
+// Edition page-count tertiles from the audited seed catalog. Missing stays unknown.
 export const PAGE_BOUNDARIES = { short: 323, medium: 415 } as const;
 export function commitmentOf(pageCount: number | null): "short" | "medium" | "long" | null {
   if (!pageCount || pageCount <= 0) return null;
   if (pageCount <= PAGE_BOUNDARIES.short) return "short";
   if (pageCount <= PAGE_BOUNDARIES.medium) return "medium";
   return "long";
-}
-
-const BROAD_GENRES = new Set(["داستان", "ادبیات", "ادبیات داستانی", "ادبیات معاصر", "رمان"]);
-export function distinctiveGenres(book: CatalogDiscoverySignals): string[] {
-  return genresOf(book).filter((genre) => !BROAD_GENRES.has(genre) && !genre.startsWith("دهه ") && !genre.startsWith("ادبیات آمریکا") && !genre.startsWith("ادبیات انگلیس"));
 }
 
 export function scoreSimilarity(source: CatalogDiscoverySignals, candidate: CatalogDiscoverySignals) {
@@ -68,6 +66,12 @@ export function scoreSimilarity(source: CatalogDiscoverySignals, candidate: Cata
   const sameCountry = Boolean(source.country && candidate.country && source.country === candidate.country);
   const closeEra = Boolean(source.firstPublishedYear && candidate.firstPublishedYear && Math.abs(source.firstPublishedYear - candidate.firstPublishedYear) <= 15);
   const closeLength = Boolean(source.pageCount && candidate.pageCount && Math.abs(source.pageCount - candidate.pageCount) <= 80);
-  // Meaningful identity/taxonomy dominate. Era/length only sort close matches.
-  return { score: sharedDistinctive * 5 + Number(sameAuthor) * 5 + Number(sharedAny) * 1 + Number(sameCountry) * 1 + Number(closeEra) * 0.5 + Number(closeLength) * 0.5, sameAuthor };
+  // Context never creates a match by itself. Shared narrow taxonomy dominates.
+  const relevanceScore = Math.min(sharedDistinctive, 2) * RECOMMENDATION_WEIGHTS.similarSharedSpecificGenre +
+    Number(sameAuthor) * RECOMMENDATION_WEIGHTS.similarSameAuthor +
+    Number(sharedAny && !sharedDistinctive && (sameCountry || closeEra)) * RECOMMENDATION_WEIGHTS.similarSharedBroadGenre;
+  const qualityTieBreakScore = relevanceScore ? Number(sameCountry) * RECOMMENDATION_WEIGHTS.similarSameCountry +
+    Number(closeEra) * RECOMMENDATION_WEIGHTS.similarCloseEra +
+    Number(closeLength) * RECOMMENDATION_WEIGHTS.similarCloseLength : 0;
+  return { score: relevanceScore + qualityTieBreakScore, relevanceScore, qualityTieBreakScore, sameAuthor };
 }

@@ -57,3 +57,23 @@ test("results are bounded to six canonical works", async () => {
   const rows = Array.from({ length: 20 }, (_, index) => book(String(index), { genre: "داستان فانتزی" }));
   assert.equal(selectSimilarBookIds(source, [], rows).length, 6);
 });
+
+test("a broad fiction label alone does not imply similarity", async () => {
+  const { selectSimilarBookIds } = await service;
+  const source = book("source", { genre: "ادبیات داستانی" });
+  const generic = book("generic", { genre: "ادبیات داستانی" });
+  assert.deepEqual(selectSimilarBookIds(source, [], [generic]), []);
+});
+
+test("automatic results prefer specific taxonomy and diversify near-equal authors", async () => {
+  const { selectSimilarBookIds } = await service;
+  const source = book("source", { genre: "داستان فانتزی", author: "Source" });
+  const candidates = [
+    ...Array.from({ length: 5 }, (_, index) => book(`same-${index}`, { genre: "داستان فانتزی", author: "Prolific" })),
+    book("other", { genre: "داستان فانتزی", author: "Other" }),
+    book("weak", { genre: "ادبیات داستانی", author: "Other" }),
+  ];
+  const selected = selectSimilarBookIds(source, [], candidates, "2026-09-24");
+  assert(selected.includes("other"));
+  assert(!selected.includes("weak"));
+});

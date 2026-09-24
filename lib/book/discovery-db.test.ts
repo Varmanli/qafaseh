@@ -11,8 +11,8 @@ test("new public catalog books participate without config edits", { skip: !proce
   const { selectQuizBooks } = await import("./discover-quiz");
   const { moods } = await import("./discover-config");
   const { getSimilarBooks } = await import("./similar-books-service");
-  const ids: string[] = Array.from({ length: 5 }, () => randomUUID());
   const suffix = randomUUID().slice(0, 8);
+  const ids: string[] = [`zzzz-discovery-regression-${suffix}`, ...Array.from({ length: 4 }, () => randomUUID())];
   try {
     await db.insert(CatalogBook).values(ids.map((id, index) => ({
       id, slug: `discovery-regression-${suffix}-${index}`,
@@ -31,6 +31,7 @@ test("new public catalog books participate without config edits", { skip: !proce
     assert(selectDiscoveryIds(signals, moods[0]).includes(ids[0]));
     const answers = { kind: "exciting", mood: "dark", commitment: "short" };
     assert(selectQuizBooks(signals.filter((book) => ids.includes(book.id)), answers).some((book) => book.id === ids[0]));
+    assert(selectQuizBooks(signals, answers, [], "2026-09-24").some((book) => book.id === ids[0]));
     const related = await getSimilarBooks(ids[0]);
     assert(related.some((book) => book.id === ids[1]));
     assert(!related.some((book) => book.id === ids[2]));

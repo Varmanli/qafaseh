@@ -14,6 +14,5 @@ export async function recommendQuizBooks(answers: unknown, excludedIds: string[]
     const book = byId.get(id);
     return book?.slug ? [{ ...book, slug: book.slug, reason }] : [];
   });
-  // Fewer than three real catalog books cannot satisfy the product promise.
-  return results.length === 3 ? results : [];
+  return results;
 }

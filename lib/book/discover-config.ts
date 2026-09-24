@@ -10,19 +10,19 @@ export type DiscoveryCollection = {
 };
 
 export const moods: DiscoveryCollection[] = [
-  { slug: "dark", title: "یه داستان تاریک می‌خوام", description: "راز، تنش و سایه‌های آدم‌ها", genres: ["داستان معمایی", "داستان تریلر", "داستان جنایی", "داستان وحشت"], editorialBookSlugs: ["دیزی-دارکر", "سنگ-کاغذ-قیچی", "سفر-به-انتهای-شب"] },
+  { slug: "dark", title: "یه داستان تاریک می‌خوام", description: "راز، تنش و سایه‌های آدم‌ها", genres: ["داستان وحشت", "داستان تریلر"], editorialBookSlugs: ["دیزی-دارکر", "سنگ-کاغذ-قیچی", "سفر-به-انتهای-شب"] },
   { slug: "calm", title: "یه چیز آروم می‌خوام", description: "برای مکث کردن و نفس کشیدن", genres: [], editorialBookSlugs: ["کوچک-هوگا", "کوچک-لوکا", "مغازه-جادویی"] },
-  { slug: "thoughtful", title: "می‌خوام ذهنم درگیر بشه", description: "داستان‌هایی که بعد از تمام شدن می‌مانند", genres: ["داستان روانشناسانه", "ادبیات رئالیسم جادویی"], editorialBookSlugs: ["خدای-چیزهای-کوچک", "کیم-جی-یونگ-متولد-1982", "کتابخانه-نیمه-شب"] },
+  { slug: "thoughtful", title: "می‌خوام ذهنم درگیر بشه", description: "داستان‌هایی که بعد از تمام شدن می‌مانند", genres: ["داستان روانشناسانه"], editorialBookSlugs: ["خدای-چیزهای-کوچک", "کیم-جی-یونگ-متولد-1982", "کتابخانه-نیمه-شب"] },
   { slug: "thrilling", title: "یه داستان هیجان‌انگیز", description: "یک صفحه دیگر، و بعد یکی دیگر", genres: ["داستان معمایی", "داستان تریلر", "داستان ماجرایی", "داستان جنایی"], editorialBookSlugs: ["جناح-چهارم", "سنگ-کاغذ-قیچی", "گامبی-وزیر"] },
   { slug: "elsewhere", title: "می‌خوام وارد یه دنیای دیگه بشم", description: "از اینجا تا یک جهان تازه", genres: ["داستان فانتزی", "داستان علمی تخیلی", "ادبیات رئالیسم جادویی"], editorialBookSlugs: ["دختر-مهتاب", "اخگری-در-خاکستر", "هری-پاتر-هشت-جلدی"] },
-  { slug: "weighty", title: "یه کتاب جدی و سنگین می‌خوام", description: "برای یک خواندن عمیق‌تر", genres: ["ادبیات کلاسیک", "داستان تاریخی", "داستان اجتماعی"], editorialBookSlugs: ["ژرمینال", "شکست", "سفر-به-انتهای-شب"] },
+  { slug: "weighty", title: "یه کتاب جدی و سنگین می‌خوام", description: "برای یک خواندن عمیق‌تر", genres: [], editorialBookSlugs: ["ژرمینال", "شکست", "سفر-به-انتهای-شب"] },
 ];
 
 export const topics: DiscoveryCollection[] = [
   { slug: "identity", title: "هویت", genres: [], editorialBookSlugs: ["بادام", "کیم-جی-یونگ-متولد-1982", "خدای-چیزهای-کوچک"] },
   { slug: "life", title: "معنای زندگی", genres: [], editorialBookSlugs: ["کتابخانه-نیمه-شب", "مغازه-جادویی", "کوچک-هوگا"] },
   { slug: "power", title: "قدرت", genres: [], editorialBookSlugs: ["ژرمینال", "جناح-چهارم", "گامبی-وزیر"] },
-  { slug: "relationships", title: "روابط انسانی", genres: ["داستان عاشقانه", "داستان اجتماعی", "داستان درام"], editorialBookSlugs: ["خدای-چیزهای-کوچک", "سم-هستم-بفرمایید", "دفترچه-خاطرات-سنگی"] },
+  { slug: "relationships", title: "روابط انسانی", genres: ["داستان عاشقانه"], editorialBookSlugs: ["خدای-چیزهای-کوچک", "سم-هستم-بفرمایید", "دفترچه-خاطرات-سنگی"] },
   { slug: "war", title: "جنگ", genres: [], editorialBookSlugs: ["شکست", "اخگری-در-خاکستر", "آیوانهو"] },
   { slug: "solitude", title: "تنهایی", genres: [], editorialBookSlugs: ["سفر-به-انتهای-شب", "بادام", "کتابخانه-نیمه-شب"] },
 ];

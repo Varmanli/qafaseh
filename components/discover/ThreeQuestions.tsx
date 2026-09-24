@@ -113,6 +113,7 @@ export default function ThreeQuestions({
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Partial<QuizAnswers>>({});
   const [results, setResults] = useState<QuizRecommendation[] | null>(null);
+  const [seenIds, setSeenIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const question = questions[step];
@@ -121,20 +122,23 @@ export default function ThreeQuestions({
   function restart() {
     setAnswers({});
     setResults(null);
+    setSeenIds([]);
     setError(null);
     setStep(0);
   }
 
-  function recommend(excludedIds: string[] = []) {
+  function recommend() {
     if (!answers.kind || !answers.mood || !answers.commitment) return;
     const complete = answers as QuizAnswers;
     setError(null);
     startTransition(async () => {
       try {
-        const books = await recommendQuizBooks(complete, excludedIds);
-        if (books.length === 3) setResults(books);
-        else setError(excludedIds.length
-          ? "فعلاً سه کتاب تازهٔ دیگر در دسترس نیست. انتخاب‌هایت را تغییر بده یا بعداً دوباره امتحان کن."
+        const books = await recommendQuizBooks(complete, seenIds);
+        if (books.length) {
+          setResults(books);
+          setSeenIds((previous) => [...previous, ...books.map((book) => book.id)].slice(-30));
+        } else setError(seenIds.length
+          ? "فعلاً پیشنهاد تازهٔ مرتبطی در دسترس نیست. انتخاب‌هایت را تغییر بده یا بعداً دوباره امتحان کن."
           : "فعلاً کتاب کافی برای این پیشنهاد در دسترس نیست. دوباره امتحان کن.");
       } catch {
         setError("پیشنهادها آماده نشدند. دوباره امتحان کن.");
@@ -165,7 +169,7 @@ export default function ThreeQuestions({
             <div className="min-w-0">
               <p className="text-xs font-bold text-primary">{results ? "پیشنهادهای قفسه آماده‌اند" : "پیشنهادگر کتاب قفسه"}</p>
               <h2 id="three-questions-title" className="mt-1 text-xl font-black tracking-tight text-foreground sm:text-2xl">
-                {results ? "این سه کتاب را امتحان کن" : "سه سؤال، سه کتاب"}
+                {results ? "این کتاب‌ها را امتحان کن" : "سه سؤال، سه کتاب"}
               </h2>
               <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
                 {results ? "بر اساس چیزهایی که انتخاب کردی؛ هرکدام را باز کن و بیشتر بشناس." : "سه انتخاب کوتاه؛ یک شروع تازه برای کتاب بعدی‌ات."}
@@ -222,7 +226,7 @@ export default function ThreeQuestions({
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h3 className="text-lg font-black sm:text-xl">پیشنهادهای مخصوص تو</h3>
-                <p className="mt-1 text-sm text-muted-foreground">سه کتاب برای شروع مسیر خواندنت</p>
+                <p className="mt-1 text-sm text-muted-foreground">{results.length.toLocaleString("fa-IR")} کتاب برای شروع مسیر خواندنت</p>
               </div>
               <div className="flex flex-wrap gap-1.5" aria-label="انتخاب‌های شما">
                 {answerSummary.map((item) => <span key={item.label} className="rounded-full border border-primary/15 bg-primary/[0.06] px-2.5 py-1 text-[10px] font-bold text-primary">{item.value}</span>)}
@@ -259,8 +263,8 @@ export default function ThreeQuestions({
 
             {error && <p role="alert" className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-sm leading-6 text-amber-700 dark:text-amber-200">{error}</p>}
             <div className="mt-6 flex flex-wrap gap-2 border-t border-border/60 pt-5">
-              <button type="button" disabled={pending} onClick={() => recommend(results.map((book) => book.id))} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground outline-none transition-colors hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-50"><Sparkles aria-hidden="true" className="size-4" /> سه پیشنهاد دیگر</button>
-              <button type="button" disabled={pending} onClick={() => { setResults(null); setError(null); setStep(0); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold text-foreground outline-none transition-colors hover:border-primary/30 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">ویرایش انتخاب‌ها</button>
+              <button type="button" disabled={pending} onClick={() => recommend()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground outline-none transition-colors hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-50"><Sparkles aria-hidden="true" className="size-4" /> پیشنهادهای دیگر</button>
+              <button type="button" disabled={pending} onClick={() => { setResults(null); setSeenIds([]); setError(null); setStep(0); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold text-foreground outline-none transition-colors hover:border-primary/30 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">ویرایش انتخاب‌ها</button>
             </div>
           </div>
         ) : pending ? (

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -64,13 +64,10 @@ export async function getDiscoveryCards(ids: string[]): Promise<ArchiveBookCardD
 }
 
 export async function getRandomDiscoveryBook(): Promise<ArchiveBookCardData | null> {
-  // A UUID cursor uses the primary-key index and returns at most one row per query.
-  const cursor = randomUUID();
-  const first = await db.select(bookFields).from(CatalogBook)
-    .where(and(publicCatalogBookCondition, sql`${CatalogBook.id} >= ${cursor}`))
-    .orderBy(CatalogBook.id).limit(1);
-  if (first[0]) return first[0];
-  const wrapped = await db.select(bookFields).from(CatalogBook)
-    .where(publicCatalogBookCondition).orderBy(CatalogBook.id).limit(1);
-  return wrapped[0] ?? null;
+  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(CatalogBook)
+    .where(publicCatalogBookCondition);
+  if (!count) return null;
+  const [book] = await db.select(bookFields).from(CatalogBook)
+    .where(publicCatalogBookCondition).orderBy(CatalogBook.id).limit(1).offset(randomInt(count));
+  return book ?? null;
 }
