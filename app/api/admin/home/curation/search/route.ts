@@ -6,10 +6,11 @@ import { assertAdminApi } from "@/lib/admin/permissions";
 import {
   searchFeaturedAuthors,
   searchFeaturedBlogPosts,
+  searchFeaturedReadingLists,
 } from "@/lib/home/curation";
 
 const querySchema = z.object({
-  type: z.enum(["authors", "posts"]),
+  type: z.enum(["authors", "posts", "readingLists"]),
   q: z.string().trim().min(1).max(200),
 });
 
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
   const results =
     parsed.data.type === "authors"
       ? await searchFeaturedAuthors(parsed.data.q)
-      : await searchFeaturedBlogPosts(parsed.data.q);
+      : parsed.data.type === "posts"
+        ? await searchFeaturedBlogPosts(parsed.data.q)
+        : await searchFeaturedReadingLists(parsed.data.q);
   return apiSuccess({ results });
 }

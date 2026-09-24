@@ -12,13 +12,14 @@ import {
 import {
   getFeaturedAuthors,
   getFeaturedHomeBlogPosts,
+  getFeaturedHomeReadingLists,
 } from "@/lib/home/curation";
 import PublicShell from "@/components/PublicShell";
 import HomeHeroSlider from "@/components/home/HomeHeroSlider";
 import HomeBookCarousel from "@/components/home/HomeBookCarousel";
 import HomeQuotesSection from "@/components/home/HomeQuotesSection";
 import HomePopularAuthors from "@/components/home/HomePopularAuthors";
-// import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
+import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
 // import HomeFeatureCards from "@/components/home/HomeFeatureCards";
 import HomeBlogPreview from "@/components/home/HomeBlogPreview";
 import HomeExploreGhafaseh from "@/components/home/HomeExploreGhafaseh";
@@ -56,6 +57,7 @@ export default async function HomePage() {
     featuredAuthors,
     popularBooks,
     genres,
+    readingLists,
   ] = await measure("all homepage data", () => Promise.all([
     userPromise,
     measure("featured books", () => getFeaturedBooks(8)),
@@ -65,6 +67,7 @@ export default async function HomePage() {
     measure("featured authors", getFeaturedAuthors),
     measure("popular books", () => getPopularBooks(8)),
     measure("genres", () => getHomepageGenres(5)),
+    measure("reading lists", getFeaturedHomeReadingLists),
   ]));
 
   // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
@@ -143,7 +146,9 @@ export default async function HomePage() {
             <HomeGenreDiscovery genres={genres} />
           </div>
 
-          {/* <HomeReadingListsPreview lists={HOME_PLACEHOLDER_LISTS} /> */}
+          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_560px]">
+            <HomeReadingListsPreview lists={readingLists} />
+          </div>
 
           {/* <HomeFeatureCards /> */}
 

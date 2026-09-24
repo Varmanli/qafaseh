@@ -136,14 +136,6 @@ export interface HomeHeroSlide {
 
 export type HomeQuotePreview = PublicQuote;
 
-export interface HomeReadingListPreview {
-  id: string;
-  title: string;
-  description: string;
-  books: string[];
-  mood: string;
-}
-
 export type HomeBlogPostPreview = PublicBlogPostPreview;
 
 export const HOME_FALLBACK_SLIDES: HomeHeroSlideSeed[] = [
@@ -278,30 +270,6 @@ export const HOME_FALLBACK_SLIDES: HomeHeroSlideSeed[] = [
         tintClassName: "bg-primary/15 text-foreground",
       },
     ],
-  },
-];
-
-export const HOME_PLACEHOLDER_LISTS: HomeReadingListPreview[] = [
-  {
-    id: "russian",
-    title: "شروع ادبیات روسیه",
-    description: "سه کتاب برای ورود آرام و قابل‌فهم به جهان نویسندگان روس.",
-    books: ["ابله", "مرگ ایوان ایلیچ", "شب‌های روشن"],
-    mood: "شروع مسیر",
-  },
-  {
-    id: "heavy-days",
-    title: "کتاب‌هایی برای روزهای سنگین",
-    description: "کتاب‌هایی کوتاه‌تر و همدلانه برای وقتی که تمرکز کم است.",
-    books: ["انسان در جست‌وجوی معنا", "پیرمرد و دریا", "سووشون"],
-    mood: "حال‌وهوای شخصی",
-  },
-  {
-    id: "classics",
-    title: "کلاسیک‌هایی که ارزش شروع دارند",
-    description: "فهرستی ساده برای شروع کلاسیک‌خوانی بدون سردرگمی.",
-    books: ["بیگانه", "کوری", "صد سال تنهایی"],
-    mood: "کلاسیک‌خوانی",
   },
 ];
 

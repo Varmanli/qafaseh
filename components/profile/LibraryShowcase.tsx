@@ -1,4 +1,4 @@
-import { BookOpen, LibraryBig } from "lucide-react";
+import { LibraryBig } from "lucide-react";
 
 import ShelfPreviewColumn, {
   type ShelfBook,
@@ -69,10 +69,6 @@ export default function LibraryShowcase({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground sm:text-xs">
-          <BookOpen className="h-4 w-4 text-primary/90" />
-          <span>{stats.total.toLocaleString("fa-IR")} کتاب</span>
-        </div>
       </div>
 
       {/* Shelves */}

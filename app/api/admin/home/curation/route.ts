@@ -7,6 +7,7 @@ import { assertAdminApi } from "@/lib/admin/permissions";
 import {
   FEATURED_AUTHOR_LIMIT,
   FEATURED_BLOG_POST_LIMIT,
+  FEATURED_READING_LIST_LIMIT,
   getHomepageCuration,
   saveHomepageCuration,
 } from "@/lib/home/curation";
@@ -20,6 +21,11 @@ const curationSchema = z.object({
     .array(z.string().min(1))
     .max(FEATURED_BLOG_POST_LIMIT, "حداکثر ۳ مطلب مجاز است")
     .refine((ids) => new Set(ids).size === ids.length, "مطلب تکراری است"),
+  readingListIds: z
+    .array(z.string().min(1))
+    .max(FEATURED_READING_LIST_LIMIT, "حداکثر ۲ مسیر مطالعه مجاز است")
+    .refine((ids) => new Set(ids).size === ids.length, "مسیر مطالعه تکراری است")
+    .default([]),
 });
 
 export async function GET() {

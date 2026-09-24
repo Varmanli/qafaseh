@@ -18,14 +18,16 @@ import { Input } from "@/components/ui/input";
 import {
   FEATURED_AUTHOR_LIMIT,
   FEATURED_BLOG_POST_LIMIT,
+  FEATURED_READING_LIST_LIMIT,
   type HomepageCuration,
 } from "@/lib/home/curation-types";
 
-type CurationKind = "authors" | "posts";
+type CurationKind = "authors" | "posts" | "readingLists";
 type CurationItem = {
   id: string;
   name?: string;
   title?: string;
+  category?: string;
   coverImage?: string | null;
   bannerImage?: string;
   categoryName?: string | null;
@@ -55,17 +57,19 @@ function itemTitle(item: CurationItem, kind: CurationKind) {
 }
 
 function itemMeta(item: CurationItem, kind: CurationKind) {
-  return kind === "posts" ? item.categoryName ?? "بدون دسته‌بندی" : null;
+  if (kind === "posts") return item.categoryName ?? "بدون دسته‌بندی";
+  if (kind === "readingLists") return `${item.category ?? "بدون دسته‌بندی"} · مسیر ترتیبی`;
+  return null;
 }
 
 export default function HomepageCurationManager() {
-  const [curation, setCuration] = useState<HomepageCuration>({ authors: [], posts: [] });
-  const [saved, setSaved] = useState<HomepageCuration>({ authors: [], posts: [] });
+  const [curation, setCuration] = useState<HomepageCuration>({ authors: [], posts: [], readingLists: [] });
+  const [saved, setSaved] = useState<HomepageCuration>({ authors: [], posts: [], readingLists: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState<Record<CurationKind, string>>({ authors: "", posts: "" });
-  const [results, setResults] = useState<Record<CurationKind, CurationItem[]>>({ authors: [], posts: [] });
-  const [searching, setSearching] = useState<Record<CurationKind, boolean>>({ authors: false, posts: false });
+  const [query, setQuery] = useState<Record<CurationKind, string>>({ authors: "", posts: "", readingLists: "" });
+  const [results, setResults] = useState<Record<CurationKind, CurationItem[]>>({ authors: [], posts: [], readingLists: [] });
+  const [searching, setSearching] = useState<Record<CurationKind, boolean>>({ authors: false, posts: false, readingLists: false });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,7 +77,7 @@ export default function HomepageCurationManager() {
       const response = await fetch("/api/admin/home/curation", { credentials: "include", cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "خطا در بارگذاری");
-      const next = { authors: data.authors ?? [], posts: data.posts ?? [] };
+      const next = { authors: data.authors ?? [], posts: data.posts ?? [], readingLists: data.readingLists ?? [] };
       setCuration(next);
       setSaved(next);
     } catch (error) {
@@ -127,7 +131,7 @@ export default function HomepageCurationManager() {
   };
 
   const add = (kind: CurationKind, item: CurationItem) => {
-    const limit = kind === "authors" ? FEATURED_AUTHOR_LIMIT : FEATURED_BLOG_POST_LIMIT;
+    const limit = kind === "authors" ? FEATURED_AUTHOR_LIMIT : kind === "posts" ? FEATURED_BLOG_POST_LIMIT : FEATURED_READING_LIST_LIMIT;
     const items = curation[kind];
     if (items.some((selected) => selected.id === item.id) || items.length >= limit) return;
     updateItems(kind, [...items, item]);
@@ -159,6 +163,7 @@ export default function HomepageCurationManager() {
         body: JSON.stringify({
           authorIds: curation.authors.map((item) => item.id),
           postIds: curation.posts.map((item) => item.id),
+          readingListIds: curation.readingLists.map((item) => item.id),
         }),
       });
       const data = await response.json();
@@ -174,7 +179,7 @@ export default function HomepageCurationManager() {
 
   const renderSection = (kind: CurationKind, title: string, description: string) => {
     const items = curation[kind];
-    const limit = kind === "authors" ? FEATURED_AUTHOR_LIMIT : FEATURED_BLOG_POST_LIMIT;
+    const limit = kind === "authors" ? FEATURED_AUTHOR_LIMIT : kind === "posts" ? FEATURED_BLOG_POST_LIMIT : FEATURED_READING_LIST_LIMIT;
     const selectedIds = new Set(items.map((item) => item.id));
 
     return (
@@ -190,7 +195,7 @@ export default function HomepageCurationManager() {
             value={query[kind]}
             onChange={(event) => setQuery((current) => ({ ...current, [kind]: event.target.value }))}
             disabled={items.length >= limit}
-            placeholder={kind === "authors" ? "جست‌وجوی نویسنده..." : "جست‌وجوی عنوان مطلب..."}
+            placeholder={kind === "authors" ? "جست‌وجوی نویسنده..." : kind === "posts" ? "جست‌وجوی عنوان مطلب..." : "جست‌وجوی مسیر مطالعه..."}
             className="pr-9"
           />
         </div>
@@ -257,6 +262,7 @@ export default function HomepageCurationManager() {
     <div className="space-y-4">
       {renderSection("authors", "نویسنده‌های منتخب", "حداکثر ۶ نویسنده را جست‌وجو، انتخاب و مرتب کنید.")}
       {renderSection("posts", "از مجله قفسه", "حداکثر ۳ مطلب منتشرشده را جست‌وجو، انتخاب و مرتب کنید.")}
+      {renderSection("readingLists", "مسیرهای مطالعه منتخب", "حداکثر ۲ مسیر منتشرشده را برای نمایش در صفحه اصلی انتخاب و مرتب کنید.")}
       <div className="flex justify-end">
         <Button onClick={save} disabled={!hasChanges || saving} className="min-w-36 gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

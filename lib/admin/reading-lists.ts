@@ -94,6 +94,7 @@ export async function saveReadingList(input: ReadingListInput, id?: string) {
     const now = new Date();
     const values = {
       title: input.title, slug: input.slug, description: input.description,
+      subtitle: input.subtitle ?? null,
       audience: input.audience, category: input.category, hubGroup: input.hubGroup,
       mode: input.mode, status: input.status, featured: input.featured,
       seoTitle: input.seoTitle, seoDescription: input.seoDescription,

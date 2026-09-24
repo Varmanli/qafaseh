@@ -1354,6 +1354,7 @@ export const HomeHeroSlideBook = pgTable("HomeHeroSlideBook", {
 export const ReadingList = pgTable("ReadingList", {
   id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
+  subtitle: text("subtitle"),
   slug: text("slug").notNull().unique(),
   description: text("description").notNull(),
   audience: text("audience"),
@@ -1478,6 +1479,28 @@ export const HomeFeaturedBlogPost = pgTable(
       t.blogPostId,
     ),
     sortOrderIdx: index("HomeFeaturedBlogPost_sort_order_idx").on(t.sortOrder),
+  }),
+);
+
+// ---------------- HomeFeaturedReadingList (مسیرهای مطالعه‌ی صفحه‌ی اصلی) ----------------
+export const HomeFeaturedReadingList = pgTable(
+  "HomeFeaturedReadingList",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .notNull()
+      .default(sql`gen_random_uuid()`),
+    readingListId: varchar("reading_list_id")
+      .notNull()
+      .references(() => ReadingList.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    readingListUnique: unique("HomeFeaturedReadingList_reading_list_id_unique").on(
+      t.readingListId,
+    ),
+    sortOrderIdx: index("HomeFeaturedReadingList_sort_order_idx").on(t.sortOrder),
   }),
 );
 

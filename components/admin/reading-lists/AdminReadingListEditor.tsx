@@ -50,6 +50,7 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
 export default function AdminReadingListEditor({ initial, relatedOptions }: { initial?: Existing; relatedOptions: Option[] }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
+  const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(initial));
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -96,7 +97,7 @@ export default function AdminReadingListEditor({ initial, relatedOptions }: { in
     setSaving(true);
     try {
       const payload = {
-        title: title.trim(), slug: slug.trim(), description: description.trim(),
+        title: title.trim(), subtitle: subtitle.trim() || null, slug: slug.trim(), description: description.trim(),
         audience: audience.trim() || null, category: category.trim(), hubGroup,
         mode, status, featured, seoTitle: seoTitle.trim() || null,
         seoDescription: seoDescription.trim() || null,
@@ -144,6 +145,7 @@ export default function AdminReadingListEditor({ initial, relatedOptions }: { in
           <div id="list-details"><SectionHeading number="۰۱" icon={FileText} title="معرفی فهرست" description="عنوان و توضیحی بنویس که به خواننده بگوید این فهرست برای چیست." /></div>
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2"><Field label="عنوان فهرست" required hint="حداکثر ۳۰۰ نویسه"><input maxLength={300} className={inputClass} value={title} onChange={(event) => { const value = event.target.value; setTitle(value); if (!slugTouched) setSlug(slugify(value)); }} placeholder="مثلاً از کجا فلسفه را شروع کنیم؟" /></Field></div>
+            <div className="sm:col-span-2"><Field label="زیرعنوان" hint="اختیاری · حداکثر ۳۰۰ نویسه"><input maxLength={300} className={inputClass} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} placeholder="مثلاً یک شروع آرام برای آشنایی با فلسفهٔ اگزیستانسیالیسم" /></Field></div>
             <div className="sm:col-span-2"><Field label="توضیح کوتاه" required hint={`${description.length.toLocaleString("fa-IR")} / ۲۰۰۰`}><textarea maxLength={2000} className={`${inputClass} min-h-32 resize-y py-3 leading-7`} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="در چند جمله، حال‌وهوای این فهرست و ارزش آن را توضیح بده..." /></Field></div>
             <div className="sm:col-span-2"><Field label="مناسب برای چه کسانی؟" hint="اختیاری"><textarea maxLength={1000} className={`${inputClass} min-h-24 resize-y py-3 leading-7`} value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="مثلاً برای کسانی که تازه به این موضوع علاقه‌مند شده‌اند" /></Field></div>
             <Field label="دسته‌بندی" required><input list="list-categories" maxLength={100} className={inputClass} value={category} onChange={(event) => setCategory(event.target.value)} placeholder="مثلاً ادبیات کلاسیک" /><datalist id="list-categories"><option value="فانتزی" /><option value="ادبیات کلاسیک" /><option value="فلسفه" /><option value="زندگی و معنا" /></datalist></Field>

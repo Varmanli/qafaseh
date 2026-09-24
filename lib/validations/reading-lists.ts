@@ -5,6 +5,7 @@ const ids = z.array(z.string().uuid()).max(20).refine((value) => new Set(value).
 
 export const readingListInputSchema = z.object({
   title: z.string().trim().min(1, "عنوان الزامی است").max(300),
+  subtitle: z.string().trim().max(300).nullable().optional(),
   slug: z.string().trim().min(1, "اسلاگ الزامی است").max(300)
     .refine((value) => slugify(value) === value, "اسلاگ معتبر نیست"),
   description: z.string().trim().min(1, "توضیح الزامی است").max(2000),

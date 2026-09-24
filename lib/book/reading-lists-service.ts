@@ -14,6 +14,7 @@ export type PublicListBook = {
 };
 
 export type ReadingListPreview = {
+  id: string;
   slug: string;
   title: string;
   description: string;
@@ -90,6 +91,7 @@ export async function getReadingListsOverview(): Promise<ReadingListPreview[]> {
     const previews = byList.get(list.id) ?? [];
     if (!previews.length) return [];
     return [{
+      id: list.id,
       slug: list.slug, title: list.title, description: list.description,
       category: list.category, hubGroup: list.hubGroup, mode: list.mode,
       featured: list.featured, bookCount: previews[0].bookCount,

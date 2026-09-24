@@ -41,32 +41,33 @@ export default async function ReadingListPage({
   return (
     <PublicShell>
       <main dir="rtl" className="mx-auto w-full max-w-7xl space-y-7 px-4 py-6 sm:space-y-9 sm:px-6 sm:py-9">
-        <header className="relative isolate overflow-hidden rounded-[1.75rem] bg-primary-deep p-5 text-white shadow-[0_24px_70px_-38px_rgba(43,98,82,0.6)] sm:rounded-[2rem] sm:p-8 lg:p-10">
+        <header className="relative isolate overflow-hidden rounded-[1.5rem] bg-primary-deep p-4 text-white shadow-[0_24px_70px_-38px_rgba(43,98,82,0.6)] sm:rounded-[2rem] sm:p-8 lg:p-10">
           <div aria-hidden="true" className="pointer-events-none absolute -left-16 -top-24 -z-10 size-64 rounded-full border border-white/10 sm:size-80" />
           <div aria-hidden="true" className="pointer-events-none absolute -left-2 -top-12 -z-10 size-40 rounded-full border border-white/10 sm:size-52" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/3 -z-10 size-64 rounded-full bg-white/[0.06] blur-3xl" />
-          <Link href="/lists" className="-mt-2 inline-flex min-h-9 items-center gap-1 rounded-lg text-xs font-bold text-white/70 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white sm:-mt-3">
+          <Link href="/lists" className="-mt-1 inline-flex min-h-9 items-center gap-1 rounded-lg text-xs font-bold text-white/70 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white sm:-mt-2">
             <ArrowRight aria-hidden="true" className="size-4" /> بازگشت به لیست‌ها
           </Link>
-          <div className="grid items-center gap-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-10">
+          <div className="mt-4 grid items-center gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:gap-10 lg:mt-5 lg:gap-14">
             <div className="min-w-0">
-              <span className="inline-flex h-8 items-center gap-2 rounded-full border border-white/15 bg-white/[0.08] px-3 text-xs font-bold text-white/85"><Bookmark aria-hidden="true" className="size-4" /> {list.mode === "ORDERED" ? "مسیر ترتیبی" : "مجموعه کتاب"} · {list.category}</span>
-              <h1 className="mt-4 max-w-3xl text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-[2.75rem]">{list.title}</h1>
-              <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">{list.description}</p>
-              <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold text-white/80">
+              <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-white/15 bg-white/[0.08] px-3 py-1.5 text-[11px] font-bold leading-5 text-white/85 sm:h-8 sm:flex-nowrap sm:py-0 sm:text-xs"><Bookmark aria-hidden="true" className="size-4 shrink-0" /> <span className="min-w-0">{list.mode === "ORDERED" ? "مسیر مطالعه" : "مجموعه کتاب"}</span></span>
+              <h1 className="mt-3 max-w-3xl text-2xl font-black leading-[1.45] tracking-tight sm:mt-4 sm:text-4xl sm:leading-tight lg:text-[2.75rem]">{list.title}</h1>
+              {list.subtitle && <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-white/90 sm:text-base">{list.subtitle}</p>}
+              <p className={`${list.subtitle ? "mt-2" : "mt-3"} line-clamp-3 max-w-2xl text-sm leading-7 text-white/75 sm:line-clamp-2 sm:text-base`}>{list.description}</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-white/80 sm:mt-5">
                 <span className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.07] px-3"><BookOpen aria-hidden="true" className="size-4" /> {list.items.length.toLocaleString("fa-IR")} کتاب · {list.mode === "ORDERED" ? "مسیر ترتیبی" : "مجموعه پیشنهادی"}</span>
               </div>
             </div>
-            <div aria-hidden="true" className="relative mx-auto grid size-40 shrink-0 place-items-center sm:size-52">
+            <div aria-hidden="true" className="relative mx-auto grid size-32 shrink-0 place-items-center sm:size-44 md:size-52">
               <span className="absolute inset-0 rounded-full border border-white/15" />
               <span className="absolute inset-3 rounded-full border border-dashed border-white/20" />
-              {previewBooks.length ? <div className="relative flex items-center justify-center -space-x-7 [direction:rtl] sm:-space-x-9">
-                {previewBooks.map(({ book }, index) => <span key={book.id} className={`relative block aspect-[2/3] w-[4rem] overflow-hidden rounded-lg border-2 border-primary-deep bg-white/10 shadow-xl transition-transform sm:w-[5rem] ${index === 1 ? "-translate-y-3" : "translate-y-1"}`} style={{ zIndex: previewBooks.length - index }}>
+              {previewBooks.length ? <div className="relative flex items-center justify-center -space-x-6 [direction:rtl] sm:-space-x-8">
+                {previewBooks.map(({ book }, index) => <span key={book.id} className={`relative block aspect-[2/3] w-[3.5rem] overflow-hidden rounded-lg border-2 border-primary-deep bg-white/10 shadow-xl transition-transform sm:w-[4.5rem] md:w-[5rem] ${index === 1 ? "-translate-y-2 sm:-translate-y-3" : "translate-y-1"}`} style={{ zIndex: previewBooks.length - index }}>
                   <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white/50">قفسه</span>
-                  <BookCoverImage src={book.coverImage} alt="" fill sizes="80px" className="object-cover" />
+                  <BookCoverImage src={book.coverImage} alt="" fill sizes="(max-width: 640px) 56px, 80px" className="object-cover" />
                 </span>)}
               </div> : <BookOpen className="size-12 text-white/70" />}
-              {list.mode === "ORDERED" && <span className="absolute -bottom-1 rounded-full border border-white/15 bg-primary-deep px-3 py-1 text-[10px] font-bold text-white/85">کتاب اول، شروع ماجرا</span>}
+              {list.mode === "ORDERED" && <span className="absolute -bottom-2 whitespace-nowrap rounded-full border border-white/15 bg-primary-deep px-3 py-1 text-[10px] font-bold text-white/85">کتاب اول، شروع ماجرا</span>}
             </div>
           </div>
         </header>
@@ -112,15 +113,27 @@ export default async function ReadingListPage({
             })}
           </ol>
         </section> : <section aria-labelledby="collection-title">
-          <div className="mb-5 border-b border-border/60 pb-4"><h2 id="collection-title" className="text-xl font-black sm:text-2xl">کتاب‌های این مجموعه</h2></div>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {list.items.map(({ book, note }) => <li key={book.id} className="rounded-2xl border border-border/60 bg-card p-4">
-              <Link href={getPublicBookHref(book)!} className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                <span className="relative block aspect-[2/3] w-28 overflow-hidden rounded-lg bg-muted sm:w-32"><BookCoverImage src={book.coverImage} alt="" fill sizes="128px" className="object-cover" /></span>
-                <h3 className="mt-3 text-base font-black group-hover:text-primary">{book.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{book.author}</p>
+          <div className="mb-5 flex items-end justify-between gap-4 border-b border-border/60 pb-4 sm:mb-6 sm:pb-5">
+            <div>
+              <p className="mb-1 text-xs font-bold text-primary">انتخاب‌های این مسیر</p>
+              <h2 id="collection-title" className="text-xl font-black sm:text-2xl">کتاب‌های این مجموعه</h2>
+            </div>
+            <span className="inline-flex min-h-8 shrink-0 items-center rounded-full border border-border/60 bg-card px-3 text-xs font-bold text-muted-foreground">{list.items.length.toLocaleString("fa-IR")} کتاب</span>
+          </div>
+          <ul className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {list.items.map(({ book, note }) => <li key={book.id} className="group relative isolate flex h-full overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-sm outline-none transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-xl hover:shadow-primary/10">
+              <span aria-hidden="true" className="pointer-events-none absolute -left-10 -top-12 -z-10 size-40 rounded-full bg-primary/[0.07] blur-2xl transition-transform duration-500 group-hover:scale-125" />
+              <Link href={getPublicBookHref(book)!} aria-label={`صفحه کتاب ${book.title}`} className="flex h-full min-w-0 flex-1 flex-col outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset">
+                <span className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
+                  <span className="relative block aspect-[2/3] w-[5.75rem] shrink-0 overflow-hidden rounded-xl bg-muted shadow-[0_16px_30px_-14px_rgba(0,0,0,0.7)] transition-transform duration-300 group-hover:-translate-y-1 sm:w-[6.75rem]"><span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-muted-foreground/50">قفسه</span><BookCoverImage src={book.coverImage} alt="" fill sizes="(max-width: 640px) 92px, 108px" className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" /></span>
+                  <span className="flex min-w-0 flex-1 flex-col justify-center">
+                    <h3 className="line-clamp-3 text-base font-black leading-7 transition-colors group-hover:text-primary sm:text-lg">{book.title}</h3>
+                    <p className="mt-1.5 text-xs font-medium text-muted-foreground sm:text-sm">{book.author}</p>
+                    <span className="mt-4 inline-flex w-fit items-center gap-1.5 text-xs font-bold text-primary">مشاهده کتاب <ArrowLeft aria-hidden="true" className="size-4 transition-transform group-hover:-translate-x-1" /></span>
+                  </span>
+                </span>
+                {note && <span className="mx-4 block border-t border-border/60 py-4 text-xs leading-7 text-muted-foreground sm:mx-5 sm:text-sm sm:leading-7">{note}</span>}
               </Link>
-              {note && <p className="mt-3 text-sm leading-7 text-muted-foreground">{note}</p>}
             </li>)}
           </ul>
         </section>}

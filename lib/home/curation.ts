@@ -6,26 +6,36 @@ import {
   BlogPost,
   HomeFeaturedAuthor,
   HomeFeaturedBlogPost,
+  HomeFeaturedReadingList,
+  ReadingList,
   ReferenceItem,
   User,
 } from "@/db/schema";
 import { normalizeCoverImage, normalizeMediaUrl } from "@/lib/book/cover";
 import type { PublicBlogPostPreview } from "@/lib/blog/service";
 import {
+  getReadingListsOverview,
+  type ReadingListPreview,
+} from "@/lib/book/reading-lists-service";
+import {
   FEATURED_AUTHOR_LIMIT,
   FEATURED_BLOG_POST_LIMIT,
+  FEATURED_READING_LIST_LIMIT,
   type FeaturedAuthor,
   type FeaturedAuthorOption,
   type FeaturedBlogPostOption,
+  type FeaturedReadingListOption,
   type HomepageCuration,
 } from "@/lib/home/curation-types";
 
 export {
   FEATURED_AUTHOR_LIMIT,
   FEATURED_BLOG_POST_LIMIT,
+  FEATURED_READING_LIST_LIMIT,
   type FeaturedAuthor,
   type FeaturedAuthorOption,
   type FeaturedBlogPostOption,
+  type FeaturedReadingListOption,
   type HomepageCuration,
 } from "@/lib/home/curation-types";
 
@@ -90,8 +100,26 @@ export async function getFeaturedHomeBlogPosts(): Promise<PublicBlogPostPreview[
     .map((row) => ({ ...row, bannerImage: normalizeMediaUrl(row.bannerImage) ?? "" }));
 }
 
+export async function getFeaturedHomeReadingLists(): Promise<ReadingListPreview[]> {
+  const selected = await db
+    .select({ id: ReadingList.id })
+    .from(HomeFeaturedReadingList)
+    .innerJoin(ReadingList, eq(HomeFeaturedReadingList.readingListId, ReadingList.id))
+    .where(and(eq(ReadingList.status, "PUBLISHED"), eq(ReadingList.mode, "ORDERED")))
+    .orderBy(
+      asc(HomeFeaturedReadingList.sortOrder),
+      asc(HomeFeaturedReadingList.createdAt),
+    );
+  if (!selected.length) return [];
+
+  const byId = new Map((await getReadingListsOverview()).map((list) => [list.id, list]));
+  return selected
+    .map(({ id }) => byId.get(id))
+    .filter((list): list is ReadingListPreview => Boolean(list));
+}
+
 export async function getHomepageCuration(): Promise<HomepageCuration> {
-  const [authors, posts] = await Promise.all([
+  const [authors, posts, readingLists] = await Promise.all([
     db
       .select({
         id: ReferenceItem.id,
@@ -116,6 +144,21 @@ export async function getHomepageCuration(): Promise<HomepageCuration> {
         asc(HomeFeaturedBlogPost.sortOrder),
         asc(HomeFeaturedBlogPost.createdAt),
       ),
+    db
+      .select({
+        id: ReadingList.id,
+        title: ReadingList.title,
+        slug: ReadingList.slug,
+        category: ReadingList.category,
+        mode: ReadingList.mode,
+      })
+      .from(HomeFeaturedReadingList)
+      .innerJoin(ReadingList, eq(HomeFeaturedReadingList.readingListId, ReadingList.id))
+      .where(eq(ReadingList.status, "PUBLISHED"))
+      .orderBy(
+        asc(HomeFeaturedReadingList.sortOrder),
+        asc(HomeFeaturedReadingList.createdAt),
+      ),
   ]);
 
   return {
@@ -127,6 +170,7 @@ export async function getHomepageCuration(): Promise<HomepageCuration> {
       ...post,
       bannerImage: normalizeMediaUrl(post.bannerImage) ?? "",
     })),
+    readingLists,
   };
 }
 
@@ -177,21 +221,44 @@ export async function searchFeaturedBlogPosts(
   return rows.map((row) => ({ ...row, bannerImage: normalizeMediaUrl(row.bannerImage) ?? "" }));
 }
 
+export async function searchFeaturedReadingLists(
+  query: string,
+): Promise<FeaturedReadingListOption[]> {
+  const term = query.trim();
+  if (!term) return [];
+
+  return db
+    .select({
+      id: ReadingList.id,
+      title: ReadingList.title,
+      slug: ReadingList.slug,
+      category: ReadingList.category,
+      mode: ReadingList.mode,
+    })
+    .from(ReadingList)
+    .where(and(eq(ReadingList.status, "PUBLISHED"), eq(ReadingList.mode, "ORDERED"), ilike(ReadingList.title, `%${term}%`)))
+    .orderBy(asc(ReadingList.title))
+    .limit(12);
+}
+
 export async function saveHomepageCuration(input: {
   authorIds: string[];
   postIds: string[];
+  readingListIds: string[];
 }): Promise<void> {
-  const { authorIds, postIds } = input;
+  const { authorIds, postIds, readingListIds } = input;
   if (
     authorIds.length > FEATURED_AUTHOR_LIMIT ||
     postIds.length > FEATURED_BLOG_POST_LIMIT ||
+    readingListIds.length > FEATURED_READING_LIST_LIMIT ||
     !uniqueIds(authorIds) ||
-    !uniqueIds(postIds)
+    !uniqueIds(postIds) ||
+    !uniqueIds(readingListIds)
   ) {
     throw new Error("HOMEPAGE_CURATION_INVALID");
   }
 
-  const [authors, posts] = await Promise.all([
+  const [authors, posts, readingLists] = await Promise.all([
     authorIds.length
       ? db
           .select({ id: ReferenceItem.id })
@@ -216,9 +283,25 @@ export async function saveHomepageCuration(input: {
             ),
           )
       : Promise.resolve([]),
+    readingListIds.length
+      ? db
+          .select({ id: ReadingList.id })
+          .from(ReadingList)
+          .where(
+            and(
+              inArray(ReadingList.id, readingListIds),
+              eq(ReadingList.status, "PUBLISHED"),
+              eq(ReadingList.mode, "ORDERED"),
+            ),
+          )
+      : Promise.resolve([]),
   ]);
 
-  if (authors.length !== authorIds.length || posts.length !== postIds.length) {
+  if (
+    authors.length !== authorIds.length ||
+    posts.length !== postIds.length ||
+    readingLists.length !== readingListIds.length
+  ) {
     throw new Error("HOMEPAGE_CURATION_RECORD_NOT_FOUND");
   }
 
@@ -226,6 +309,7 @@ export async function saveHomepageCuration(input: {
     await Promise.all([
       tx.delete(HomeFeaturedAuthor),
       tx.delete(HomeFeaturedBlogPost),
+      tx.delete(HomeFeaturedReadingList),
     ]);
 
     if (authorIds.length) {
@@ -236,6 +320,11 @@ export async function saveHomepageCuration(input: {
     if (postIds.length) {
       await tx.insert(HomeFeaturedBlogPost).values(
         postIds.map((blogPostId, sortOrder) => ({ blogPostId, sortOrder })),
+      );
+    }
+    if (readingListIds.length) {
+      await tx.insert(HomeFeaturedReadingList).values(
+        readingListIds.map((readingListId, sortOrder) => ({ readingListId, sortOrder })),
       );
     }
   });
