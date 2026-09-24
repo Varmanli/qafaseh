@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -9,7 +9,6 @@ import {
   HomeHeroSlideBook,
   User,
   ReferenceItem,
-  CatalogBookContributor,
 } from "@/db/schema";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { displayCoverFieldSql } from "@/lib/book/display-cover";
@@ -19,8 +18,8 @@ import {
   normalizeResolvedHomeBook,
 } from "@/lib/home/book-resolver";
 import { searchAdminCatalogBooks } from "@/lib/admin/service";
+import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
 import { coalesceCoverImage, normalizeCoverImage } from "@/lib/book/cover";
-import { eligibleGenreRows } from "@/lib/genre/query";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import {
   getLatestPublishedBlogPosts,
@@ -979,43 +978,22 @@ export async function getPopularAuthors(limit = 10): Promise<Array<{
   bookCount: number;
   readCount: number;
 }>> {
-  const authorType = "AUTHOR" as const;
-  const roleType = "AUTHOR" as const;
-  const statusApproved = "APPROVED" as const;
-  const statusFinished = "FINISHED" as const;
-
-  const rows = await db
-    .select({
-      id: ReferenceItem.id,
-      name: ReferenceItem.name,
-      slug: ReferenceItem.slug,
-      coverImage: ReferenceItem.coverImage,
-      bookCount: sql<number>`count(distinct ${CatalogBook.id})::int`,
-      readCount: sql<number>`count(distinct case when ${Book.status} = ${statusFinished} then ${Book.id} else null end)::int`,
-    })
-    .from(ReferenceItem)
-    .innerJoin(
-      CatalogBookContributor,
-      and(
-        eq(CatalogBookContributor.referenceItemId, ReferenceItem.id),
-        eq(CatalogBookContributor.role, roleType)
-      )
+  const rows = (await db.execute(sql`
+    WITH person_books AS (
+      SELECT DISTINCT reference_item_id, catalog_book_id
+      FROM (${publicPersonBookRoles}) contributions
     )
-    .innerJoin(CatalogBook, eq(CatalogBook.id, CatalogBookContributor.catalogBookId))
-    .leftJoin(Book, eq(Book.catalogBookId, CatalogBook.id))
-    .where(
-      and(
-        eq(ReferenceItem.type, authorType),
-        eq(ReferenceItem.status, statusApproved)
-      )
-    )
-    .groupBy(ReferenceItem.id)
-    .orderBy(
-      desc(sql`count(distinct case when ${Book.status} = ${statusFinished} then ${Book.id} else null end)`),
-      desc(sql`count(distinct ${CatalogBook.id})`),
-      asc(ReferenceItem.name)
-    )
-    .limit(limit);
+    SELECT r.id, r.name, r.slug, r.cover_image AS "coverImage",
+      count(DISTINCT pb.catalog_book_id)::int AS "bookCount",
+      count(DISTINCT b.id) FILTER (WHERE b.status = 'FINISHED')::int AS "readCount"
+    FROM "ReferenceItem" r
+    JOIN person_books pb ON pb.reference_item_id = r.id
+    LEFT JOIN "Book" b ON b.catalog_book_id = pb.catalog_book_id
+    WHERE r.type = 'AUTHOR' AND r.status = 'APPROVED'
+    GROUP BY r.id
+    ORDER BY "readCount" DESC, "bookCount" DESC, r.name ASC
+    LIMIT ${limit}
+  `) as unknown as { rows: Array<{ id: string; name: string; slug: string | null; coverImage: string | null; bookCount: number; readCount: number }> }).rows;
 
   return rows.map((r) => ({
     id: r.id,
@@ -1036,16 +1014,29 @@ export interface HomeGenreDiscovery {
 
 /** Stable, database-ranked public genres for the homepage. */
 export async function getHomepageGenres(limit = 10): Promise<HomeGenreDiscovery[]> {
-  const rows = await db
-    .select({
-      id: ReferenceItem.id,
-      name: ReferenceItem.name,
-      slug: ReferenceItem.slug,
-      bookCount: sql<number>`(select count(*)::int from "CatalogBook" book where book.status = 'APPROVED' and exists (select 1 from regexp_split_to_table(coalesce(book.genre, ''), E'[\\n\\r،,;؛•]+') genre_value where lower(trim(genre_value)) = lower(${ReferenceItem.name})))`,
-    })
-    .from(ReferenceItem)
-    .where(and(eq(ReferenceItem.type, "GENRE"), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug)))
-    .orderBy(desc(sql`(select count(*) from "CatalogBook" book where book.status = 'APPROVED' and exists (select 1 from regexp_split_to_table(coalesce(book.genre, ''), E'[\\n\\r،,;؛•]+') genre_value where lower(trim(genre_value)) = lower(${ReferenceItem.name})))`), asc(ReferenceItem.name))
-    .limit(limit);
-  return eligibleGenreRows(rows).map((row) => ({ ...row, slug: row.slug! }));
+  const result = await db.execute<{
+    id: string;
+    name: string;
+    slug: string;
+    bookCount: number;
+  }>(sql`
+    select reference.id, reference.name, reference.slug,
+      counts.book_count as "bookCount"
+    from "ReferenceItem" reference
+    join (
+      select lower(trim(genre_value)) as genre, count(distinct book.id)::int as book_count
+      from "CatalogBook" book
+      cross join lateral regexp_split_to_table(
+        coalesce(book.genre, ''), E'[\\n\\r،,;؛•]+'
+      ) as genre_value
+      where book.status = 'APPROVED'
+      group by lower(trim(genre_value))
+    ) counts on counts.genre = lower(reference.name)
+    where reference.type = 'GENRE'
+      and reference.status = 'APPROVED'
+      and reference.slug is not null
+    order by counts.book_count desc, reference.name asc
+    limit ${limit}
+  `);
+  return result.rows;
 }

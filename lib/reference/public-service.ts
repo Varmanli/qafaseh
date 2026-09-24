@@ -1,11 +1,8 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { Book, CatalogBook, ReferenceItem } from "@/db/schema";
+import { ReferenceItem } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
-import { displayCoverFieldSql } from "@/lib/book/display-cover";
-import { STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
-import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import type { ReferenceTypeValue } from "@/lib/validations/reference";
 import { slugify } from "@/lib/book/slug";
@@ -78,15 +75,6 @@ export const ROUTE_BY_TYPE: Record<ReferenceTypeValue, string> = {
   GENRE: "genres",
 };
 
-/** فیلد رشته‌ای متناظر در جدول Book برای هر نوع موجودیت. */
-const FIELD_BY_TYPE = {
-  AUTHOR: Book.author,
-  TRANSLATOR: Book.translator,
-  PUBLISHER: Book.publisher,
-  COUNTRY: Book.country,
-  GENRE: Book.genre,
-} as const;
-
 /**
  * موجودیت مرجع عمومی را با اسلاگ یا نام (هردو) پیدا می‌کند. فقط موارد APPROVED
  * عمومی‌اند؛ PENDING/REJECTED برای عموم نامرئی است.
@@ -137,100 +125,4 @@ export async function getReferenceEntity(
     slug: row.slug,
     coverImage: coalesceCoverImage(row.coverImage),
   };
-}
-
-/**
- * کتاب‌های مرتبط با یک موجودیت: ردیف‌های Book که فیلد متناظرشان با نام موجودیت
- * برابر است. تکراری‌ها (یک کتاب کانونی که چند کاربر اضافه کرده‌اند) بر اساس
- * هویت کاتالوگ یکتا می‌شوند تا هر کتاب فقط یک‌بار دیده شود.
- */
-export async function getReferenceBooks(
-  type: ReferenceTypeValue,
-  name: string
-): Promise<ReferenceBookCard[]> {
-  const field = FIELD_BY_TYPE[type];
-  const where =
-    type === "GENRE"
-      ? sql`exists (
-          select 1
-          from unnest(string_to_array(coalesce(${field}, ''), ${STORED_GENRE_SEPARATOR})) as genre_value
-          where lower(trim(genre_value)) = lower(${name})
-        )`
-      : sql`lower(${field}) = lower(${name})`;
-  const rows = await db
-    .select({
-      id: Book.id,
-      slug: Book.slug,
-      title: Book.title,
-      author: Book.author,
-      translator: Book.translator,
-      publisher: Book.publisher,
-      coverImage: Book.coverImage,
-      rating: Book.rating,
-      createdAt: Book.createdAt,
-      catalogBookId: Book.catalogBookId,
-    })
-    .from(Book)
-    .where(where)
-    .orderBy(desc(Book.createdAt));
-
-  const seen = new Set<string>();
-  const out: ReferenceBookCard[] = [];
-  for (const row of rows) {
-    const key = row.catalogBookId ?? row.id;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({
-      id: row.id,
-      slug: row.slug,
-      title: row.title,
-      author: row.author,
-      translator: row.translator,
-      publisher: row.publisher,
-      coverImage: coalesceCoverImage(row.coverImage),
-      rating: row.rating,
-      createdAt: row.createdAt,
-    });
-  }
-
-  const catalogBookIds = out
-    .map((row) => rows.find((item) => item.id === row.id)?.catalogBookId ?? null)
-    .filter((value): value is string => Boolean(value));
-
-  if (catalogBookIds.length === 0) return out;
-
-  const catalogRows = await db
-    .select({
-      id: CatalogBook.id,
-      slug: CatalogBook.slug,
-      title: CatalogBook.title,
-      author: CatalogBook.author,
-      translator: preferredEditionFieldSql<string | null>("translator"),
-      publisher: preferredEditionFieldSql<string | null>("publisher"),
-      coverImage: displayCoverFieldSql(),
-    })
-    .from(CatalogBook)
-    .where(inArray(CatalogBook.id, catalogBookIds));
-
-  const catalogMap = new Map(catalogRows.map((row) => [row.id, row]));
-
-  return out.map((row) => {
-    const source = rows.find((item) => item.id === row.id);
-    const catalogRow = source?.catalogBookId
-      ? catalogMap.get(source.catalogBookId)
-      : null;
-
-    if (!catalogRow) return row;
-
-    return {
-      ...row,
-      id: catalogRow.id,
-      slug: catalogRow.slug,
-      title: catalogRow.title,
-      author: catalogRow.author,
-      translator: catalogRow.translator,
-      publisher: catalogRow.publisher,
-      coverImage: coalesceCoverImage(catalogRow.coverImage),
-    };
-  });
 }

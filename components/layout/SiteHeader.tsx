@@ -230,8 +230,8 @@ export default function SiteHeader({
                     data-onboarding={
                       item.href === "/books"
                         ? "nav-books"
-                        : item.href === "/authors"
-                          ? "nav-authors"
+                        : item.href === "/lists"
+                          ? "nav-lists"
                           : undefined
                     }
                     className={cn(

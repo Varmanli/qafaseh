@@ -4,6 +4,7 @@ import { FiStar } from "react-icons/fi";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import { getPublicBookHref } from "@/lib/book/public-href";
 import { resolveBookPresentation, type BookPresentationEdition } from "@/lib/book/presentation";
+import { CONTRIBUTOR_ROLE_LABELS, type ContributorRole } from "@/lib/reference/contributor-roles";
 
 export type ArchiveBookCardData = {
   id: string;
@@ -13,6 +14,7 @@ export type ArchiveBookCardData = {
   coverImage: string | null;
   displayEdition?: BookPresentationEdition | null;
   averageRating?: number | null;
+  personRoles?: ContributorRole[];
 };
 
 export default function ArchiveBookCard({ book }: { book: ArchiveBookCardData }) {
@@ -32,6 +34,7 @@ export default function ArchiveBookCard({ book }: { book: ArchiveBookCardData })
       <div className="flex flex-1 flex-col px-1 pb-1 pt-3 text-right sm:px-1.5 sm:pt-3.5">
         <h2 className="line-clamp-2 min-h-[2.9rem] text-[13px] font-black leading-[1.5rem] tracking-tight text-foreground transition-colors duration-200 group-hover/card:text-primary sm:min-h-[3.15rem] sm:text-[14px] sm:leading-[1.6rem]">{presentation.title}</h2>
         <p className="mt-1.5 line-clamp-1 text-[11px] font-semibold text-muted-foreground sm:text-xs">{book.author || "نویسنده نامشخص"}</p>
+        {book.personRoles?.length ? <p className="mt-1 line-clamp-1 text-[10px] font-medium text-primary/80 sm:text-[11px]">{book.personRoles.map((role) => CONTRIBUTOR_ROLE_LABELS[role]).join(" · ")}</p> : null}
         {presentation.linkEditionId && editionMeta ? <div className="mt-auto pt-3"><div className="border-t border-border/60 pt-2.5"><p className="line-clamp-1 text-[10px] font-medium text-muted-foreground/80 sm:text-[11px]">{editionMeta}</p></div></div> : null}
       </div>
     </article>

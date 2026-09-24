@@ -16,6 +16,7 @@
     "email:test": "tsx scripts/test-email.ts",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "lists:import": "tsx scripts/import-reading-lists.ts",
     "db:baseline": "node scripts/baseline-production-migrations.mjs",
     "db:baseline:audit": "node scripts/audit-production-migration-baseline.mjs",
     "db:repair-ledger": "node scripts/repair-production-migration-ledger.mjs",

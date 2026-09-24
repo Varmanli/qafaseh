@@ -12,6 +12,8 @@ import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { splitStoredGenres, STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import { compactSearchText } from "@/lib/book/search-normalize";
+import { personBookCondition, publicPersonBookRoles } from "@/lib/reference/book-contributions";
+import { normalizeContributorRoles, type ContributorRole } from "@/lib/reference/contributor-roles";
 import {
   BOOK_ARCHIVE_PAGE_SIZE,
   parseBookArchiveSearchParams,
@@ -44,6 +46,7 @@ export interface BookArchiveItem {
   wantedCount: number;
   averageRating: number | null;
   ratingCount: number;
+  personRoles?: ContributorRole[];
 }
 
 export interface BookArchiveResult {
@@ -61,6 +64,7 @@ export interface BookArchivePageData {
 }
 
 export interface BookArchiveScope {
+  personId?: string;
   fixedAuthor?: string;
   fixedGenre?: string;
   fixedPublisher?: string;
@@ -202,6 +206,7 @@ function buildCatalogConditions(
   scope: BookArchiveScope = {},
 ) {
   const conditions = [eq(CatalogBook.status, "APPROVED")];
+  if (scope.personId) conditions.push(personBookCondition(scope.personId));
   if (scope.fixedAuthor) {
     conditions.push(lowerEquals(CatalogBook.author, scope.fixedAuthor));
   }
@@ -332,25 +337,26 @@ function sortOrder(sort: BookArchiveSort, stats: ReturnType<typeof buildStatsJoi
   const ratingCount = desc(sql<number>`coalesce(${stats.ratingCount}, 0)`);
   const pagesAsc = asc(sql<number>`coalesce(${bestEditionField<number | null>("page_count")}, 999999)`);
   const pagesDesc = desc(sql<number>`coalesce(${bestEditionField<number | null>("page_count")}, 0)`);
+  const id = asc(CatalogBook.id);
 
   switch (sort) {
     case "OLDEST":
-      return [oldest, titleAsc];
+      return [oldest, titleAsc, id];
     case "TITLE_ASC":
-      return [titleAsc];
+      return [titleAsc, id];
     case "TITLE_DESC":
-      return [titleDesc];
+      return [titleDesc, id];
     case "POPULAR":
-      return [popularity, wanted, newest];
+      return [popularity, wanted, newest, id];
     case "RATING_DESC":
-      return [rating, ratingCount, popularity, newest];
+      return [rating, ratingCount, popularity, newest, id];
     case "PAGES_ASC":
-      return [pagesAsc, titleAsc];
+      return [pagesAsc, titleAsc, id];
     case "PAGES_DESC":
-      return [pagesDesc, titleAsc];
+      return [pagesDesc, titleAsc, id];
     case "NEWEST":
     default:
-      return [newest, popularity];
+      return [newest, popularity, id];
   }
 }
 
@@ -388,6 +394,7 @@ async function getBookArchiveOptions(
             scope.fixedAuthor
               ? lowerEquals(CatalogBook.author, scope.fixedAuthor)
               : undefined,
+            scope.personId ? personBookCondition(scope.personId) : undefined,
             scope.fixedGenre
               ? genreContains(CatalogBook.genre, scope.fixedGenre)
               : undefined,
@@ -410,6 +417,7 @@ async function getBookArchiveOptions(
             scope.fixedAuthor
               ? lowerEquals(CatalogBook.author, scope.fixedAuthor)
               : undefined,
+            scope.personId ? personBookCondition(scope.personId) : undefined,
             scope.fixedGenre
               ? genreContains(CatalogBook.genre, scope.fixedGenre)
               : undefined,
@@ -438,6 +446,7 @@ async function getBookArchiveOptions(
             scope.fixedAuthor
               ? lowerEquals(CatalogBook.author, scope.fixedAuthor)
               : undefined,
+            scope.personId ? personBookCondition(scope.personId) : undefined,
             scope.fixedGenre
               ? genreContains(CatalogBook.genre, scope.fixedGenre)
               : undefined,
@@ -464,6 +473,7 @@ async function getBookArchiveOptions(
             scope.fixedAuthor
               ? lowerEquals(CatalogBook.author, scope.fixedAuthor)
               : undefined,
+            scope.personId ? personBookCondition(scope.personId) : undefined,
             scope.fixedGenre
               ? genreContains(CatalogBook.genre, scope.fixedGenre)
               : undefined,
@@ -484,6 +494,7 @@ async function getBookArchiveOptions(
             scope.fixedAuthor
               ? lowerEquals(CatalogBook.author, scope.fixedAuthor)
               : undefined,
+            scope.personId ? personBookCondition(scope.personId) : undefined,
             scope.fixedGenre
               ? genreContains(CatalogBook.genre, scope.fixedGenre)
               : undefined,
@@ -506,6 +517,7 @@ async function getBookArchiveOptions(
             scope.fixedAuthor
               ? lowerEquals(CatalogBook.author, scope.fixedAuthor)
               : undefined,
+            scope.personId ? personBookCondition(scope.personId) : undefined,
             scope.fixedGenre
               ? genreContains(CatalogBook.genre, scope.fixedGenre)
               : undefined,
@@ -627,6 +639,18 @@ export async function getBookArchivePageData(
     }))
   );
 
+  const rolesByBook = new Map<string, ContributorRole[]>();
+  if (scope.personId && rows.length) {
+    const roleRows = (await db.execute(sql`
+      SELECT catalog_book_id AS "bookId", array_agg(DISTINCT role) AS roles
+      FROM (${publicPersonBookRoles}) person_books
+      WHERE reference_item_id = ${scope.personId}
+        AND catalog_book_id IN (${sql.join(rows.map((row) => sql`${row.id}`), sql`, `)})
+      GROUP BY catalog_book_id
+    `) as unknown as { rows: { bookId: string; roles: string[] }[] }).rows;
+    for (const row of roleRows) rolesByBook.set(row.bookId, normalizeContributorRoles(row.roles));
+  }
+
   return {
     filters: { ...filters, page },
     options,
@@ -665,6 +689,7 @@ export async function getBookArchivePageData(
         popularityCount: row.popularityCount,
         wantedCount: row.wantedCount,
         ratingCount: row.ratingCount,
+        personRoles: rolesByBook.get(row.id),
         averageRating:
           row.averageRating === null ? null : Number.parseFloat(row.averageRating),
       })),

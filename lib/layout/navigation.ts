@@ -10,7 +10,8 @@ export function getPrimaryNav(username?: string | null): NavLinkItem[] {
   return [
     { label: "خانه", href: "/" },
     { label: "کتاب‌ها", href: "/books" },
-    { label: "نویسنده‌ها", href: "/authors" },
+    { label: "کشف کتاب", href: "/discover" },
+    { label: "مسیرهای مطالعه", href: "/lists" },
     { label: "مجله قفسه", href: "/blog" },
   ];
 }
@@ -20,6 +21,7 @@ export function getFooterPrimaryNav(
 ): NavLinkItem[] {
   return [
     { label: "خانه", href: "/" },
+    { label: "کشف کتاب", href: "/discover" },
     { label: "کتاب‌ها", href: "/books" },
     { label: "نویسنده‌ها", href: "/authors" },
     { label: "مجله قفسه", href: "/blog" },

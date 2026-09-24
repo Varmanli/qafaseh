@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import type { AuthorArchiveFilters, AuthorArchiveSort } from "@/lib/reference/author-archive-search";
+import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
 
 export interface AuthorArchiveItem {
   id: string; name: string; slug: string | null; coverImage: string | null;
@@ -32,21 +33,8 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
     ${filters.minRating ? sql`AND "averageRating" >= ${filters.minRating}` : sql``}`;
   const statement = sql`
     WITH author_book_links AS (
-      SELECT cbc."reference_item_id", cbc."catalog_book_id"
-      FROM "CatalogBookContributor" cbc
-      JOIN "CatalogBook" cb ON cb."id" = cbc."catalog_book_id" AND cb."status" = 'APPROVED'
-      WHERE cbc."role" = 'AUTHOR'
-      UNION
-      SELECT r."id" AS "reference_item_id", cb."id" AS "catalog_book_id"
-      FROM "ReferenceItem" r
-      JOIN "CatalogBook" cb ON lower(cb."author") = lower(r."name") AND cb."status" = 'APPROVED'
-      WHERE r."type" = 'AUTHOR'
-        AND r."status" = 'APPROVED'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM "CatalogBookContributor" cbc
-          WHERE cbc."catalog_book_id" = cb."id" AND cbc."role" = 'AUTHOR'
-        )
+      SELECT DISTINCT reference_item_id, catalog_book_id
+      FROM (${publicPersonBookRoles}) person_books
     ), author_stats AS (
       SELECT abl."reference_item_id" AS id,
         count(DISTINCT cb."id")::int AS "bookCount",

@@ -3,7 +3,7 @@
 import type { ElementType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Home, Newspaper, PenTool } from "lucide-react";
+import { BookOpen, Compass, Home, ListOrdered, Newspaper } from "lucide-react";
 
 import { getPrimaryNav } from "@/lib/layout/navigation";
 import { cn } from "@/lib/utils";
@@ -16,8 +16,9 @@ function isActivePath(pathname: string, href: string) {
 
 function getNavigationIcon(href: string): ElementType {
   if (href === "/") return Home;
+  if (href === "/discover") return Compass;
   if (href.startsWith("/books")) return BookOpen;
-  if (href.startsWith("/authors")) return PenTool;
+  if (href.startsWith("/lists")) return ListOrdered;
 
   return Newspaper;
 }
@@ -81,8 +82,8 @@ export default function MobileNav() {
               data-onboarding={
                 item.href === "/books"
                   ? "nav-books"
-                  : item.href === "/authors"
-                    ? "nav-authors"
+                  : item.href === "/lists"
+                    ? "nav-lists"
                     : undefined
               }
               className={cn(

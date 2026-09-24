@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 
 import { normalizeMediaUrl } from "@/lib/book/cover";
@@ -42,11 +45,13 @@ export default function BookCoverImage({
   sizes,
 }: BookCoverImageProps) {
   const resolvedSrc = normalizeMediaUrl(src) ?? PLACEHOLDER_COVER;
-  const bypassOptimizer = shouldBypassImageOptimizer(resolvedSrc);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const displayedSrc = failedSrc === resolvedSrc ? PLACEHOLDER_COVER : resolvedSrc;
+  const bypassOptimizer = shouldBypassImageOptimizer(displayedSrc);
 
   return (
     <Image
-      src={resolvedSrc}
+      src={displayedSrc}
       alt={alt}
       width={fill ? undefined : width}
       height={fill ? undefined : height}
@@ -55,6 +60,7 @@ export default function BookCoverImage({
       priority={priority}
       className={className}
       unoptimized={bypassOptimizer}
+      onError={() => setFailedSrc(resolvedSrc)}
     />
   );
 }

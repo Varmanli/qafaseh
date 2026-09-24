@@ -62,6 +62,9 @@ export const ApprovalStatus = pgEnum("ApprovalStatus", [
 ]);
 
 export const BlogPostStatus = pgEnum("BlogPostStatus", ["DRAFT", "PUBLISHED"]);
+export const ReadingListMode = pgEnum("ReadingListMode", ["ORDERED", "UNORDERED"]);
+export const ReadingListStatus = pgEnum("ReadingListStatus", ["DRAFT", "PUBLISHED"]);
+export const ReadingListDifficulty = pgEnum("ReadingListDifficulty", ["EASY", "MEDIUM", "HARD"]);
 
 export const NoteScope = pgEnum("NoteScope", ["book", "edition"]);
 
@@ -1346,6 +1349,52 @@ export const HomeHeroSlideBook = pgTable("HomeHeroSlideBook", {
   bookId: varchar("book_id").references(() => Book.id, { onDelete: "cascade" }),
   sortOrder: integer("sort_order").default(0).notNull(),
 });
+
+// ---------------- Reading lists (فهرست‌های مطالعهٔ دبیرخانه) ----------------
+export const ReadingList = pgTable("ReadingList", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description").notNull(),
+  audience: text("audience"),
+  category: text("category").notNull(),
+  hubGroup: text("hub_group").notNull(),
+  mode: ReadingListMode("mode").default("ORDERED").notNull(),
+  status: ReadingListStatus("status").default("DRAFT").notNull(),
+  featured: boolean("featured").default(false).notNull(),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
+  publishedAt: timestamp("published_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  statusGroupIdx: index("ReadingList_status_group_idx").on(t.status, t.hubGroup),
+}));
+
+export const ReadingListItem = pgTable("ReadingListItem", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => ReadingList.id, { onDelete: "cascade" }),
+  bookId: varchar("book_id").notNull().references(() => CatalogBook.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  note: text("note"),
+  difficulty: ReadingListDifficulty("difficulty"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  bookUnique: unique("ReadingListItem_list_book_unique").on(t.listId, t.bookId),
+  positionUnique: unique("ReadingListItem_list_position_unique").on(t.listId, t.position),
+  positionPositive: check("ReadingListItem_position_positive", sql`${t.position} > 0`),
+}));
+
+export const ReadingListRelated = pgTable("ReadingListRelated", {
+  sourceListId: varchar("source_list_id").notNull().references(() => ReadingList.id, { onDelete: "cascade" }),
+  relatedListId: varchar("related_list_id").notNull().references(() => ReadingList.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+}, (t) => ({
+  edgeUnique: unique("ReadingListRelated_edge_unique").on(t.sourceListId, t.relatedListId),
+  selfCheck: check("ReadingListRelated_not_self", sql`${t.sourceListId} <> ${t.relatedListId}`),
+  sourceIdx: index("ReadingListRelated_source_idx").on(t.sourceListId, t.position),
+}));
 
 // ---------------- BlogCategory (دسته‌بندیِ مخصوص نوشته‌های بلاگ) ----------------
 export const BlogCategory = pgTable("BlogCategory", {

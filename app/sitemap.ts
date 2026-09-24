@@ -4,10 +4,13 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { BlogCategory, BlogPost, CatalogBook, ReferenceItem, StaticPage } from "@/db/schema";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
+import { getReadingListsOverview } from "@/lib/book/reading-lists-service";
 import { getSiteOrigin } from "@/lib/seo/site";
 
 const STATIC_PUBLIC_ROUTES = [
   "",
+  "/discover",
+  "/lists",
   "/books",
   "/authors",
   "/translators",
@@ -94,6 +97,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     GENRE: "genres",
   } as const;
 
+  const publicLists = await getReadingListsOverview();
+
   return [
     ...STATIC_PUBLIC_ROUTES.map((route) => ({
       url: `${siteOrigin}${route || "/"}`,
@@ -102,6 +107,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: route === "" ? 1 : 0.7,
     })),
     ...bookEntries,
+    ...publicLists.map((list) => ({
+      url: `${siteOrigin}/lists/${list.slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     ...references.map((item) => ({
       url: `${siteOrigin}/${referenceRouteByType[item.type]}/${encodeURIComponent(
         item.slug as string,

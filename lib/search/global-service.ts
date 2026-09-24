@@ -3,6 +3,7 @@ import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, ReferenceItem } from "@/db/schema";
 import { searchPublicBooks } from "@/lib/book/search-service";
+import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
 
 export interface GlobalSearchBook {
   id: string;
@@ -40,6 +41,11 @@ const REFERENCE_FIELD_BY_TYPE = {
 type SearchableReferenceType = keyof typeof REFERENCE_FIELD_BY_TYPE;
 
 function referenceBookCount(type: SearchableReferenceType) {
+  if (type !== "PUBLISHER") return sql<number>`(
+    select count(distinct person_books.catalog_book_id)::int
+    from (${publicPersonBookRoles}) person_books
+    where person_books.reference_item_id = ${ReferenceItem.id}
+  )`;
   const field = REFERENCE_FIELD_BY_TYPE[type];
   return sql<number>`(
     select count(distinct coalesce(${Book.catalogBookId}, ${Book.id}))::int

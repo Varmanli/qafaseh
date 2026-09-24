@@ -724,6 +724,7 @@ export default function BookArchiveFilters({
   hidePublisherFilter = false,
   hideCountryFilter = false,
   showDiscoveryHeader = false,
+  showBookCount = false,
 }: {
   filters: BookArchiveFilters;
   options: BookArchiveFilterOptions;
@@ -735,6 +736,7 @@ export default function BookArchiveFilters({
   hidePublisherFilter?: boolean;
   hideCountryFilter?: boolean;
   showDiscoveryHeader?: boolean;
+  showBookCount?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -956,6 +958,7 @@ export default function BookArchiveFilters({
           ${isPending ? "opacity-65" : "opacity-100"}
         `}
       >
+        {showBookCount ? <p className="mb-4 text-right text-sm font-semibold text-muted-foreground">کتاب‌ها · {archive.totalCount.toLocaleString("fa-IR")} کتاب</p> : null}
         {archive.items.length === 0 ? (
           <EmptyArchive
             hasActiveFilters={hasActiveFilters}

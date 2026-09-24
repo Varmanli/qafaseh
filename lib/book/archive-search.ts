@@ -60,7 +60,7 @@ export const DEFAULT_BOOK_ARCHIVE_FILTERS: BookArchiveFilters = {
   maxRating: null,
   minYear: null,
   maxYear: null,
-  sort: "NEWEST",
+  sort: "POPULAR",
   page: 1,
 };
 
@@ -140,7 +140,7 @@ export function parseBookArchiveSearchParams(
     maxYear,
     sort: BOOK_ARCHIVE_SORT_OPTIONS.some((item) => item.value === sort)
       ? sort
-      : "NEWEST",
+      : "POPULAR",
     page: parseNumber(searchParams.page, 1, 9999) ?? 1,
   };
 }
@@ -183,7 +183,7 @@ export function toBookArchiveSearchParams(filters: BookArchiveFilters) {
     params.set("maxRating", String(filters.maxRating));
   if (filters.minYear !== null) params.set("minYear", String(filters.minYear));
   if (filters.maxYear !== null) params.set("maxYear", String(filters.maxYear));
-  if (filters.sort !== "NEWEST") params.set("sort", filters.sort);
+  if (filters.sort !== "POPULAR") params.set("sort", filters.sort);
   if (filters.page > 1) params.set("page", String(filters.page));
 
   return params;

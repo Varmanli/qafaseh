@@ -39,20 +39,23 @@ type ArchiveConfig = {
 };
 
 const ARCHIVE_SCOPE_BY_TYPE: Partial<
-  Record<ReferenceTypeValue, (name: string) => BookArchiveScope>
+  Record<
+    ReferenceTypeValue,
+    (entity: { id: string; name: string }) => BookArchiveScope
+  >
 > = {
-  AUTHOR: (name) => ({ fixedAuthor: name }),
-  GENRE: (name) => ({ fixedGenre: name }),
-  PUBLISHER: (name) => ({ fixedPublisher: name }),
-  TRANSLATOR: (name) => ({ fixedTranslator: name }),
-  COUNTRY: (name) => ({ fixedCountry: name }),
+  AUTHOR: (entity) => ({ personId: entity.id }),
+  GENRE: (entity) => ({ fixedGenre: entity.name }),
+  PUBLISHER: (entity) => ({ fixedPublisher: entity.name }),
+  TRANSLATOR: (entity) => ({ personId: entity.id }),
+  COUNTRY: (entity) => ({ fixedCountry: entity.name }),
 };
 
 const ARCHIVE_CONFIG_BY_TYPE: Partial<
   Record<ReferenceTypeValue, ArchiveConfig>
 > = {
   AUTHOR: {
-    searchPlaceholder: "جست‌وجو در کتاب‌های این نویسنده",
+    searchPlaceholder: "جست‌وجو در کتاب‌های این شخص",
     hideAuthorFilter: true,
   },
   GENRE: {
@@ -64,7 +67,7 @@ const ARCHIVE_CONFIG_BY_TYPE: Partial<
     hidePublisherFilter: true,
   },
   TRANSLATOR: {
-    searchPlaceholder: "جست‌وجو در کتاب‌های این مترجم",
+    searchPlaceholder: "جست‌وجو در کتاب‌های این شخص",
     hideTranslatorFilter: true,
   },
   COUNTRY: {
@@ -132,7 +135,7 @@ export default async function ReferencePublicView({
   const archiveScopeFactory = ARCHIVE_SCOPE_BY_TYPE[type];
   const archiveConfig = ARCHIVE_CONFIG_BY_TYPE[type];
 
-  const archiveScope = archiveScopeFactory?.(entity.name);
+  const archiveScope = archiveScopeFactory?.(entity);
 
   const [scopedArchiveData, magazinePosts] = await Promise.all([
     archiveScope && archiveConfig
@@ -157,24 +160,6 @@ export default async function ReferencePublicView({
   return (
     <PublicShell>
       <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-5 sm:px-6 sm:pt-7">
-        {/* Back navigation */}
-        {authorArchiveHref ? (
-          <nav aria-label="ناوبری نویسنده" className="mb-3 sm:mb-4">
-            <Link
-              href={authorArchiveHref}
-              className="group inline-flex items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
-            >
-              <ChevronRight
-                aria-hidden="true"
-                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
-                strokeWidth={2.25}
-              />
-
-              <span>بازگشت به نویسنده‌ها</span>
-            </Link>
-          </nav>
-        ) : null}
-
         {/* Reference hero */}
         <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/60 shadow-[0_28px_100px_-72px_rgba(0,0,0,0.75)] backdrop-blur-md">
           {/* Ambient background */}
@@ -285,6 +270,7 @@ export default async function ReferencePublicView({
               filters={scopedArchiveData.filters}
               options={scopedArchiveData.options}
               archive={scopedArchiveData.archive}
+              showBookCount={type === "AUTHOR" || type === "TRANSLATOR"}
               searchPlaceholder={archiveConfig.searchPlaceholder}
               hideGenreFilter={archiveConfig.hideGenreFilter}
               hideAuthorFilter={archiveConfig.hideAuthorFilter}

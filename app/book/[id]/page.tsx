@@ -32,8 +32,10 @@ import BookExternalLinksPanel from "@/components/books/BookExternalLinksPanel";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import BookShare from "@/components/books/BookShare";
 import BookIntroduction from "@/components/books/BookIntroduction";
+import SimilarBooksSection from "@/components/books/SimilarBooksSection";
 import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
 import { getMagazineArticlesForBook } from "@/lib/blog/service";
+import { getSimilarBooks } from "@/lib/book/similar-books-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import {
   buildBreadcrumbJsonLd,
@@ -131,7 +133,10 @@ export default async function BookPage({
   const loginHref = `/auth/login?redirect=/book/${encodeURIComponent(book.slug)}`;
 
   const genreList = book.genres.map((genre) => genre.name);
-  const magazinePosts = await getMagazineArticlesForBook(book.id);
+  const [magazinePosts, similarBooks] = await Promise.all([
+    getMagazineArticlesForBook(book.id),
+    getSimilarBooks(book.id),
+  ]);
   const visibleGenres = genreList.slice(0, 3);
   const hiddenGenres = genreList.slice(3);
 
@@ -579,6 +584,7 @@ export default async function BookPage({
             viewAllHref={`/book/${encodeURIComponent(book.slug)}/notes`}
           />
         </div>
+        <SimilarBooksSection books={similarBooks} />
         <BookReadingTour isAuthenticated={isLoggedIn} />
         <BookNotesTour isAuthenticated={isLoggedIn && Boolean(entry)} />
       </div>

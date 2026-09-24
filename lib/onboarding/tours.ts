@@ -3,7 +3,7 @@ export const PROFILE_MENU_TOUR_ID = "profile-menu-v1";
 export const BOOK_READING_TOUR_ID = "book-reading-v1";
 export const BOOK_NOTES_TOUR_ID = "book-notes-v1";
 
-export type OnboardingTarget = "nav-books" | "nav-authors" | "search";
+export type OnboardingTarget = "nav-books" | "nav-lists" | "search";
 
 export type OnboardingStep = {
   target: OnboardingTarget;
@@ -18,9 +18,9 @@ export const HOME_NAVIGATION_TOUR_STEPS: readonly OnboardingStep[] = [
     description: "مجموعه کتاب‌های قفسه را ببین و کتاب بعدی‌ات را پیدا کن.",
   },
   {
-    target: "nav-authors",
-    title: "نویسنده‌ها را بشناس",
-    description: "نویسنده‌ها و آثارشان را پیدا کن و راحت‌تر بین کتاب‌ها بگرد.",
+    target: "nav-lists",
+    title: "یک مسیر مطالعه انتخاب کن",
+    description: "از یک مسیر آماده شروع کن و کتاب‌ها را به ترتیب پیشنهادی بخوان.",
   },
   {
     target: "search",
@@ -55,7 +55,7 @@ export const PROFILE_MENU_TOUR_STEPS: readonly ProfileMenuOnboardingStep[] = [
   {
     target: "profile-menu-dashboard",
     title: "آمار مطالعه‌ات",
-    description: "روند مطالعه، فعالیت‌ها و آمار کتاب‌خوانی خودت را از داشبورد ببین.",
+    description: "روند مطالعه، فعالیت‌ها و آمار کتاب‌خوانی‌ات را در گزارش مطالعه ببین.",
   },
   {
     target: "profile-menu-settings",

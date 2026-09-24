@@ -13,6 +13,7 @@ import {
   Images,
   LayoutDashboard,
   LayoutTemplate,
+  ListOrdered,
   Languages,
   SearchCheck,
   Newspaper,
@@ -191,6 +192,11 @@ export const ADMIN_NAV: AdminNavEntry[] = [
           href: "/admin/blog",
           label: "مطالب مجله قفسه",
           icon: Newspaper,
+        },
+        {
+          href: "/admin/reading-lists",
+          label: "لیست‌های مطالعه",
+          icon: ListOrdered,
         },
         {
           href: "/admin/blog/categories",
