@@ -8,21 +8,17 @@ import { getPublicBookHref } from "@/lib/book/public-href";
 export default function DiscoveryResults({
   id,
   title,
-  slugs,
   books,
   backHref = "/discover/mood",
   showChangeLink = true,
 }: {
   id?: string;
   title: string;
-  slugs: string[];
-  books: Map<string, ArchiveBookCardData>;
+  books: ArchiveBookCardData[];
   backHref?: string;
   showChangeLink?: boolean;
 }) {
-  const found = slugs
-    .map((slug) => books.get(slug))
-    .filter((book): book is ArchiveBookCardData => Boolean(book));
+  const found = books;
 
   return (
     <section id={id} className="scroll-mt-24" role="region" aria-live="polite" aria-label={title}>

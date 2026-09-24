@@ -6,7 +6,8 @@ import PublicShell from "@/components/PublicShell";
 import DiscoveryChoices from "@/components/discover/DiscoveryChoices";
 import DiscoveryResults from "@/components/discover/DiscoveryResults";
 import { moods, topics } from "@/lib/book/discover-config";
-import { getDiscoveryBooks } from "@/lib/book/discover-service";
+import { getCatalogDiscoverySignals, getDiscoveryCards } from "@/lib/book/discover-service";
+import { selectDiscoveryIds } from "@/lib/book/discovery-signals";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,9 @@ export default async function DiscoverMoodPage({
   const selected = first(params[selectedKind]);
   const collections = selectedKind === "topic" ? topics : moods;
   const selectedCollection = collections.find((item) => item.slug === selected);
-  const books = await getDiscoveryBooks();
+  const books = selectedCollection
+    ? await getDiscoveryCards(selectDiscoveryIds(await getCatalogDiscoverySignals(), selectedCollection))
+    : [];
   const isTopic = selectedKind === "topic";
 
   return (
@@ -92,7 +95,6 @@ export default async function DiscoverMoodPage({
               <DiscoveryResults
                 id={isTopic ? "topic-results" : "mood-results"}
                 title={selectedCollection.title}
-                slugs={selectedCollection.bookSlugs}
                 books={books}
                 showChangeLink={false}
               />

@@ -1,8 +1,9 @@
 import type { ArchiveBookCardData } from "@/components/books/ArchiveBookCard";
 import { moods, quizCommitments, quizKinds, quizMoodOptions, startingBooks } from "@/lib/book/discover-config";
+import { commitmentOf, isPublicDiscoveryBook, scoreCollection, type CatalogDiscoverySignals } from "@/lib/book/discovery-signals";
 
 export type QuizAnswers = { kind: string; mood: string; commitment: string };
-export type QuizCandidate = ArchiveBookCardData & { status?: string; visibility?: string };
+export type QuizCandidate = CatalogDiscoverySignals;
 export type QuizRecommendation = Omit<ArchiveBookCardData, "slug"> & { slug: string; reason: string | null };
 
 export function isQuizAnswers(value: unknown): value is QuizAnswers {
@@ -15,46 +16,36 @@ export function isQuizAnswers(value: unknown): value is QuizAnswers {
   );
 }
 
-function match(slug: string, selected: string, collections: { slug: string; bookSlugs: string[] }[]) {
-  return selected !== "any" && collections.find((item) => item.slug === selected)?.bookSlugs.includes(slug);
-}
-
+// Score components stay separate so a future semantic signal can be added
+// without changing eligibility or the database metadata interpretation.
 export function scoreQuizBook(book: QuizCandidate, answers: QuizAnswers) {
-  const slug = book.slug ?? "";
-  const reasons: string[] = [];
-  let score = startingBooks.includes(slug) ? 1 : 0;
-  if (match(slug, answers.mood, moods)) {
-    score += 3;
-    reasons.push(quizMoodOptions.find((item) => item.slug === answers.mood)!.title);
-  }
-  if (match(slug, answers.kind, quizKinds)) {
-    score += 2;
-    reasons.push(quizKinds.find((item) => item.slug === answers.kind)!.title);
-  }
-  if (match(slug, answers.commitment, quizCommitments)) {
-    score += 2;
-    reasons.push(`خواندن ${quizCommitments.find((item) => item.slug === answers.commitment)!.title}`);
-  }
-  return { score, reason: reasons.length ? reasons.join("، ") : null };
+  const kind = quizKinds.find((item) => item.slug === answers.kind);
+  const mood = moods.find((item) => item.slug === answers.mood);
+  const commitment = quizCommitments.find((item) => item.slug === answers.commitment);
+  const kindScore = kind ? scoreCollection(book, kind) : null;
+  const moodScore = mood ? scoreCollection(book, mood) : null;
+  const lengthMatch = commitment && commitmentOf(book.pageCount) === commitment.slug;
+  const metadataScore = (kindScore?.metadataScore ?? 0) + (moodScore?.metadataScore ?? 0) + (lengthMatch ? 2 : 0);
+  const editorialScore = (kindScore?.editorialScore ?? 0) + (moodScore?.editorialScore ?? 0) +
+    (book.slug && startingBooks.includes(book.slug) ? 0.25 : 0);
+  const reasons = [
+    kindScore?.score ? kind?.title : null,
+    moodScore?.score ? quizMoodOptions.find((item) => item.slug === answers.mood)?.title : null,
+    lengthMatch ? `خواندن ${commitment?.title}` : null,
+  ].filter(Boolean);
+  return { score: metadataScore + editorialScore, metadataScore, editorialScore, reason: reasons.length ? reasons.join("، ") : null };
 }
 
-export function selectQuizBooks(candidates: QuizCandidate[], answers: QuizAnswers, excludedIds: string[] = []): QuizRecommendation[] {
+export function selectQuizBooks(candidates: QuizCandidate[], answers: QuizAnswers, excludedIds: string[] = []) {
   const excluded = new Set(excludedIds.slice(0, 30));
   const unique = new Map<string, QuizCandidate>();
   for (const book of candidates) {
-    // The query already enforces public catalog status. Keep this guard so a
-    // future caller cannot accidentally recommend private or test records.
-    if (!book.id || !book.slug?.trim() || !book.title.trim() || book.title.startsWith("[TEST:") ||
-        (book.status && book.status !== "APPROVED") ||
-        (book.visibility && book.visibility !== "PUBLIC") || excluded.has(book.id)) continue;
+    if (!isPublicDiscoveryBook(book) || excluded.has(book.id)) continue;
     if (!unique.has(book.id)) unique.set(book.id, book);
   }
-
-  // Every valid book remains a candidate. Missing traits simply score lower,
-  // which relaxes commitment, then kind/mood, without producing zero results.
+  // Zero-score books are a deterministic fallback when exact intent is scarce.
   const ranked = [...unique.values()].map((book) => ({ book, ...scoreQuizBook(book, answers) }))
-    .sort((a, b) => b.score - a.score || a.book.title.localeCompare(b.book.title, "fa") || a.book.id.localeCompare(b.book.id));
-
+    .sort((a, b) => b.score - a.score || a.book.id.localeCompare(b.book.id));
   const selected: typeof ranked = [];
   const authors = new Set<string>();
   for (let index = 0; index < ranked.length && selected.length < 3;) {
@@ -62,18 +53,11 @@ export function selectQuizBooks(candidates: QuizCandidate[], answers: QuizAnswer
     const group = [];
     while (index < ranked.length && ranked[index].score === score) group.push(ranked[index++]);
     while (group.length && selected.length < 3) {
-      const next = group.findIndex((item) => !authors.has(item.book.author.trim().toLowerCase()));
+      const next = group.findIndex((item) => !authors.has(item.book.author.trim().toLocaleLowerCase("fa")));
       const [item] = group.splice(next < 0 ? 0 : next, 1);
       selected.push(item);
-      authors.add(item.book.author.trim().toLowerCase());
+      authors.add(item.book.author.trim().toLocaleLowerCase("fa"));
     }
   }
-  return selected.map(({ book, reason }) => ({
-    id: book.id,
-    slug: book.slug!,
-    title: book.title,
-    author: book.author,
-    coverImage: book.coverImage,
-    reason,
-  }));
+  return selected.map(({ book, reason }) => ({ id: book.id, reason }));
 }
