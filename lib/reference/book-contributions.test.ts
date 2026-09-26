@@ -6,6 +6,11 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
 import { normalizeContributorRoles } from "@/lib/reference/contributor-roles";
 
+test("public person-book relation exposes the canonical reference id column", () => {
+  const relation = new PgDialect().sqlToQuery(publicPersonBookRoles);
+  assert.match(relation.sql, /AS reference_item_id/);
+});
+
 test("public bibliography, roles, counts and ordering share distinct canonical books", async (t) => {
   if (!process.env.DATABASE_URL) return t.skip("DATABASE_URL is required");
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL });

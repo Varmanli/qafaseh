@@ -5,7 +5,8 @@ import { sql } from "drizzle-orm";
  * names are exact, case-insensitive matches only; they never replace a row.
  */
 export const publicPersonBookRoles = sql`
-  SELECT coalesce(profile.canonical_reference_id, cbc.reference_item_id), cbc.catalog_book_id, cbc.role::text AS role
+  SELECT coalesce(profile.canonical_reference_id, cbc.reference_item_id) AS reference_item_id,
+    cbc.catalog_book_id AS catalog_book_id, cbc.role::text AS role
   FROM "CatalogBookContributor" cbc
   JOIN "CatalogBook" cb ON cb.id = cbc.catalog_book_id AND cb.status = 'APPROVED'
   JOIN "ReferenceItem" profile ON profile.id = cbc.reference_item_id
