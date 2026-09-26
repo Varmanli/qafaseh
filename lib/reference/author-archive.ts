@@ -51,7 +51,7 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
         coalesce(s."bookCount", 0)::int AS "bookCount", s."averageRating", coalesce(s."ratingCount", 0)::int AS "ratingCount",
         (coalesce(s."ratingCount", 0)::float / (coalesce(s."ratingCount", 0) + 5) * coalesce(s."averageRating", g.value) + 5::float / (coalesce(s."ratingCount", 0) + 5) * g.value) AS "weightedRating"
       FROM "ReferenceItem" r LEFT JOIN author_stats s ON s.id = r."id" CROSS JOIN global_rating g
-      WHERE r."status" = 'APPROVED' AND r."type" = 'AUTHOR'
+      WHERE r."status" = 'APPROVED' AND r."roles" @> ARRAY['AUTHOR']::"ReferenceType"[] AND r."canonical_reference_id" IS NULL
     ), filtered AS (SELECT * FROM candidates WHERE ${where}), bounds AS (
       SELECT greatest(max("bookCount"), 1)::float AS books, greatest(max("ratingCount"), 1)::float AS ratings FROM filtered
     ), ranked AS (
@@ -73,6 +73,6 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
   const pageCount = Math.max(1, Math.ceil(totalCount / safeSize));
   const countries = await query<{ name: string }>(sql`
     SELECT DISTINCT "country_name" AS name FROM "ReferenceItem"
-    WHERE "type" = 'AUTHOR' AND "status" = 'APPROVED' AND "country_name" IS NOT NULL AND "country_name" <> '' ORDER BY 1`);
+    WHERE "roles" @> ARRAY['AUTHOR']::"ReferenceType"[] AND "canonical_reference_id" IS NULL AND "status" = 'APPROVED' AND "country_name" IS NOT NULL AND "country_name" <> '' ORDER BY 1`);
   return { items: rows, countries: countries.map((row) => row.name), totalCount, page: Math.min(filters.page, pageCount), pageSize: safeSize, pageCount };
 }

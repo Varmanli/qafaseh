@@ -13,6 +13,11 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") ?? "";
   // هویت کانونی = CatalogBook؛ id برابر catalogBookId است. خروجی شامل اطلاعات
   // کافی برای انتخابگر (عنوان اصلی، ناشر/مترجم) با fallback جلدِ آرشیو عمومی.
-  const results = await searchAdminCatalogBooks(q, { limit: 12 });
-  return apiSuccess({ results });
+  try {
+    const results = await searchAdminCatalogBooks(q, { limit: 12 });
+    return apiSuccess({ results });
+  } catch (error) {
+    console.error("[admin home book search] failed", error);
+    return apiError("جست‌وجوی کتاب‌ها در سرور ناموفق بود", 500, "BOOK_SEARCH_FAILED");
+  }
 }

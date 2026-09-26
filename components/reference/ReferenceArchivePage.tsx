@@ -228,7 +228,7 @@ export default function ReferenceArchivePage({
             {items.map((item) => (
               <Link
                 key={item.id}
-                href={`${routeBase}/${encodeURIComponent(item.slug ?? item.name)}`}
+                href={`${item.type === "AUTHOR" ? "/authors" : item.type === "TRANSLATOR" ? "/translators" : routeBase}/${encodeURIComponent(item.slug ?? item.name)}`}
                 className="group block"
               >
                 {routeBase === "/authors" ? (

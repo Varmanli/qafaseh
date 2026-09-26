@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, arrayContains, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { ReferenceItem } from "@/db/schema";
@@ -12,6 +12,8 @@ import { slugify } from "@/lib/book/slug";
 export const PUBLIC_REFERENCE_COLUMNS = {
   id: ReferenceItem.id,
   type: ReferenceItem.type,
+  roles: ReferenceItem.roles,
+  canonicalReferenceId: ReferenceItem.canonicalReferenceId,
   name: ReferenceItem.name,
   slug: ReferenceItem.slug,
   coverImage: ReferenceItem.coverImage,
@@ -34,6 +36,7 @@ export const PUBLIC_REFERENCE_COLUMNS = {
 export interface ReferenceEntity {
   id: string;
   type: ReferenceTypeValue;
+  roles: ReferenceTypeValue[];
   name: string;
   slug: string;
   coverImage: string | null;
@@ -84,18 +87,12 @@ export async function getReferenceEntity(
   ref: string
 ): Promise<ReferenceEntity | null> {
   const normalizedRef = slugify(ref);
-  const exactRows = await db
-    .select({
-      ...PUBLIC_REFERENCE_COLUMNS,
-    })
-    .from(ReferenceItem)
-    .where(
-      and(
-        eq(ReferenceItem.type, type),
-        eq(ReferenceItem.status, "APPROVED"),
-        eq(ReferenceItem.slug, ref),
-      )
-    )
+  const roleCondition = type === "AUTHOR" || type === "TRANSLATOR"
+    ? arrayContains(ReferenceItem.roles, [type])
+    : eq(ReferenceItem.type, type);
+  const exactRows = await db.select(PUBLIC_REFERENCE_COLUMNS).from(ReferenceItem)
+    .where(and(roleCondition, eq(ReferenceItem.status, "APPROVED"), eq(ReferenceItem.slug, ref)))
+    .orderBy(sql`CASE WHEN ${ReferenceItem.canonicalReferenceId} IS NULL THEN 0 ELSE 1 END`)
     .limit(1);
 
   let row = exactRows[0];
@@ -103,22 +100,34 @@ export async function getReferenceEntity(
     const normalizedRows = await db
       .select(PUBLIC_REFERENCE_COLUMNS)
       .from(ReferenceItem)
-      .where(and(eq(ReferenceItem.type, type), eq(ReferenceItem.status, "APPROVED"), eq(ReferenceItem.slugNormalized, normalizedRef)))
+      .where(and(roleCondition, eq(ReferenceItem.status, "APPROVED"), eq(ReferenceItem.slugNormalized, normalizedRef)))
+      .orderBy(sql`CASE WHEN ${ReferenceItem.canonicalReferenceId} IS NULL THEN 0 ELSE 1 END`)
       .limit(2);
     // A normalized key can collide in old data; a non-exact URL must never
     // choose one of two distinct people merely because their names look alike.
-    if (normalizedRows.length === 1) row = normalizedRows[0];
+    const canonicalMatches = normalizedRows.filter((item) => !item.canonicalReferenceId);
+    if (canonicalMatches.length === 1) row = canonicalMatches[0];
+    else if (!canonicalMatches.length && normalizedRows.length === 1) row = normalizedRows[0];
   }
 
   if (!row) {
     const nameRows = await db
       .select(PUBLIC_REFERENCE_COLUMNS)
       .from(ReferenceItem)
-      .where(and(eq(ReferenceItem.type, type), eq(ReferenceItem.status, "APPROVED"), sql`lower(${ReferenceItem.name}) = lower(${ref})`))
+      .where(and(roleCondition, eq(ReferenceItem.status, "APPROVED"), sql`lower(${ReferenceItem.name}) = lower(${ref})`))
+      .orderBy(sql`CASE WHEN ${ReferenceItem.canonicalReferenceId} IS NULL THEN 0 ELSE 1 END`)
       .limit(2);
-    if (nameRows.length === 1) row = nameRows[0];
+    const canonicalMatches = nameRows.filter((item) => !item.canonicalReferenceId);
+    if (canonicalMatches.length === 1) row = canonicalMatches[0];
+    else if (!canonicalMatches.length && nameRows.length === 1) row = nameRows[0];
   }
 
+  if (row?.canonicalReferenceId) {
+    const [canonical] = await db.select(PUBLIC_REFERENCE_COLUMNS).from(ReferenceItem)
+      .where(and(eq(ReferenceItem.id, row.canonicalReferenceId), eq(ReferenceItem.status, "APPROVED"), isNull(ReferenceItem.canonicalReferenceId)))
+      .limit(1);
+    row = canonical;
+  }
   if (!row?.slug) return null;
   return {
     ...row,

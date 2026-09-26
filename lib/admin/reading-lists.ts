@@ -1,6 +1,6 @@
 import { and, count, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/db";
-import { CatalogBook, ReadingList, ReadingListItem, ReadingListRelated } from "@/db/schema";
+import { CatalogBook, ReadingList, ReadingListCategory, ReadingListDisplayGroup, ReadingListItem, ReadingListRelated } from "@/db/schema";
 import { publicCatalogBookCondition } from "@/lib/book/discover-service";
 import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import type { ReadingListInput } from "@/lib/validations/reading-lists";
@@ -65,6 +65,12 @@ export async function searchReadingListBooks(q: string) {
 
 async function validateReferences(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], input: ReadingListInput, id?: string) {
   if (id && input.relatedListIds.includes(id)) throw new ReadingListError("SELF_RELATED", "لیست نمی‌تواند به خودش مرتبط شود");
+  const [category] = await tx.select({ id: ReadingListCategory.id }).from(ReadingListCategory)
+    .where(eq(ReadingListCategory.name, input.category)).limit(1);
+  if (!category) throw new ReadingListError("CATEGORY_NOT_FOUND", "دسته‌بندی انتخاب‌شده پیدا نشد");
+  const [displayGroup] = await tx.select({ id: ReadingListDisplayGroup.id }).from(ReadingListDisplayGroup)
+    .where(eq(ReadingListDisplayGroup.name, input.hubGroup)).limit(1);
+  if (!displayGroup) throw new ReadingListError("DISPLAY_GROUP_NOT_FOUND", "گروه نمایش انتخاب‌شده پیدا نشد");
   const bookIds = input.items.map((item) => item.bookId);
   const books = bookIds.length ? await tx.select({ id: CatalogBook.id }).from(CatalogBook).where(inArray(CatalogBook.id, bookIds)) : [];
   if (books.length !== bookIds.length) throw new ReadingListError("BOOK_NOT_FOUND", "یکی از کتاب‌ها دیگر وجود ندارد");

@@ -113,6 +113,7 @@ async function seedPaginationFixtures() {
         return {
           id: authorId(number),
           type: "AUTHOR" as const,
+          roles: ["AUTHOR" as const],
           name: `${MARKER} نویسنده آزمایشی ${number.toLocaleString("fa-IR")}`,
           slug,
           slugNormalized: slug,

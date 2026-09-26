@@ -12,6 +12,7 @@ import {
   check,
   boolean,
   jsonb,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -251,6 +252,8 @@ export const ReferenceItem = pgTable(
       .notNull()
       .default(sql`gen_random_uuid()`),
     type: ReferenceType("type").notNull(),
+    roles: ReferenceType("roles").array().notNull().default(sql`ARRAY[]::"ReferenceType"[]`),
+    canonicalReferenceId: varchar("canonical_reference_id").references((): AnyPgColumn => ReferenceItem.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     // فیلدهای صفحه‌ی عمومی موجودیت (نویسنده/ژانر/…). nullable برای سازگاری.
     slug: text("slug"),
@@ -1372,6 +1375,20 @@ export const ReadingList = pgTable("ReadingList", {
   statusGroupIdx: index("ReadingList_status_group_idx").on(t.status, t.hubGroup),
 }));
 
+export const ReadingListCategory = pgTable("ReadingListCategory", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const ReadingListDisplayGroup = pgTable("ReadingListDisplayGroup", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 export const ReadingListItem = pgTable("ReadingListItem", {
   id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
   listId: varchar("list_id").notNull().references(() => ReadingList.id, { onDelete: "cascade" }),
@@ -1587,6 +1604,24 @@ export const StaticPage = pgTable("StaticPage", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+// ---------------- ContactMessage (پیام‌های فرم تماس) ----------------
+export const ContactMessage = pgTable("ContactMessage", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  topic: varchar("topic", { length: 30 }).notNull(),
+  message: text("message").notNull(),
+  bookTitle: text("book_title"),
+  bookAuthor: text("book_author"),
+  bookTranslator: text("book_translator"),
+  bookReference: text("book_reference"),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  createdAtIdx: index("ContactMessage_created_at_idx").on(t.createdAt),
+  unreadIdx: index("ContactMessage_unread_idx").on(t.isRead, t.createdAt),
+}));
 
 // ---------------- Wishlist ----------------
 export const Wishlist = pgTable("Wishlist", {

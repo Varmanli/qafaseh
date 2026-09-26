@@ -1,4 +1,4 @@
-import { and, desc, eq, sql, inArray } from "drizzle-orm";
+import { and, arrayContains, desc, eq, isNull, sql, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -439,7 +439,8 @@ export async function getUserReadingInsights(
       .from(ReferenceItem)
       .where(
         and(
-          eq(ReferenceItem.type, "AUTHOR"),
+          arrayContains(ReferenceItem.roles, ["AUTHOR"]),
+          isNull(ReferenceItem.canonicalReferenceId),
           inArray(ReferenceItem.name, authorNames)
         )
       );

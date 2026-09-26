@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { databaseDiagnosticTarget, db } from "@/db";
 import { IranKetabDiscoveryImportJob, IranKetabDiscoveryItem, IranKetabDiscoveryMembership, IranKetabDiscoverySource, IranKetabImportSession, IranKetabPreviewOperation } from "@/db/schema";
@@ -8,6 +8,7 @@ import {
   startDiscoveryImport,
 } from "./import-bridge";
 import { canonicalIranKetabSourceIdentity } from "@/lib/importers/iranketab/server-hardening";
+import { calculateDiscoveryScore } from "./scoring";
 
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_PAGE_SIZE = 25;
 export const IRANKETAB_DISCOVERY_IMPORT_JOB_MAX_ATTEMPTS = 3;
@@ -585,20 +586,66 @@ export async function reconcilePublisherImportQueue(discoverySourceId: string) {
     .innerJoin(IranKetabDiscoveryItem, eq(IranKetabDiscoveryMembership.discoveryItemId, IranKetabDiscoveryItem.id))
     .where(and(
       eq(IranKetabDiscoveryMembership.discoverySourceId, discoverySourceId),
-      inArray(IranKetabDiscoveryItem.status, ["SCORED", "QUEUED"]),
+      inArray(IranKetabDiscoveryItem.status, ["DISCOVERED", "SCORED", "QUEUED", "APPROVED"]),
     ))
     .orderBy(desc(IranKetabDiscoveryItem.priorityScore))
     .limit(100);
   if (!rows.length) return { queued: 0, results: [] };
 
-  const scoredIds = rows.filter((row) => row.status === "SCORED").map((row) => row.id);
-  if (scoredIds.length) {
+  const discoveredIds = rows.filter((row) => row.status === "DISCOVERED").map((row) => row.id);
+  const rescoredIds = new Set((await Promise.all(discoveredIds.map(async (id) => {
+    try {
+      await calculateDiscoveryScore(id);
+      return id;
+    } catch (error) {
+      queueLog("publisher_candidate_rescore_failed", {
+        discoverySourceId,
+        discoveryItemId: id,
+        error: error instanceof Error ? error.message : "DISCOVERY_SCORING_FAILED",
+      });
+      return null;
+    }
+  }))).filter((id): id is string => Boolean(id)));
+
+  const queueableIds = rows
+    .filter((row) => row.status !== "DISCOVERED" || rescoredIds.has(row.id))
+    .map((row) => row.id);
+  if (queueableIds.length) {
     await db
       .update(IranKetabDiscoveryItem)
       .set({ status: "QUEUED", failureCode: null, failureReason: null, updatedAt: new Date() })
-      .where(inArray(IranKetabDiscoveryItem.id, scoredIds));
+      .where(and(
+        inArray(IranKetabDiscoveryItem.id, queueableIds),
+        inArray(IranKetabDiscoveryItem.status, ["DISCOVERED", "SCORED", "APPROVED"]),
+      ));
   }
-  const results = await enqueueManyDiscoveryItems(rows.map((row) => row.id), discoverySourceId);
+
+  // A single active job is allowed per item. If another source left that job
+  // pending, hand it to this running AUTO_IMPORT source so its scoped worker
+  // can claim it. The membership above preserves source provenance.
+  const pendingJobs = await db
+    .select({ id: IranKetabDiscoveryImportJob.id, discoveryItemId: IranKetabDiscoveryImportJob.discoveryItemId })
+    .from(IranKetabDiscoveryImportJob)
+    .where(and(
+      inArray(IranKetabDiscoveryImportJob.discoveryItemId, queueableIds),
+      eq(IranKetabDiscoveryImportJob.status, "PENDING"),
+      or(ne(IranKetabDiscoveryImportJob.discoverySourceId, discoverySourceId), sql`${IranKetabDiscoveryImportJob.discoverySourceId} IS NULL`),
+    ));
+  const handedOff = await Promise.all(pendingJobs.map(async (job) => {
+    const [updated] = await db
+      .update(IranKetabDiscoveryImportJob)
+      .set({ discoverySourceId, updatedAt: new Date() })
+      .where(and(
+        eq(IranKetabDiscoveryImportJob.id, job.id),
+        eq(IranKetabDiscoveryImportJob.status, "PENDING"),
+      ))
+      .returning({ id: IranKetabDiscoveryImportJob.id });
+    return updated?.id ?? null;
+  }));
+  const handedOffCount = handedOff.filter(Boolean).length;
+  if (handedOffCount) queueLog("publisher_pending_jobs_handed_off", { discoverySourceId, count: handedOffCount });
+
+  const results = await enqueueManyDiscoveryItems(queueableIds, discoverySourceId);
   return { queued: results.filter((result) => !("error" in result)).length, results };
 }
 

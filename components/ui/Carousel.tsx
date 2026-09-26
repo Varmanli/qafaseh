@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import type { EmblaOptionsType } from "embla-carousel";
 
@@ -49,7 +49,7 @@ export function Carousel({
         <div className={cn("flex gap-3", containerClassName)}>
           {slides.map((slide, index) => (
             <div
-              key={index}
+              key={isValidElement(slide) && slide.key !== null ? slide.key : index}
               className={cn("min-w-0 shrink-0 grow-0 snap-start", slideClassName)}
             >
               {slide}

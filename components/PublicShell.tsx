@@ -4,6 +4,7 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import SiteFooter from "@/components/layout/SiteFooter";
 import MobileNav from "@/components/layout/MobileNav";
 import { getSiteSettings } from "@/lib/settings/service";
+import { getSiteNavigationMenus } from "@/lib/layout/navigation-settings";
 import PublicAnalyticsTracker from "@/components/analytics/PublicAnalyticsTracker";
 
 /**
@@ -20,7 +21,7 @@ export default async function PublicShell({
   user?: Awaited<ReturnType<typeof getCurrentUser>> | null;
 }) {
   const user = initialUser === undefined ? await getCurrentUser() : initialUser;
-  const settings = await getSiteSettings();
+  const [settings, navigation] = await Promise.all([getSiteSettings(), getSiteNavigationMenus()]);
   const branding = {
     logoUrl: settings.logoUrl,
     logoLightUrl: settings.logoLightUrl,
@@ -44,10 +45,12 @@ export default async function PublicShell({
         }
         isAdmin={user ? isAdmin(user) : false}
         branding={branding}
+        primaryNav={navigation.header}
       />
       <main className="flex-1">{children}</main>
       <SiteFooter
         branding={branding}
+        footerLinks={navigation.footer}
         user={
           user
             ? {
@@ -59,7 +62,7 @@ export default async function PublicShell({
             : null
         }
       />
-      <MobileNav />
+      <MobileNav primaryLinks={navigation.header} />
     </div>
   );
 }

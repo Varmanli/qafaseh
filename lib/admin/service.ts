@@ -14,6 +14,7 @@ import { slugify } from "@/lib/book/slug";
 import { coalesceCoverImage } from "@/lib/book/cover";
 import { resolveBookDisplayData } from "@/lib/book/display-cover";
 import { splitStoredGenres } from "@/lib/book/genres";
+import { compactSearchText } from "@/lib/book/search-normalize";
 import {
   listBookExternalLinks,
   upsertBookExternalLinks,
@@ -601,6 +602,7 @@ export async function searchAdminCatalogBooks(
   const conds = [inArray(CatalogBook.status, statuses)];
   if (q) {
     const term = `%${q}%`;
+    const compactTerm = compactSearchText(q);
     conds.push(
       sql`(
         ${CatalogBook.title} ilike ${term}
@@ -613,6 +615,11 @@ export async function searchAdminCatalogBooks(
           where be.catalog_book_id = ${CatalogBook.id}
             and (be.translator ilike ${term} or be.publisher ilike ${term})
         )
+        ${compactTerm ? sql`or exists (
+          select 1 from "BookSearchIndex" search_index
+          where search_index.catalog_book_id = ${CatalogBook.id}
+            and search_index.value_compact like ${`%${compactTerm}%`}
+        )` : sql``}
       )`,
     );
   }

@@ -5,27 +5,29 @@ import { sql } from "drizzle-orm";
  * names are exact, case-insensitive matches only; they never replace a row.
  */
 export const publicPersonBookRoles = sql`
-  SELECT cbc.reference_item_id, cbc.catalog_book_id, cbc.role::text AS role
+  SELECT coalesce(profile.canonical_reference_id, cbc.reference_item_id), cbc.catalog_book_id, cbc.role::text AS role
   FROM "CatalogBookContributor" cbc
   JOIN "CatalogBook" cb ON cb.id = cbc.catalog_book_id AND cb.status = 'APPROVED'
+  JOIN "ReferenceItem" profile ON profile.id = cbc.reference_item_id
   UNION
-  SELECT bec.reference_item_id, be.catalog_book_id, bec.role::text AS role
+  SELECT coalesce(profile.canonical_reference_id, bec.reference_item_id), be.catalog_book_id, bec.role::text AS role
   FROM "BookEditionContributor" bec
   JOIN "BookEdition" be ON be.id = bec.book_edition_id AND be.status = 'APPROVED'
   JOIN "CatalogBook" cb ON cb.id = be.catalog_book_id AND cb.status = 'APPROVED'
+  JOIN "ReferenceItem" profile ON profile.id = bec.reference_item_id
   UNION
-  SELECT r.id, cb.id, 'AUTHOR' AS role
+  SELECT coalesce(r.canonical_reference_id, r.id), cb.id, 'AUTHOR' AS role
   FROM "ReferenceItem" r
   JOIN "CatalogBook" cb ON lower(cb.author) = lower(r.name) AND cb.status = 'APPROVED'
-  WHERE r.type = 'AUTHOR' AND r.status = 'APPROVED'
+  WHERE r.roles @> ARRAY['AUTHOR']::"ReferenceType"[] AND r.status = 'APPROVED' AND r.canonical_reference_id IS NULL
     AND NOT EXISTS (SELECT 1 FROM "CatalogBookContributor" cbc
       WHERE cbc.catalog_book_id = cb.id AND cbc.role = 'AUTHOR')
   UNION
-  SELECT r.id, be.catalog_book_id, 'TRANSLATOR' AS role
+  SELECT coalesce(r.canonical_reference_id, r.id), be.catalog_book_id, 'TRANSLATOR' AS role
   FROM "ReferenceItem" r
   JOIN "BookEdition" be ON lower(be.translator) = lower(r.name) AND be.status = 'APPROVED'
   JOIN "CatalogBook" cb ON cb.id = be.catalog_book_id AND cb.status = 'APPROVED'
-  WHERE r.type = 'TRANSLATOR' AND r.status = 'APPROVED'
+  WHERE r.roles @> ARRAY['TRANSLATOR']::"ReferenceType"[] AND r.status = 'APPROVED' AND r.canonical_reference_id IS NULL
     AND NOT EXISTS (SELECT 1 FROM "BookEditionContributor" bec
       WHERE bec.book_edition_id = be.id AND bec.role = 'TRANSLATOR')
     AND NOT EXISTS (SELECT 1 FROM "CatalogBookContributor" cbc

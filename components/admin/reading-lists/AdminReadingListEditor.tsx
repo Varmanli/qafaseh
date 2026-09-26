@@ -12,13 +12,15 @@ import toast from "react-hot-toast";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import { slugify } from "@/lib/book/slug";
 import type { getAdminReadingList, getAdminRelatedOptions } from "@/lib/admin/reading-lists";
+import type { getReadingListDisplayGroupOptions } from "@/lib/admin/reading-list-display-groups";
 
 type Existing = NonNullable<Awaited<ReturnType<typeof getAdminReadingList>>>;
 type Option = Awaited<ReturnType<typeof getAdminRelatedOptions>>[number];
+type CategoryOption = { id: string; name: string };
+type DisplayGroupOption = Awaited<ReturnType<typeof getReadingListDisplayGroupOptions>>[number];
 type Book = { id: string; title: string; author: string; coverImage: string | null };
 type Item = Book & { note: string; difficulty: "EASY" | "MEDIUM" | "HARD" | null };
 
-const groups = ["جهان‌های خیال", "مسیرهای موضوعی", "ادبیات جهان", "نویسندگان", "فلسفه و اندیشه", "ژانرها", "پیشنهادهای قفسه"];
 const inputClass = "min-h-12 w-full rounded-2xl border border-border-strong bg-background/70 px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/65 focus:border-primary focus:ring-2 focus:ring-primary/15";
 const cardClass = "rounded-[1.7rem] border border-border bg-card p-5 shadow-[0_18px_55px_-45px_rgba(0,0,0,0.45)] sm:p-7";
 
@@ -47,7 +49,7 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
   </label>;
 }
 
-export default function AdminReadingListEditor({ initial, relatedOptions }: { initial?: Existing; relatedOptions: Option[] }) {
+export default function AdminReadingListEditor({ initial, relatedOptions, categoryOptions, displayGroupOptions }: { initial?: Existing; relatedOptions: Option[]; categoryOptions: CategoryOption[]; displayGroupOptions: DisplayGroupOption[] }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
@@ -55,8 +57,8 @@ export default function AdminReadingListEditor({ initial, relatedOptions }: { in
   const [slugTouched, setSlugTouched] = useState(Boolean(initial));
   const [description, setDescription] = useState(initial?.description ?? "");
   const [audience, setAudience] = useState(initial?.audience ?? "");
-  const [category, setCategory] = useState(initial?.category ?? "");
-  const [hubGroup, setHubGroup] = useState(initial?.hubGroup ?? groups[0]);
+  const [category, setCategory] = useState(initial?.category ?? categoryOptions[0]?.name ?? "");
+  const [hubGroup, setHubGroup] = useState(initial?.hubGroup ?? displayGroupOptions[0]?.name ?? "");
   const [mode, setMode] = useState<"ORDERED" | "UNORDERED">(initial?.mode ?? "ORDERED");
   const [featured, setFeatured] = useState(initial?.featured ?? false);
   const [seoTitle, setSeoTitle] = useState(initial?.seoTitle ?? "");
@@ -124,21 +126,6 @@ export default function AdminReadingListEditor({ initial, relatedOptions }: { in
       <span className="font-bold text-foreground">{initial ? "ویرایش فهرست" : "فهرست تازه"}</span>
     </nav>
 
-    <header className="relative overflow-hidden rounded-[2rem] bg-[#102b23] px-6 py-8 text-white sm:px-9 sm:py-10">
-      <div aria-hidden="true" className="pointer-events-none absolute -left-16 -top-24 size-72 rounded-full border border-white/10 bg-[#245b47]/35 blur-2xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-8 hidden h-40 w-52 rotate-[-14deg] rounded-t-xl border-x-[10px] border-t-[10px] border-[#d5c59b] bg-[#234c3f] shadow-[18px_0_0_#a9bd9a,36px_0_0_#d7b89c] lg:block" />
-      <div className="relative max-w-2xl">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-[#d9e9d7]"><Sparkles className="size-3.5" /> ابزار سردبیری قفسه</div>
-        <h1 className="text-2xl font-black leading-relaxed sm:text-3xl">{initial ? "ویرایش فهرست مطالعه" : "یک مسیر تازه برای خواندن بساز"}</h1>
-        <p className="mt-2 max-w-xl text-sm leading-7 text-white/65">فهرست را معرفی کن، کتاب‌ها را بچین و وقتی آماده بود، برای خوانندگان منتشرش کن.</p>
-        <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-white/75">
-          <span className="rounded-full border border-white/15 px-3 py-1.5">۱. معرفی</span>
-          <span className="rounded-full border border-white/15 px-3 py-1.5">۲. انتخاب کتاب</span>
-          <span className="rounded-full border border-white/15 px-3 py-1.5">۳. انتشار</span>
-        </div>
-      </div>
-    </header>
-
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-6">
         <section className={cardClass} aria-labelledby="list-details">
@@ -148,8 +135,20 @@ export default function AdminReadingListEditor({ initial, relatedOptions }: { in
             <div className="sm:col-span-2"><Field label="زیرعنوان" hint="اختیاری · حداکثر ۳۰۰ نویسه"><input maxLength={300} className={inputClass} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} placeholder="مثلاً یک شروع آرام برای آشنایی با فلسفهٔ اگزیستانسیالیسم" /></Field></div>
             <div className="sm:col-span-2"><Field label="توضیح کوتاه" required hint={`${description.length.toLocaleString("fa-IR")} / ۲۰۰۰`}><textarea maxLength={2000} className={`${inputClass} min-h-32 resize-y py-3 leading-7`} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="در چند جمله، حال‌وهوای این فهرست و ارزش آن را توضیح بده..." /></Field></div>
             <div className="sm:col-span-2"><Field label="مناسب برای چه کسانی؟" hint="اختیاری"><textarea maxLength={1000} className={`${inputClass} min-h-24 resize-y py-3 leading-7`} value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="مثلاً برای کسانی که تازه به این موضوع علاقه‌مند شده‌اند" /></Field></div>
-            <Field label="دسته‌بندی" required><input list="list-categories" maxLength={100} className={inputClass} value={category} onChange={(event) => setCategory(event.target.value)} placeholder="مثلاً ادبیات کلاسیک" /><datalist id="list-categories"><option value="فانتزی" /><option value="ادبیات کلاسیک" /><option value="فلسفه" /><option value="زندگی و معنا" /></datalist></Field>
-            <Field label="گروه نمایش" required><select className={inputClass} value={hubGroup} onChange={(event) => setHubGroup(event.target.value)}>{[...new Set([...groups, hubGroup])].map((group) => <option key={group} value={group}>{group}</option>)}</select></Field>
+            <Field label="دسته‌بندی" required>
+              <select className={inputClass} value={category} onChange={(event) => setCategory(event.target.value)}>
+                <option value="" disabled>انتخاب دسته‌بندی</option>
+                {categoryOptions.map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}
+              </select>
+              {!categoryOptions.length && <Link href="/admin/reading-list-categories" className="mt-2 inline-block text-xs font-bold text-primary hover:underline">ابتدا دسته‌بندی بساز</Link>}
+            </Field>
+            <Field label="گروه نمایش" required>
+              <select className={inputClass} value={hubGroup} onChange={(event) => setHubGroup(event.target.value)}>
+                <option value="" disabled>انتخاب گروه نمایش</option>
+                {displayGroupOptions.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}
+              </select>
+              {!displayGroupOptions.length && <Link href="/admin/reading-list-display-groups" className="mt-2 inline-block text-xs font-bold text-primary hover:underline">ابتدا گروه نمایش بساز</Link>}
+            </Field>
           </div>
         </section>
 

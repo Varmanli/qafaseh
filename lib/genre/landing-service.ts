@@ -21,7 +21,7 @@ export async function getGenreLandingData(genre: { id: string; name: string }) {
       JOIN "CatalogBook" cb ON cb.id = person_books.catalog_book_id
       JOIN "ReferenceItem" r ON r.id = person_books.reference_item_id
       WHERE cb.status = 'APPROVED' AND ${catalogGenreContains(sql`cb.genre`, genre.name)}
-        AND r.type = 'AUTHOR' AND r.status = 'APPROVED' AND r.slug IS NOT NULL
+        AND r.roles @> ARRAY['AUTHOR']::"ReferenceType"[] AND r.status = 'APPROVED' AND r.slug IS NOT NULL AND r.canonical_reference_id IS NULL
       GROUP BY r.id
       ORDER BY "bookCount" DESC, r.name ASC
       LIMIT 6

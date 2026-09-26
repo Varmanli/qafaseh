@@ -13,6 +13,7 @@ import {
   Images,
   LayoutDashboard,
   LayoutTemplate,
+  Mail,
   ListOrdered,
   Languages,
   SearchCheck,
@@ -164,51 +165,60 @@ export const ADMIN_NAV: AdminNavEntry[] = [
   {
     type: "group",
     group: {
-      id: "content",
-      label: "محتوا",
+      id: "magazine",
+      label: "مجله قفسه",
+      icon: Newspaper,
+      children: [
+        { href: "/admin/blog", label: "مطالب مجله", icon: Newspaper },
+        { href: "/admin/blog/categories", label: "دسته‌بندی‌ها", icon: Tags },
+      ],
+    },
+  },
+  {
+    type: "group",
+    group: {
+      id: "quotes",
+      label: "تکه‌های کتاب",
+      icon: QuoteIcon,
+      children: [
+        { href: "/admin/quotes", label: "همه تکه‌ها", icon: QuoteIcon },
+        { href: "/admin/quotes/backgrounds", label: "پس‌زمینه‌ها", icon: Palette },
+      ],
+    },
+  },
+  {
+    type: "group",
+    group: {
+      id: "reading-lists",
+      label: "لیست‌های مطالعه",
+      icon: ListOrdered,
+      children: [
+        { href: "/admin/reading-lists", label: "مدیریت لیست‌ها", icon: ListOrdered },
+        { href: "/admin/reading-list-categories", label: "دسته‌بندی‌ها", icon: Tags },
+        { href: "/admin/reading-list-display-groups", label: "گروه‌های نمایش", icon: LayoutTemplate },
+      ],
+    },
+  },
+  {
+    type: "group",
+    group: {
+      id: "site-content",
+      label: "محتوای سایت",
       icon: LayoutTemplate,
       children: [
-        {
-          href: "/admin/quotes",
-          label: "تکه‌های کتاب",
-          icon: QuoteIcon,
-        },
-        {
-          href: "/admin/quotes/backgrounds",
-          label: "پس‌زمینه‌های تکه کتاب",
-          icon: Palette,
-        },
-        {
-          href: "/admin/notes",
-          label: "یادداشت‌ها",
-          icon: NotebookPen,
-        },
-        {
-          href: "/admin/home-content",
-          label: "محتوای صفحه اصلی",
-          icon: LayoutTemplate,
-        },
-        {
-          href: "/admin/blog",
-          label: "مطالب مجله قفسه",
-          icon: Newspaper,
-        },
-        {
-          href: "/admin/reading-lists",
-          label: "لیست‌های مطالعه",
-          icon: ListOrdered,
-        },
-        {
-          href: "/admin/blog/categories",
-          label: "دسته‌بندی‌های مجله",
-          icon: Tags,
-        },
-        {
-          href: "/admin/static-pages",
-          label: "صفحات ثابت",
-          icon: FileText,
-        },
+        { href: "/admin/home-content", label: "محتوای صفحه اصلی", icon: LayoutTemplate },
+        { href: "/admin/static-pages", label: "صفحات ثابت", icon: FileText },
+        { href: "/admin/navigation", label: "منوهای هدر و فوتر", icon: ListOrdered },
+        { href: "/admin/contact-messages", label: "پیام‌های تماس", icon: Mail },
       ],
+    },
+  },
+  {
+    type: "item",
+    item: {
+      href: "/admin/notes",
+      label: "یادداشت‌ها",
+      icon: NotebookPen,
     },
   },
   {

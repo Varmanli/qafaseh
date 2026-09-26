@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, sql } from "drizzle-orm";
+import { and, arrayContains, asc, eq, ilike, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { Book, ReferenceItem } from "@/db/schema";
@@ -73,7 +73,10 @@ async function searchReferences(
     .from(ReferenceItem)
     .where(
       and(
-        eq(ReferenceItem.type, type),
+        type === "AUTHOR" || type === "TRANSLATOR"
+          ? arrayContains(ReferenceItem.roles, [type])
+          : eq(ReferenceItem.type, type),
+        isNull(ReferenceItem.canonicalReferenceId),
         eq(ReferenceItem.status, "APPROVED"),
         sql`${ReferenceItem.slug} is not null`,
         ilike(ReferenceItem.name, term),

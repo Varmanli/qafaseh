@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, arrayContains, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { Book, BookEdition, CatalogBook, ReferenceItem } from "@/db/schema";
@@ -379,8 +379,9 @@ async function getBookArchiveOptions(
             .from(ReferenceItem)
             .where(
               and(
-                eq(ReferenceItem.type, "AUTHOR"),
+                arrayContains(ReferenceItem.roles, ["AUTHOR"]),
                 eq(ReferenceItem.status, "APPROVED"),
+                isNull(ReferenceItem.canonicalReferenceId),
               ),
             )
             .orderBy(ReferenceItem.name)

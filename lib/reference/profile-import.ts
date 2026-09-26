@@ -1,4 +1,4 @@
-import { and, eq, like, or } from "drizzle-orm";
+import { and, arrayContains, eq, isNull, like, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -249,7 +249,11 @@ function parseProfilesInput(input: unknown) {
 async function listReferenceRows(
   type: ReferenceTypeValue,
 ): Promise<ReferenceProfileRow[]> {
-  return db.select().from(ReferenceItem).where(eq(ReferenceItem.type, type));
+  return db.select().from(ReferenceItem).where(
+    type === "AUTHOR" || type === "TRANSLATOR"
+      ? and(or(arrayContains(ReferenceItem.roles, ["AUTHOR"]), arrayContains(ReferenceItem.roles, ["TRANSLATOR"])), isNull(ReferenceItem.canonicalReferenceId))
+      : eq(ReferenceItem.type, type),
+  );
 }
 
 async function listSupportedReferenceRows() {
@@ -258,8 +262,7 @@ async function listSupportedReferenceRows() {
     .from(ReferenceItem)
     .where(
       or(
-        eq(ReferenceItem.type, "AUTHOR"),
-        eq(ReferenceItem.type, "TRANSLATOR"),
+        and(or(arrayContains(ReferenceItem.roles, ["AUTHOR"]), arrayContains(ReferenceItem.roles, ["TRANSLATOR"])), isNull(ReferenceItem.canonicalReferenceId)),
         eq(ReferenceItem.type, "PUBLISHER"),
       ),
     );
@@ -274,7 +277,7 @@ function findExistingReference(
   if (normalizedSlug) {
     const bySlug = rows.find(
       (row) =>
-        row.type === profile.type &&
+        row.roles.includes(profile.type) &&
         row.slug &&
         (slugify(row.slug) || row.slug) === normalizedSlug,
     );
@@ -282,13 +285,15 @@ function findExistingReference(
   }
 
   const normalizedName = normalizeReferenceName(profile.name);
-  return (
-    rows.find(
-      (row) =>
-        row.type === profile.type &&
-        normalizeReferenceName(row.name) === normalizedName,
-    ) ?? null
+  const matches = rows.filter((row) =>
+    (row.type === "AUTHOR" || row.type === "TRANSLATOR") &&
+    normalizeReferenceName(row.name) === normalizedName,
   );
+  if (profile.type === "AUTHOR" || profile.type === "TRANSLATOR") {
+    if (matches.length === 1) return matches[0]!;
+    return matches.find((row) => row.roles.includes(profile.type)) ?? null;
+  }
+  return rows.find((row) => row.type === profile.type && normalizeReferenceName(row.name) === normalizedName) ?? null;
 }
 
 async function uniqueReferenceSlug(
@@ -349,6 +354,9 @@ function buildUpdateSet(
   resolvedCountry?: { name: string; slug: string | null } | null,
 ): Partial<typeof ReferenceItem.$inferInsert> {
   const set: Partial<typeof ReferenceItem.$inferInsert> = {};
+  if ((profile.type === "AUTHOR" || profile.type === "TRANSLATOR") && !existing.roles.includes(profile.type)) {
+    set.roles = [...existing.roles, profile.type];
+  }
 
   const slug = chooseString(profile.slug, existing.slug, overwrite);
   if (slug) {
@@ -467,6 +475,7 @@ async function ensureCountryReference(profile: ReferenceProfileInput) {
     .insert(ReferenceItem)
     .values({
       type: "COUNTRY",
+      roles: ["COUNTRY"],
       name: profile.country.name,
       slug,
       slugNormalized: slugify(slug),
@@ -625,6 +634,7 @@ export async function applyReferenceProfiles(
         .insert(ReferenceItem)
         .values({
           type: profile.type,
+          roles: [profile.type],
           name: profile.name,
           slug,
           slugNormalized: slugify(slug),

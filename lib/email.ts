@@ -2,6 +2,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 
 export interface EmailMessage {
   to: string;
+  replyTo?: string;
   subject: string;
   text: string;
   html: string;
@@ -81,6 +82,7 @@ export async function sendEmail(message: EmailMessage): Promise<EmailDeliveryRes
     const result = await getTransporter(config).sendMail({
       from: config.from,
       to: message.to,
+      ...(message.replyTo ? { replyTo: message.replyTo } : {}),
       subject: message.subject,
       text: message.text,
       html: message.html,

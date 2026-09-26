@@ -82,7 +82,7 @@ export async function getAdminAnalytics(period: AnalyticsPeriod) {
     query<{ label: string; views: number }>(sql`
       SELECT COALESCE(r."name", p."content_slug") AS "label", count(*)::int AS "views"
       FROM "AnalyticsPageView" p
-      LEFT JOIN "ReferenceItem" r ON r."type" = 'AUTHOR' AND r."slug" = p."content_slug"
+      LEFT JOIN "ReferenceItem" r ON r."roles" @> ARRAY['AUTHOR']::"ReferenceType"[] AND r."canonical_reference_id" IS NULL AND r."slug" = p."content_slug"
       WHERE p."content_kind" = 'author' AND p."created_at" >= ${start} AND p."created_at" < ${end}
       GROUP BY 1 ORDER BY "views" DESC, "label" ASC LIMIT 6
     `),

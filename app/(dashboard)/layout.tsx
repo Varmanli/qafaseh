@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
 import { getSiteSettings } from "@/lib/settings/service";
+import { getSiteNavigationMenus } from "@/lib/layout/navigation-settings";
 
 export default async function DashboardLayout({
   children,
@@ -19,7 +20,7 @@ export default async function DashboardLayout({
   if (!user) {
     redirect("/auth/login");
   }
-  const settings = await getSiteSettings();
+  const [settings, navigation] = await Promise.all([getSiteSettings(), getSiteNavigationMenus()]);
   const branding = {
     logoUrl: settings.logoUrl,
     logoLightUrl: settings.logoLightUrl,
@@ -38,12 +39,14 @@ export default async function DashboardLayout({
         }}
         isAdmin={isAdmin(user)}
         branding={branding}
+        primaryNav={navigation.header}
       />
       <main className="flex-1">
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
       <SiteFooter
         branding={branding}
+        footerLinks={navigation.footer}
         user={{
           name: user.name,
           email: user.email,
@@ -51,7 +54,7 @@ export default async function DashboardLayout({
           username: user.username,
         }}
       />
-      <MobileNav />
+      <MobileNav primaryLinks={navigation.header} />
     </div>
   );
 }

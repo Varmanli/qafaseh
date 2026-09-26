@@ -39,12 +39,14 @@ import {
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import {
   APPROVAL_STATUS_LABELS,
+  REFERENCE_TYPE_LABELS,
   type ReferenceTypeValue,
 } from "@/lib/validations/reference";
 
 interface Item {
   id: string;
   name: string;
+  roles: ReferenceTypeValue[];
   slug: string | null;
   coverImage: string | null;
   bannerImage: string | null;
@@ -72,6 +74,7 @@ const statusBadge: Record<string, string> = {
 
 const REF_COLUMNS: AdminColumn[] = [
   { key: "name", label: "نام" },
+  { key: "roles", label: "نقش‌ها" },
   { key: "status", label: "وضعیت" },
   { key: "actions", label: "عملیات", align: "center" },
 ];
@@ -318,6 +321,9 @@ export default function ReferenceManager({
           <AdminDataTableRow key={item.id}>
             <AdminDataTableCell className="font-medium">
               {item.name}
+            </AdminDataTableCell>
+            <AdminDataTableCell className="text-xs text-muted-foreground">
+              {item.roles.map((role) => REFERENCE_TYPE_LABELS[role]).join("، ")}
             </AdminDataTableCell>
             <AdminDataTableCell>
               <AdminBadge className={statusBadge[item.status]}>

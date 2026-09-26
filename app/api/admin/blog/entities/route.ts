@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, arrayContains, eq, ilike, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { CatalogBook, ReferenceItem } from "@/db/schema";
@@ -18,6 +18,6 @@ export async function GET(req: NextRequest) {
     return apiSuccess({ results });
   }
   const referenceType = type === "author" ? "AUTHOR" : "GENRE";
-  const results = await db.select({ id: ReferenceItem.id, label: ReferenceItem.name, detail: ReferenceItem.countryName }).from(ReferenceItem).where(and(eq(ReferenceItem.status, "APPROVED"), eq(ReferenceItem.type, referenceType), ilike(ReferenceItem.name, term))).limit(12);
+  const results = await db.select({ id: ReferenceItem.id, label: ReferenceItem.name, detail: ReferenceItem.countryName }).from(ReferenceItem).where(and(eq(ReferenceItem.status, "APPROVED"), referenceType === "AUTHOR" ? arrayContains(ReferenceItem.roles, ["AUTHOR"]) : eq(ReferenceItem.type, referenceType), ...(referenceType === "AUTHOR" ? [isNull(ReferenceItem.canonicalReferenceId)] : []), ilike(ReferenceItem.name, term))).limit(12);
   return apiSuccess({ results });
 }

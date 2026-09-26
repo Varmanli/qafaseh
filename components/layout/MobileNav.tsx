@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, Compass, Home, ListOrdered, Newspaper } from "lucide-react";
 
-import { getPrimaryNav } from "@/lib/layout/navigation";
+import type { NavLinkItem } from "@/lib/layout/navigation";
 import { cn } from "@/lib/utils";
 
 function isActivePath(pathname: string, href: string) {
@@ -23,9 +23,8 @@ function getNavigationIcon(href: string): ElementType {
   return Newspaper;
 }
 
-export default function MobileNav() {
+export default function MobileNav({ primaryLinks }: { primaryLinks: NavLinkItem[] }) {
   const pathname = usePathname();
-  const primaryLinks = getPrimaryNav();
 
   return (
     <nav

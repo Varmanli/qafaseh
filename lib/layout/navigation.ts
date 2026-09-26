@@ -6,27 +6,38 @@ export interface NavLinkItem {
   description?: string;
 }
 
+export const DEFAULT_HEADER_MENU: NavLinkItem[] = [
+  { label: "خانه", href: "/" },
+  { label: "کتاب‌ها", href: "/books" },
+  { label: "کشف کتاب", href: "/discover" },
+  { label: "مسیرهای مطالعه", href: "/lists" },
+  { label: "مجله قفسه", href: "/blog" },
+];
+
+export const DEFAULT_FOOTER_MENU: NavLinkItem[] = [
+  { label: "صفحه اصلی", href: "/" },
+  { label: "کتاب‌ها", href: "/books" },
+  { label: "نویسنده‌ها", href: "/authors" },
+  { label: "مجله قفسه", href: "/blog" },
+  { label: "درباره قفسه", href: "/about" },
+  { label: "تماس با ما", href: "/contact" },
+  { label: "قوانین", href: "/terms" },
+  { label: "حریم خصوصی", href: "/privacy" },
+];
+
+export interface SiteNavigationMenus {
+  header: NavLinkItem[];
+  footer: NavLinkItem[];
+}
+
 export function getPrimaryNav(username?: string | null): NavLinkItem[] {
-  return [
-    { label: "خانه", href: "/" },
-    { label: "کتاب‌ها", href: "/books" },
-    { label: "کشف کتاب", href: "/discover" },
-    { label: "مسیرهای مطالعه", href: "/lists" },
-    { label: "مجله قفسه", href: "/blog" },
-  ];
+  return DEFAULT_HEADER_MENU;
 }
 
 export function getFooterPrimaryNav(
   username?: string | null,
 ): NavLinkItem[] {
-  return [
-    { label: "خانه", href: "/" },
-    { label: "کشف کتاب", href: "/discover" },
-    { label: "کتاب‌ها", href: "/books" },
-    { label: "نویسنده‌ها", href: "/authors" },
-    { label: "مجله قفسه", href: "/blog" },
-    { label: "درباره ما", href: "/about" },
-  ];
+  return DEFAULT_FOOTER_MENU;
 }
 
 export function getFooterUserLinks(username?: string | null): NavLinkItem[] {

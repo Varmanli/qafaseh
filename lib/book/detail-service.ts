@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, arrayContains, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -469,7 +469,13 @@ async function loadReferenceLinks(subject: {
   }
 
   const conds = pairs.map((pair) =>
-    and(eq(ReferenceItem.type, pair.type), sql`lower(${ReferenceItem.name}) = lower(${pair.name})`),
+    and(
+      pair.type === "AUTHOR" || pair.type === "TRANSLATOR"
+        ? arrayContains(ReferenceItem.roles, [pair.type])
+        : eq(ReferenceItem.type, pair.type),
+      isNull(ReferenceItem.canonicalReferenceId),
+      sql`lower(${ReferenceItem.name}) = lower(${pair.name})`,
+    ),
   );
   for (const genre of subject.genres) {
     conds.push(
@@ -484,6 +490,7 @@ async function loadReferenceLinks(subject: {
   const rows = await db
     .select({
       type: ReferenceItem.type,
+      roles: ReferenceItem.roles,
       name: ReferenceItem.name,
       slug: ReferenceItem.slug,
       coverImage: ReferenceItem.coverImage,
@@ -496,7 +503,7 @@ async function loadReferenceLinks(subject: {
 
   for (const pair of pairs) {
     const match = rows.find(
-      (row) => row.type === pair.type && row.slug && row.name.toLowerCase() === pair.name.toLowerCase(),
+      (row) => row.roles.includes(pair.type) && row.slug && row.name.toLowerCase() === pair.name.toLowerCase(),
     );
     if (match?.slug) links[pair.key] = match.slug;
     // Keep the DTO on the same media contract as relation rows below. This

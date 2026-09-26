@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
 import { Quote } from "lucide-react";
 
 import HomeSectionHeader from "@/components/home/HomeSectionHeader";
@@ -16,37 +13,7 @@ export default function HomeQuotesSection({
   isLoggedIn: boolean;
 }) {
   const hasQuotes = quotes.length > 0;
-  const [limit, setLimit] = useState(3);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-    if (!isMobile) {
-      setLimit(quotes.length);
-      return;
-    }
-
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setLimit((prev) => Math.min(prev + 3, quotes.length));
-        }
-      },
-      {
-        rootMargin: "200px", // Preload next slides early when 200px close
-      }
-    );
-
-    observer.observe(sentinel);
-    return () => {
-      observer.disconnect();
-    };
-  }, [quotes.length, limit]);
-
-  const carouselSlides = quotes.slice(0, limit).map((quote, index) => (
+  const carouselSlides = quotes.map((quote, index) => (
     <QuoteCard
       key={quote.id}
       quote={quote}
@@ -62,16 +29,6 @@ export default function HomeQuotesSection({
       "
     />
   ));
-
-  if (limit < quotes.length) {
-    carouselSlides.push(
-      <div
-        ref={sentinelRef}
-        key="sentinel"
-        className="w-1 h-full shrink-0 flex items-center justify-center"
-      />
-    );
-  }
 
   return (
     <section className="relative">

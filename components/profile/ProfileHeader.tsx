@@ -112,16 +112,18 @@ export default function ProfileHeader({
 
           {/* Profile actions */}
           <div className="mt-3.5 flex w-full items-center justify-center gap-2 sm:mt-0 sm:w-auto sm:justify-end">
-            <ProfileShare
-              name={displayName}
-              username={username}
-              avatarUrl={image}
-              readCount={finished}
-              readingCount={reading}
-              wantToReadCount={wantToRead}
-              averageRating={averageRating}
-              profileUrl={profileUrl}
-            />
+            {isOwner ? (
+              <ProfileShare
+                name={displayName}
+                username={username}
+                avatarUrl={image}
+                readCount={finished}
+                readingCount={reading}
+                wantToReadCount={wantToRead}
+                averageRating={averageRating}
+                profileUrl={profileUrl}
+              />
+            ) : null}
             {isOwner ? (
               <Button asChild size="sm" variant="outline" className="h-8.5 rounded-lg px-3.5 text-xs font-medium gap-1.5 flex-1 sm:flex-initial">
                 <Link href="/settings/profile">

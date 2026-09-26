@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { BlogCategory, BlogPost, CatalogBook, ReferenceItem, StaticPage } from "@/db/schema";
@@ -48,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           updatedAt: ReferenceItem.updatedAt,
         })
         .from(ReferenceItem)
-        .where(and(eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
+        .where(and(eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug), isNull(ReferenceItem.canonicalReferenceId))),
       db
         .select({
           slug: BlogPost.slug,

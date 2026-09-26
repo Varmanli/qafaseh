@@ -3,25 +3,17 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import type { LayoutUser } from "@/components/layout/types";
 import type { SiteBranding } from "@/lib/settings/types";
+import type { NavLinkItem } from "@/lib/layout/navigation";
 
 export default function SiteFooter({
   user,
   branding,
+  footerLinks,
 }: {
   user?: LayoutUser | null;
   branding: SiteBranding;
+  footerLinks: NavLinkItem[];
 }) {
-  const footerLinks = [
-    { label: "صفحه اصلی", href: "/" },
-    { label: "کتاب‌ها", href: "/books" },
-    { label: "نویسنده‌ها", href: "/authors" },
-    { label: "مجله قفسه", href: "/blog" },
-    { label: "درباره قفسه", href: "/about" },
-    { label: "تماس با ما", href: "/contact" },
-    { label: "قوانین", href: "/terms" },
-    { label: "حریم خصوصی", href: "/privacy" },
-  ];
-
   return (
     <footer
       dir="rtl"
@@ -168,9 +160,9 @@ export default function SiteFooter({
       md:gap-y-3.5
     "
             >
-              {footerLinks.map((link) => (
+              {footerLinks.map((link, index) => (
                 <Link
-                  key={link.href}
+                  key={`${link.href}-${index}`}
                   href={link.href}
                   className="
           group

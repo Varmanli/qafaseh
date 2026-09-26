@@ -10,7 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, Search, SlidersHorizontal, X } from "lucide-react";
+import { BookOpen, BookPlus, Search, SlidersHorizontal, X } from "lucide-react";
 import { FiStar } from "react-icons/fi";
 
 import BookArchiveFiltersPanel from "@/components/books/BookArchiveFiltersPanel";
@@ -604,107 +604,63 @@ function BookArchiveCard({ book }: { book: BookArchiveItem }) {
 function EmptyArchive({
   hasActiveFilters,
   onReset,
+  query,
 }: {
   hasActiveFilters: boolean;
   onReset: () => void;
+  query: string;
 }) {
   return (
     <div
       className="
         flex
-        min-h-[360px]
-
+        min-h-[300px]
         flex-col
-
         items-center
         justify-center
-
         px-6
-        py-14
-
+        py-10
         text-center
       "
     >
       <div
         className="
           flex
-
-          h-14
-          w-14
-
+          h-11
+          w-11
           items-center
           justify-center
-
-          rounded-[1rem]
-
+          rounded-xl
           border
-          border-border
-
-          bg-card
-
+          border-border/70
+          bg-card/70
           text-muted-foreground
-
-          shadow-sm
         "
       >
-        <BookOpen className="h-6 w-6" />
+        <BookOpen className="h-5 w-5" />
       </div>
 
-      <h2
-        className="
-          mt-5
-
-          text-base
-          font-black
-
-          text-foreground
-
-          sm:text-lg
-        "
-      >
-        کتابی پیدا نشد
+      <h2 className="mt-4 text-base font-black text-foreground sm:text-lg">
+        {query.trim() ? "کتابی پیدا نشد" : "نتیجه‌ای پیدا نشد"}
       </h2>
 
-      <p
-        className="
-          mt-2
-
-          max-w-sm
-
-          text-xs
-          font-medium
-          leading-6
-
-          text-muted-foreground
-
-          sm:text-sm
-          sm:leading-7
-        "
-      >
-        عبارت جست‌وجو یا فیلترهای انتخاب‌شده را تغییر بده.
+      <p className="mt-1.5 max-w-md px-4 text-xs leading-6 text-muted-foreground sm:text-sm">
+        {query.trim()
+          ? `برای «${query.trim()}» کتابی در قفسه پیدا نکردیم.`
+          : "فیلترها را تغییر بده یا پاک کن."}
       </p>
 
-      {hasActiveFilters ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onReset}
-          className="
-            mt-5
-
-            h-10
-
-            rounded-xl
-
-            px-4
-
-            text-xs
-            font-bold
-          "
-        >
-          پاک کردن فیلترها
-        </Button>
-      ) : null}
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+        {query.trim() ? (
+          <Button asChild type="button" size="sm" className="h-9 gap-2 rounded-lg px-3 text-xs font-bold">
+            <Link href={`/contact?topic=book&bookTitle=${encodeURIComponent(query.trim())}`}>
+              <BookPlus className="h-4 w-4" />
+              درخواست افزودن کتاب
+            </Link>
+          </Button>
+        ) : null}
+        {hasActiveFilters ? <Button type="button" variant="ghost" size="sm" onClick={onReset} className="h-9 rounded-lg px-3 text-xs text-muted-foreground">پاک کردن فیلترها</Button> : null}
+      </div>
     </div>
   );
 }
@@ -963,6 +919,7 @@ export default function BookArchiveFilters({
           <EmptyArchive
             hasActiveFilters={hasActiveFilters}
             onReset={resetFilters}
+            query={filters.q}
           />
         ) : (
           <>

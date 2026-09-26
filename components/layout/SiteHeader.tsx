@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogIn, Search } from "lucide-react";
@@ -10,13 +9,7 @@ import type { LayoutUser } from "@/components/layout/types";
 import UserMenu from "@/components/layout/UserMenu";
 import SearchComponent from "@/components/SearchComponent";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { getPrimaryNav } from "@/lib/layout/navigation";
+import type { NavLinkItem } from "@/lib/layout/navigation";
 import type { SiteBranding } from "@/lib/settings/types";
 import { cn } from "@/lib/utils";
 
@@ -69,106 +62,19 @@ function Brand({
   );
 }
 
-function MobileSearchDialog({
-  searchResultsHref,
-}: {
-  searchResultsHref: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
+function MobileSearchButton() {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          data-onboarding="search"
-          aria-label="جست‌وجو"
-          className="
-            size-10 rounded-xl
-            border border-border/50
-            bg-card/45
-            text-muted-foreground
-            shadow-none
-            transition-all duration-200
-
-            hover:border-border
-            hover:bg-card/80
-            hover:text-foreground
-
-            active:scale-95
-          "
-        >
-          <Search className="size-[18px]" />
-        </Button>
-      </DialogTrigger>
-
-      <DialogContent
-        dir="rtl"
-        className="
-          w-[calc(100%-1.5rem)]
-          max-w-xl
-          max-h-[calc(100dvh-1.5rem)]
-          overflow-y-auto
-          rounded-3xl
-          border-border/60
-          bg-background/95
-          p-0
-          shadow-2xl
-          backdrop-blur-xl
-
-          sm:w-full
-        "
-      >
-        <div
-          className="
-            border-b border-border/50
-            bg-muted/20
-            px-4 pb-4 pt-5
-            sm:px-5 sm:pb-5
-          "
-        >
-          <div className="flex items-center gap-3">
-            <span
-              className="
-                flex size-10 shrink-0
-                items-center justify-center
-                rounded-xl
-                bg-primary/10 text-primary
-              "
-            >
-              <Search className="size-[18px]" />
-            </span>
-
-            <div className="min-w-0">
-              <DialogTitle className="text-sm font-black text-foreground">
-                جست‌وجوی سراسری
-              </DialogTitle>
-
-              <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
-                کتاب، نویسنده یا محتوای موردنظرت را پیدا کن
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 pb-5 sm:p-5">
-          <SearchComponent
-            resultsHref={searchResultsHref}
-            onSearch={() => setOpen(false)}
-            variant="dialog"
-            placeholder="عنوان، نویسنده یا نسخهٔ کتاب..."
-            className="w-full"
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <Button
+      asChild
+      size="icon"
+      variant="ghost"
+      data-onboarding="search"
+      className="size-10 rounded-xl border border-border/50 bg-card/45 text-muted-foreground shadow-none transition-all duration-200 hover:border-border hover:bg-card/80 hover:text-foreground active:scale-95"
+    >
+      <Link href="/search" aria-label="جست‌وجو">
+        <Search className="size-[18px]" />
+      </Link>
+    </Button>
   );
 }
 
@@ -176,19 +82,16 @@ export default function SiteHeader({
   user,
   isAdmin = false,
   branding,
+  primaryNav,
 }: {
   user?: HeaderUser | null;
   isAdmin?: boolean;
   branding: SiteBranding;
+  primaryNav: NavLinkItem[];
 }) {
   const pathname = usePathname();
 
   const isAuthenticated = Boolean(user);
-
-  const primaryNav = useMemo(
-    () => getPrimaryNav(user?.username),
-    [user?.username],
-  );
 
   return (
     <header
@@ -219,12 +122,12 @@ export default function SiteHeader({
                 p-1
               "
             >
-              {primaryNav.map((item) => {
+              {primaryNav.map((item, index) => {
                 const active = isActivePath(pathname, item.href);
 
                 return (
                   <Link
-                    key={item.label}
+                    key={`${item.href}-${index}`}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     data-onboarding={
@@ -332,7 +235,7 @@ export default function SiteHeader({
 
           {/* Left: Search + Account */}
           <div className="z-10 flex shrink-0 items-center gap-1.5">
-            <MobileSearchDialog searchResultsHref="/books" />
+            <MobileSearchButton />
 
             {isAuthenticated && user ? (
               <div className="shrink-0">

@@ -957,7 +957,7 @@ export async function getPopularAuthors(limit = 10): Promise<Array<{
     FROM "ReferenceItem" r
     JOIN person_books pb ON pb.reference_item_id = r.id
     LEFT JOIN "Book" b ON b.catalog_book_id = pb.catalog_book_id
-    WHERE r.type = 'AUTHOR' AND r.status = 'APPROVED'
+    WHERE r.roles @> ARRAY['AUTHOR']::"ReferenceType"[] AND r.status = 'APPROVED' AND r.canonical_reference_id IS NULL
     GROUP BY r.id
     ORDER BY "readCount" DESC, "bookCount" DESC, r.name ASC
     LIMIT ${limit}

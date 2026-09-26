@@ -62,7 +62,8 @@ interface SearchComponentProps {
   placeholder?: string;
   onSearch?: (query: string) => void;
   resultsHref?: string;
-  variant?: "header" | "dialog";
+  initialQuery?: string;
+  variant?: "header" | "dialog" | "page";
 }
 
 type SearchSectionKey = "books" | "authors" | "translators" | "publishers";
@@ -90,11 +91,12 @@ const SearchComponent = memo(function SearchComponent({
   placeholder = "جست‌وجو در قفسه...",
   onSearch,
   resultsHref = "/books",
+  initialQuery = "",
   variant = "header",
 }: SearchComponentProps) {
   const router = useRouter();
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<GlobalSearchResponse>(EMPTY_RESULTS);
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -202,15 +204,19 @@ const SearchComponent = memo(function SearchComponent({
     resetSearch();
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!trimmedQuery) {
+  const submitQuery = () => {
+    if (!trimmedQuery) return;
+    onSearch?.(trimmedQuery);
+    if (variant === "page") {
+      router.replace(`/search?q=${encodeURIComponent(trimmedQuery)}`, { scroll: false });
       return;
     }
-
-    onSearch?.(trimmedQuery);
     handleNavigate(`${resultsHref}?q=${encodeURIComponent(trimmedQuery)}`);
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitQuery();
   };
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -250,8 +256,7 @@ const SearchComponent = memo(function SearchComponent({
       }
 
       if (trimmedQuery) {
-        onSearch?.(trimmedQuery);
-        handleNavigate(`${resultsHref}?q=${encodeURIComponent(trimmedQuery)}`);
+        submitQuery();
       }
 
       return;
@@ -281,8 +286,25 @@ const SearchComponent = memo(function SearchComponent({
   };
 
   useEffect(() => {
+    setQuery(initialQuery);
+    setSelectedIndex(-1);
+    setHasError(false);
+    if (initialQuery.trim().length < MIN_QUERY_LENGTH) {
+      setResults(EMPTY_RESULTS);
+      setShowDropdown(false);
+    } else {
+      setShowDropdown(true);
+    }
+  }, [initialQuery]);
+
+  useEffect(() => {
     if (!canSearch) {
       return;
+    }
+
+    if (variant === "page") {
+      setShowDropdown(true);
+      setIsLoading(true);
     }
 
     const normalizedQuery = trimmedQuery.toLocaleLowerCase("fa-IR");
@@ -305,7 +327,7 @@ const SearchComponent = memo(function SearchComponent({
 
       try {
         const response = await fetch(
-          `/api/search/global?q=${encodeURIComponent(trimmedQuery)}&limit=4`,
+          `/api/search/global?q=${encodeURIComponent(trimmedQuery)}&limit=${variant === "page" ? 5 : 4}`,
           {
             credentials: "include",
             signal: controller.signal,
@@ -349,7 +371,7 @@ const SearchComponent = memo(function SearchComponent({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [canSearch, trimmedQuery]);
+  }, [canSearch, trimmedQuery, variant]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -431,6 +453,9 @@ const SearchComponent = memo(function SearchComponent({
             data-[search-variant=dialog]:h-14
             data-[search-variant=dialog]:rounded-2xl
             data-[search-variant=dialog]:text-[15px]
+            data-[search-variant=page]:h-14
+            data-[search-variant=page]:rounded-xl
+            data-[search-variant=page]:text-sm
           "
           aria-label="جست‌وجوی سراسری در قفسه"
           aria-expanded={showDropdown && canSearch}
@@ -473,7 +498,7 @@ const SearchComponent = memo(function SearchComponent({
           ref={dropdownRef}
           className={cn(
             `
-            ${variant === "dialog" ? "mt-3 max-h-[min(60dvh,32rem)]" : "absolute inset-x-0 top-full z-50 mt-2 max-h-[min(34rem,calc(100dvh-7rem))]"}
+            ${variant === "dialog" ? "mt-3 max-h-[min(60dvh,32rem)]" : variant === "page" ? "relative mt-4 max-h-none" : "absolute inset-x-0 top-full z-50 mt-2 max-h-[min(34rem,calc(100dvh-7rem))]"}
             overflow-y-auto overscroll-contain
             rounded-2xl sm:rounded-3xl
             border border-border/60
@@ -566,6 +591,14 @@ const SearchComponent = memo(function SearchComponent({
           ) : (
             <SearchEmptyState query={trimmedQuery} />
           )}
+        </div>
+      ) : null}
+
+      {variant === "page" && !canSearch ? (
+        <div className="mt-5 rounded-2xl border border-dashed border-border/70 bg-card/35 px-5 py-10 text-center sm:py-12">
+          <span className="mx-auto flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Search className="size-5" /></span>
+          <p className="mt-3 text-sm font-bold text-foreground">جست‌وجوی سراسری قفسه</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs leading-6 text-muted-foreground">نام کتاب، نویسنده، مترجم یا ناشر را وارد کن.</p>
         </div>
       ) : null}
     </div>

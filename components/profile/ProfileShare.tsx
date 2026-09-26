@@ -262,14 +262,13 @@ export default function ProfileShare(props: ProfileShareCardProps) {
           size="sm"
           variant="outline"
           className="
-            h-9 flex-1 gap-2 rounded-xl border-border/70
-            bg-background/70 px-4 text-xs font-bold
+            h-8 gap-1.5 rounded-lg border-border/70
+            bg-background/70 px-2.5 text-[11px] font-bold
             shadow-none transition-colors
             hover:border-primary/30 hover:bg-primary/[0.04]
-            sm:flex-initial
           "
         >
-          <Share2 className="size-3.5" />
+          <Share2 className="size-3" />
           اشتراک‌گذاری پروفایل
         </Button>
       </DialogTrigger>

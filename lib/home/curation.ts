@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, arrayContains, asc, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -55,7 +55,8 @@ export async function getFeaturedAuthors(): Promise<FeaturedAuthor[]> {
     .innerJoin(ReferenceItem, eq(HomeFeaturedAuthor.authorId, ReferenceItem.id))
     .where(
       and(
-        eq(ReferenceItem.type, "AUTHOR"),
+        arrayContains(ReferenceItem.roles, ["AUTHOR"]),
+        isNull(ReferenceItem.canonicalReferenceId),
         eq(ReferenceItem.status, "APPROVED"),
       ),
     )
@@ -188,7 +189,8 @@ export async function searchFeaturedAuthors(query: string): Promise<FeaturedAuth
     .from(ReferenceItem)
     .where(
       and(
-        eq(ReferenceItem.type, "AUTHOR"),
+        arrayContains(ReferenceItem.roles, ["AUTHOR"]),
+        isNull(ReferenceItem.canonicalReferenceId),
         eq(ReferenceItem.status, "APPROVED"),
         ilike(ReferenceItem.name, `%${term}%`),
       ),
@@ -266,7 +268,8 @@ export async function saveHomepageCuration(input: {
           .where(
             and(
               inArray(ReferenceItem.id, authorIds),
-              eq(ReferenceItem.type, "AUTHOR"),
+              arrayContains(ReferenceItem.roles, ["AUTHOR"]),
+              isNull(ReferenceItem.canonicalReferenceId),
               eq(ReferenceItem.status, "APPROVED"),
             ),
           )

@@ -421,6 +421,34 @@
       "when": 1790208000002,
       "tag": "0059_reading_list_subtitle",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1790208000003,
+      "tag": "0060_reading_list_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1790208000004,
+      "tag": "0061_reading_list_display_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1790467200000,
+      "tag": "0062_contact_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1790467200001,
+      "tag": "0063_reference_person_roles",
+      "breakpoints": true
     }
   ]
 }

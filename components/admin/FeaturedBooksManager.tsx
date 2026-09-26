@@ -49,6 +49,7 @@ export default function FeaturedBooksManager() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<FeaturedBookSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,22 +76,28 @@ export default function FeaturedBooksManager() {
   useEffect(() => {
     if (!q.trim()) {
       setResults([]);
+      setSearchError(null);
       return;
     }
     const ctrl = new AbortController();
     setSearching(true);
+    setSearchError(null);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
           `/api/admin/home/books?q=${encodeURIComponent(q.trim())}`,
           { credentials: "include", signal: ctrl.signal }
         );
-        const data = await res.json();
-        if (res.ok) setResults(data.results ?? []);
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `جست‌وجو ناموفق بود (${res.status})`);
+        setResults(data?.results ?? []);
       } catch (err) {
-        if (!(err instanceof DOMException)) toast.error("خطا در جست‌وجو");
+        if (ctrl.signal.aborted) return;
+        const message = err instanceof Error ? err.message : "خطا در جست‌وجو";
+        setSearchError(message);
+        toast.error(message);
       } finally {
-        setSearching(false);
+        if (!ctrl.signal.aborted) setSearching(false);
       }
     }, 300);
     return () => {
@@ -209,6 +216,8 @@ export default function FeaturedBooksManager() {
               <p className="px-1 py-2 text-xs text-muted-foreground">
                 در حال جست‌وجو...
               </p>
+            ) : searchError ? (
+              <p className="px-1 py-2 text-xs text-destructive">{searchError}</p>
             ) : results.length === 0 ? (
               <p className="px-1 py-2 text-xs text-muted-foreground">
                 کتابی پیدا نشد.

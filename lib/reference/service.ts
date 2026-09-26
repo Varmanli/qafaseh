@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, like, or, sql } from "drizzle-orm";
+import { and, arrayContains, desc, eq, ilike, isNull, like, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { ReferenceItem } from "@/db/schema";
@@ -21,6 +21,7 @@ export class ReferenceError extends Error {
 export interface ReferenceItemDTO {
   id: string;
   type: ReferenceTypeValue;
+  roles: ReferenceTypeValue[];
   name: string;
   slug: string | null;
   coverImage: string | null;
@@ -116,6 +117,7 @@ type ReferenceExecutor = {
   select: typeof db.select;
   insert: typeof db.insert;
   update: typeof db.update;
+  execute: typeof db.execute;
 };
 
 type ReferenceResolutionCache = {
@@ -126,6 +128,7 @@ type ReferenceResolutionCache = {
 const REFERENCE_COLUMNS = {
   id: ReferenceItem.id,
   type: ReferenceItem.type,
+  roles: ReferenceItem.roles,
   name: ReferenceItem.name,
   slug: ReferenceItem.slug,
   coverImage: ReferenceItem.coverImage,
@@ -162,6 +165,12 @@ function toApprovalStatus(
 function trimNullable(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function referenceRoleCondition(type: ReferenceTypeValue) {
+  return type === "AUTHOR" || type === "TRANSLATOR"
+    ? arrayContains(ReferenceItem.roles, [type])
+    : eq(ReferenceItem.type, type);
 }
 
 export { normalizeReferenceName } from "@/lib/reference/normalize";
@@ -226,6 +235,7 @@ function toDto(row: ReferenceRow): ReferenceItemDTO {
   return {
     id: row.id,
     type: row.type,
+    roles: row.roles,
     name: row.name,
     slug: row.slug,
     coverImage: normalizeCoverImage(row.coverImage),
@@ -351,7 +361,11 @@ async function loadReferenceRows(
   const cached = cache?.byType.get(type);
   if (cached) return cached;
 
-  const rows = await executor.select().from(ReferenceItem).where(eq(ReferenceItem.type, type));
+  const rows = await executor.select().from(ReferenceItem).where(
+    type === "AUTHOR" || type === "TRANSLATOR"
+      ? or(arrayContains(ReferenceItem.roles, ["AUTHOR"]), arrayContains(ReferenceItem.roles, ["TRANSLATOR"]))
+      : eq(ReferenceItem.type, type),
+  );
   cache?.byType.set(type, rows);
   return rows;
 }
@@ -362,36 +376,36 @@ function findReferenceMatch(
   input: NormalizedReferenceInput,
 ): ReferenceRow | null {
   if (input.id) {
-    const exactId = rows.find((row) => row.type === type && row.id === input.id);
+    const exactId = rows.find((row) => row.canonicalReferenceId === null && row.roles.includes(type) && row.id === input.id);
     if (exactId) return exactId;
   }
 
   if (input.normalizedSlug) {
     const bySlug = rows.find(
-      (row) => row.type === type && row.slug && slugify(row.slug) === input.normalizedSlug,
+      (row) => row.canonicalReferenceId === null && row.roles.includes(type) && row.slug && slugify(row.slug) === input.normalizedSlug,
     );
     if (bySlug) return bySlug;
   }
 
   if (input.sourceUrl) {
     const bySourceUrl = rows.find(
-      (row) => row.type === type && row.sourceUrl && normalizeSourceUrl(row.sourceUrl) === normalizeSourceUrl(input.sourceUrl!),
+      (row) => row.canonicalReferenceId === null && row.roles.includes(type) && row.sourceUrl && normalizeSourceUrl(row.sourceUrl) === normalizeSourceUrl(input.sourceUrl!),
     );
     if (bySourceUrl) return bySourceUrl;
   }
 
-  const byName = rows.find(
-    (row) =>
-      row.type === type && normalizeReferenceName(row.name) === input.normalizedName,
-  );
+  const namedRows = rows.filter((row) => row.canonicalReferenceId === null && normalizeReferenceName(row.name) === input.normalizedName);
+  const people = namedRows.filter((row) => row.type === "AUTHOR" || row.type === "TRANSLATOR");
+  const byName = type === "AUTHOR" || type === "TRANSLATOR"
+    ? people.length === 1
+      ? people[0]
+      : people.find((row) => row.roles.includes(type))
+    : namedRows.find((row) => row.type === type);
   if (byName) return byName;
 
   if (input.originalName) {
     const normalizedOriginal = normalizeReferenceName(input.originalName);
-    const byOriginal = rows.find(
-      (row) =>
-        row.type === type && normalizeReferenceName(row.name) === normalizedOriginal,
-    );
+    const byOriginal = rows.find((row) => row.canonicalReferenceId === null && row.roles.includes(type) && normalizeReferenceName(row.name) === normalizedOriginal);
     if (byOriginal) return byOriginal;
   }
 
@@ -412,6 +426,7 @@ function normalizeSourceUrl(value: string): string {
 function buildReferencePatch(
   existing: ReferenceRow,
   input: NormalizedReferenceInput,
+  role: ReferenceTypeValue,
 ): Partial<typeof ReferenceItem.$inferInsert> {
   const patch: Partial<typeof ReferenceItem.$inferInsert> = {
     updatedAt: new Date(),
@@ -444,6 +459,9 @@ function buildReferencePatch(
 
   if (input.status === "APPROVED" && existing.status === "PENDING") {
     patch.status = "APPROVED";
+  }
+  if ((role === "AUTHOR" || role === "TRANSLATOR") && !existing.roles.includes(role)) {
+    patch.roles = [...existing.roles, role];
   }
 
   return patch;
@@ -489,6 +507,7 @@ export async function previewResolveReferenceItem(
     const preview: ResolvedReferenceItem = {
       id: normalized.id ?? `preview:${options.type}:${normalized.normalizedName}`,
       type: options.type,
+      roles: [options.type],
       name: normalized.name,
       slug: normalized.normalizedSlug ?? null,
       coverImage: normalized.imageUrl ?? null,
@@ -515,7 +534,7 @@ export async function previewResolveReferenceItem(
     return preview;
   }
 
-  const patch = buildReferencePatch(existing, normalized);
+  const patch = buildReferencePatch(existing, normalized, options.type);
   const preview: ResolvedReferenceItem = {
     ...toDto(existing),
     resolution:
@@ -540,6 +559,9 @@ export async function resolveReferenceItem(
   const normalized = normalizeReferenceInput(options.input);
   if (!normalized) return null;
   assertNoSuspiciousMultiValueName(options.type, normalized);
+  if (options.type === "AUTHOR" || options.type === "TRANSLATOR") {
+    await executor.execute(sql`SELECT pg_advisory_xact_lock(hashtext('qafaseh-reference-person'), hashtext(${normalized.normalizedName}))`);
+  }
 
   const cached = options.cache
     ? candidateCacheKeys(options.type, normalized)
@@ -557,7 +579,7 @@ export async function resolveReferenceItem(
     const patch = buildReferencePatch(existing, {
       ...normalized,
       status: normalized.status ?? options.defaultStatus,
-    });
+    }, options.type);
     const keys = Object.keys(patch).filter((key) => key !== "updatedAt");
     if (keys.length > 0) {
       const [updated] = await executor
@@ -590,6 +612,7 @@ export async function resolveReferenceItem(
     .insert(ReferenceItem)
     .values({
       type: options.type,
+      roles: [options.type],
       name: normalized.name,
       slug,
       slugNormalized: slugify(slug),
@@ -646,7 +669,7 @@ export async function searchReference(
   q: string,
   { approvedOnly = true, limit = 20 } = {},
 ): Promise<ReferenceItemDTO[]> {
-  const conds = [eq(ReferenceItem.type, type)];
+  const conds = [referenceRoleCondition(type), isNull(ReferenceItem.canonicalReferenceId)];
   if (approvedOnly) conds.push(eq(ReferenceItem.status, "APPROVED"));
   if (q.trim()) conds.push(ilike(ReferenceItem.name, `%${q.trim()}%`));
 
@@ -675,7 +698,7 @@ export async function searchReferencePage(
 ): Promise<ReferenceSearchPage> {
   const safePageSize = Math.max(1, Math.min(100, Math.trunc(pageSize)));
   const safePage = Math.max(1, Math.trunc(page));
-  const conds = [eq(ReferenceItem.type, type)];
+  const conds = [referenceRoleCondition(type), isNull(ReferenceItem.canonicalReferenceId)];
   if (approvedOnly) conds.push(eq(ReferenceItem.status, "APPROVED"));
   if (q.trim()) conds.push(ilike(ReferenceItem.name, `%${q.trim()}%`));
 
@@ -711,11 +734,13 @@ export async function ensureReferenceItem(
   name: string,
   userId: string,
 ): Promise<void> {
-  await resolveReferenceItem(db, {
-    type,
-    input: name,
-    createdById: userId,
-    defaultStatus: "PENDING",
+  await db.transaction(async (tx) => {
+    await resolveReferenceItem(tx, {
+      type,
+      input: name,
+      createdById: userId,
+      defaultStatus: "PENDING",
+    });
   });
 }
 
@@ -724,8 +749,10 @@ export async function adminListReference(filters: {
   status?: "PENDING" | "APPROVED" | "REJECTED";
   q?: string;
 }): Promise<ReferenceItemDTO[]> {
-  const conds = [];
-  if (filters.type) conds.push(eq(ReferenceItem.type, filters.type));
+  const conds = [isNull(ReferenceItem.canonicalReferenceId)];
+  if (filters.type) {
+    conds.push(referenceRoleCondition(filters.type));
+  }
   if (filters.status) conds.push(eq(ReferenceItem.status, filters.status));
   if (filters.q?.trim()) {
     conds.push(ilike(ReferenceItem.name, `%${filters.q.trim()}%`));
@@ -745,11 +772,11 @@ export async function adminCreateReference(
   type: ReferenceTypeValue,
   name: string,
 ): Promise<ReferenceItemDTO> {
-  const resolved = await resolveReferenceItem(db, {
+  const resolved = await db.transaction((tx) => resolveReferenceItem(tx, {
     type,
     input: name,
     defaultStatus: "APPROVED",
-  });
+  }));
 
   if (!resolved) {
     throw new ReferenceError("نام مرجع نامعتبر است", 422, "INVALID_REFERENCE_NAME");

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, arrayContains, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { BlogCategory, BlogPost, BlogPostAuthor, BlogPostBook, BlogPostGenre, CatalogBook, ReferenceItem, User } from "@/db/schema";
@@ -194,7 +194,7 @@ function normalizeInput(input: BlogPostInput) {
 async function validateRelationshipIds(input: Pick<BlogPostInput, "relatedBookIds" | "relatedAuthorIds" | "relatedGenreIds">) {
   const [books, authors, genres] = await Promise.all([
     input.relatedBookIds.length ? db.select({ id: CatalogBook.id }).from(CatalogBook).where(and(inArray(CatalogBook.id, input.relatedBookIds), eq(CatalogBook.status, "APPROVED"))) : Promise.resolve([]),
-    input.relatedAuthorIds.length ? db.select({ id: ReferenceItem.id }).from(ReferenceItem).where(and(inArray(ReferenceItem.id, input.relatedAuthorIds), eq(ReferenceItem.type, "AUTHOR"), eq(ReferenceItem.status, "APPROVED"))) : Promise.resolve([]),
+    input.relatedAuthorIds.length ? db.select({ id: ReferenceItem.id }).from(ReferenceItem).where(and(inArray(ReferenceItem.id, input.relatedAuthorIds), arrayContains(ReferenceItem.roles, ["AUTHOR"]), isNull(ReferenceItem.canonicalReferenceId), eq(ReferenceItem.status, "APPROVED"))) : Promise.resolve([]),
     input.relatedGenreIds.length ? db.select({ id: ReferenceItem.id }).from(ReferenceItem).where(and(inArray(ReferenceItem.id, input.relatedGenreIds), eq(ReferenceItem.type, "GENRE"), eq(ReferenceItem.status, "APPROVED"))) : Promise.resolve([]),
   ]);
   if (books.length !== input.relatedBookIds.length || authors.length !== input.relatedAuthorIds.length || genres.length !== input.relatedGenreIds.length) throw new Error("BLOG_RELATION_NOT_FOUND");
@@ -551,7 +551,7 @@ export async function getRelatedPublishedBlogPosts(post: Pick<PublicBlogPost, "i
 export async function getMagazineRelatedEntities(post: Pick<PublicBlogPost, "id" | "content">): Promise<MagazineRelatedEntities> {
   const [manualBooks, authors, genres] = await Promise.all([
     db.select({ id: BlogPostBook.bookId }).from(BlogPostBook).where(eq(BlogPostBook.postId, post.id)),
-    db.select({ id: ReferenceItem.id, name: ReferenceItem.name, slug: ReferenceItem.slug, coverImage: ReferenceItem.coverImage }).from(BlogPostAuthor).innerJoin(ReferenceItem, eq(BlogPostAuthor.authorId, ReferenceItem.id)).where(and(eq(BlogPostAuthor.postId, post.id), eq(ReferenceItem.type, "AUTHOR"), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
+    db.select({ id: ReferenceItem.id, name: ReferenceItem.name, slug: ReferenceItem.slug, coverImage: ReferenceItem.coverImage }).from(BlogPostAuthor).innerJoin(ReferenceItem, eq(BlogPostAuthor.authorId, ReferenceItem.id)).where(and(eq(BlogPostAuthor.postId, post.id), arrayContains(ReferenceItem.roles, ["AUTHOR"]), isNull(ReferenceItem.canonicalReferenceId), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
     db.select({ id: ReferenceItem.id, name: ReferenceItem.name, slug: ReferenceItem.slug }).from(BlogPostGenre).innerJoin(ReferenceItem, eq(BlogPostGenre.genreId, ReferenceItem.id)).where(and(eq(BlogPostGenre.postId, post.id), eq(ReferenceItem.type, "GENRE"), eq(ReferenceItem.status, "APPROVED"), isNotNull(ReferenceItem.slug))),
   ]);
   const booksById = await resolveBlogBookEmbeds([...manualBooks.map((row) => row.id), ...extractBlogBookEmbedIds(post.content)]);

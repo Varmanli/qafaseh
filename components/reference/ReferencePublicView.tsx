@@ -79,9 +79,10 @@ const ARCHIVE_CONFIG_BY_TYPE: Partial<
 async function getRelatedMagazinePosts(
   type: ReferenceTypeValue,
   entityId: string,
+  roles: ReferenceTypeValue[],
 ) {
   try {
-    if (type === "AUTHOR") {
+    if (type === "AUTHOR" || roles.includes("AUTHOR")) {
       return await getMagazineArticlesForAuthor(entityId);
     }
 
@@ -116,6 +117,13 @@ export default async function ReferencePublicView({
   if (!entity) {
     notFound();
   }
+  const personRoleLabels = entity.roles
+    .filter((role) => role === "AUTHOR" || role === "TRANSLATOR")
+    .map((role) => REFERENCE_TYPE_LABELS[role]);
+
+  if ((type === "AUTHOR" || type === "TRANSLATOR") && entity.type !== type) {
+    permanentRedirect(`/${ROUTE_BY_TYPE[entity.type]}/${encodeURIComponent(entity.slug)}`);
+  }
 
   const authorArchiveReturnPath =
     type === "AUTHOR"
@@ -142,7 +150,7 @@ export default async function ReferencePublicView({
       ? getBookArchivePageData(searchParams ?? {}, archiveScope)
       : Promise.resolve(null),
 
-    getRelatedMagazinePosts(type, entity.id),
+    getRelatedMagazinePosts(type, entity.id, entity.roles),
   ]);
 
   const description = entity.description?.trim();
@@ -208,6 +216,16 @@ export default async function ReferencePublicView({
                   <h1 className="line-clamp-2 text-2xl font-black tracking-tight text-foreground sm:text-3xl md:text-[2.2rem]">
                     {entity.name}
                   </h1>
+
+                  {personRoleLabels.length > 1 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {personRoleLabels.map((role) => (
+                        <span key={role} className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
+                          {role}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {entity.originalName ? (
                     <p
@@ -321,7 +339,7 @@ export async function buildReferenceMetadata(
       entity.shortDescription ||
       entity.description?.slice(0, 160) ||
       `صفحه‌ی ${label} ${entity.name} و کتاب‌های مرتبط در قفسه.`,
-    path: `/${ROUTE_BY_TYPE[type]}/${encodeURIComponent(entity.slug)}`,
+    path: `/${ROUTE_BY_TYPE[entity.type]}/${encodeURIComponent(entity.slug)}`,
     image,
     type: "profile",
   });

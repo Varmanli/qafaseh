@@ -1,4 +1,4 @@
-import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, arrayContains, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import type { IranKetabExtractionEnvelope } from "@ghafaseh/iranketab-extractor";
 import { db } from "@/db";
 import { BookEdition, BookExternalLink, CatalogBook, ReferenceItem } from "@/db/schema";
@@ -20,5 +20,29 @@ export async function loadIranKetabAnalysisData(extraction: IranKetabExtractionE
   return {catalogs:uniqueById([...catalogRows,...linkedCatalogs]),editions:editionRows,references:referenceRows,externalLinks:linkRows};
 }
 
-async function loadReferences(extraction:IranKetabExtractionEnvelope){const groups=[{type:"AUTHOR" as const,names:extraction.book.authors.map(item=>item.name)},{type:"TRANSLATOR" as const,names:extraction.editions.flatMap(item=>item.translators.map(person=>person.name))},{type:"PUBLISHER" as const,names:extraction.editions.map(item=>item.publisher.name)},{type:"GENRE" as const,names:extraction.book.genres.map(item=>item.name)},{type:"COUNTRY" as const,names:extraction.book.country?[extraction.book.country.name]:[]}];const results=await Promise.all(groups.filter(group=>group.names.length).map(group=>db.select({id:ReferenceItem.id,type:ReferenceItem.type,name:ReferenceItem.name,slug:ReferenceItem.slug,originalName:ReferenceItem.originalName}).from(ReferenceItem).where(and(eq(ReferenceItem.type,group.type),or(...unique(group.names).flatMap(name=>[ilike(ReferenceItem.name,name),ilike(ReferenceItem.name,`%${name}%`)])))).limit(40)));return results.flat();}
+async function loadReferences(extraction: IranKetabExtractionEnvelope) {
+  const groups = [
+    { type: "AUTHOR" as const, names: extraction.book.authors.map((item) => item.name) },
+    { type: "TRANSLATOR" as const, names: extraction.editions.flatMap((item) => item.translators.map((person) => person.name)) },
+    { type: "PUBLISHER" as const, names: extraction.editions.map((item) => item.publisher.name) },
+    { type: "GENRE" as const, names: extraction.book.genres.map((item) => item.name) },
+    { type: "COUNTRY" as const, names: extraction.book.country ? [extraction.book.country.name] : [] },
+  ];
+  const results = await Promise.all(groups.filter((group) => group.names.length).map(async (group) => {
+    const role = group.type === "AUTHOR" || group.type === "TRANSLATOR"
+      ? and(arrayContains(ReferenceItem.roles, [group.type]), isNull(ReferenceItem.canonicalReferenceId))
+      : eq(ReferenceItem.type, group.type);
+    const rows = await db.select({
+      id: ReferenceItem.id,
+      name: ReferenceItem.name,
+      slug: ReferenceItem.slug,
+      originalName: ReferenceItem.originalName,
+    }).from(ReferenceItem).where(and(
+      role,
+      or(...unique(group.names).flatMap((name) => [ilike(ReferenceItem.name, name), ilike(ReferenceItem.name, `%${name}%`)])),
+    )).limit(40);
+    return rows.map((row) => ({ ...row, type: group.type }));
+  }));
+  return results.flat();
+}
 function sourceVariants(value:string){try{const url=new URL(value);url.hash="";const path=url.pathname;return unique([`https://iranketab.ir${path}`,`https://www.iranketab.ir${path}`]);}catch{return[value];}} function unique<T>(items:T[]){return[...new Set(items)];} function uniqueById<T extends{id:string}>(items:T[]){return[...new Map(items.map(item=>[item.id,item])).values()];}
