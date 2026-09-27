@@ -1,4 +1,4 @@
-import { and, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { CatalogBook, ReadingList, ReadingListItem, ReadingListRelated } from "@/db/schema";
@@ -119,6 +119,26 @@ export async function getReadingListBySlug(slug: string) {
   const relatedLists = edges.filter(({ list: related }) => validRelatedIds.has(related.id))
     .map(({ list: related }) => related).slice(0, 4);
   return { ...list, items, relatedLists };
+}
+
+export async function getPublicReadingListsForBook(bookId: string) {
+  return db
+    .select({
+      id: ReadingList.id,
+      slug: ReadingList.slug,
+      title: ReadingList.title,
+      subtitle: ReadingList.subtitle,
+    })
+    .from(ReadingListItem)
+    .innerJoin(ReadingList, eq(ReadingListItem.listId, ReadingList.id))
+    .where(
+      and(
+        eq(ReadingListItem.bookId, bookId),
+        eq(ReadingList.status, "PUBLISHED"),
+      ),
+    )
+    .orderBy(desc(ReadingList.featured), desc(ReadingList.publishedAt))
+    .limit(4);
 }
 
 export async function getDiscoverReadingPaths() {

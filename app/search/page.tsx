@@ -21,7 +21,7 @@ export default async function SearchPage({
 
   return (
     <PublicShell>
-      <main className="mx-auto min-h-[55dvh] w-full max-w-5xl px-4 py-6 pb-28 sm:px-6 sm:py-10 lg:pb-12">
+      <main className="mx-auto min-h-[55dvh] w-full max-w-5xl px-4 py-6 pb-36 sm:px-6 sm:py-10 lg:pb-12">
         <SearchComponent
           variant="page"
           initialQuery={query}

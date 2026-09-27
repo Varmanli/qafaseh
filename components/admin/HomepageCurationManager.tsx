@@ -28,6 +28,7 @@ type CurationItem = {
   name?: string;
   title?: string;
   category?: string;
+  mode?: "ORDERED" | "UNORDERED";
   coverImage?: string | null;
   bannerImage?: string;
   categoryName?: string | null;
@@ -58,7 +59,7 @@ function itemTitle(item: CurationItem, kind: CurationKind) {
 
 function itemMeta(item: CurationItem, kind: CurationKind) {
   if (kind === "posts") return item.categoryName ?? "بدون دسته‌بندی";
-  if (kind === "readingLists") return `${item.category ?? "بدون دسته‌بندی"} · مسیر ترتیبی`;
+  if (kind === "readingLists") return `${item.category ?? "بدون دسته‌بندی"} · ${item.mode === "UNORDERED" ? "فهرست آزاد" : "مسیر ترتیبی"}`;
   return null;
 }
 
@@ -195,7 +196,7 @@ export default function HomepageCurationManager() {
             value={query[kind]}
             onChange={(event) => setQuery((current) => ({ ...current, [kind]: event.target.value }))}
             disabled={items.length >= limit}
-            placeholder={kind === "authors" ? "جست‌وجوی نویسنده..." : kind === "posts" ? "جست‌وجوی عنوان مطلب..." : "جست‌وجوی مسیر مطالعه..."}
+            placeholder={kind === "authors" ? "جست‌وجوی نویسنده..." : kind === "posts" ? "جست‌وجوی عنوان مطلب..." : "جست‌وجوی فهرست مطالعه..."}
             className="pr-9"
           />
         </div>
@@ -262,7 +263,7 @@ export default function HomepageCurationManager() {
     <div className="space-y-4">
       {renderSection("authors", "نویسنده‌های منتخب", "حداکثر ۶ نویسنده را جست‌وجو، انتخاب و مرتب کنید.")}
       {renderSection("posts", "از مجله قفسه", "حداکثر ۳ مطلب منتشرشده را جست‌وجو، انتخاب و مرتب کنید.")}
-      {renderSection("readingLists", "مسیرهای مطالعه منتخب", "حداکثر ۲ مسیر منتشرشده را برای نمایش در صفحه اصلی انتخاب و مرتب کنید.")}
+      {renderSection("readingLists", "فهرست‌های مطالعه منتخب", "حداکثر ۲ فهرست منتشرشده را برای نمایش در صفحه اصلی انتخاب و مرتب کنید.")}
       <div className="flex justify-end">
         <Button onClick={save} disabled={!hasChanges || saving} className="min-w-36 gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

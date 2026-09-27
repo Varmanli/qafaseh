@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -178,7 +178,12 @@ export async function listPublishedNotesForBook(opts: {
   catalogBookId: string;
   viewerId?: string;
   editionId?: string | null;
-}): Promise<{ bookNotes: PublicNote[]; editionNotes: PublicNote[] }> {
+}): Promise<{
+  bookNotes: PublicNote[];
+  editionNotes: PublicNote[];
+  bookNotesCount: number;
+  editionNotesCount: number;
+}> {
   const filters = [
     and(
       eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
@@ -196,7 +201,12 @@ export async function listPublishedNotesForBook(opts: {
     );
   }
 
-  const rows = await db
+  const visibility = opts.viewerId
+    ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, opts.viewerId))
+    : eq(User.profileVisibility, "PUBLIC");
+
+  const [rows, countRows] = await Promise.all([
+    db
     .select({
       id: PublishedBookNote.id,
       content: PublishedBookNote.content,
@@ -229,17 +239,33 @@ export async function listPublishedNotesForBook(opts: {
     .where(
       and(
         or(...filters),
-        opts.viewerId
-          ? or(
-              eq(User.profileVisibility, "PUBLIC"),
-              eq(User.id, opts.viewerId),
-            )
-          : eq(User.profileVisibility, "PUBLIC"),
+        visibility,
       ),
     )
     .groupBy(PublishedBookNote.id, User.id, CatalogBook.id, BookEdition.id)
     .orderBy(desc(PublishedBookNote.createdAt))
-    .limit(100);
+    .limit(100),
+    db
+      .select({ scope: PublishedBookNote.scope, total: count() })
+      .from(PublishedBookNote)
+      .innerJoin(User, eq(PublishedBookNote.userId, User.id))
+      .where(
+        and(
+          eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
+          opts.editionId
+            ? or(
+                eq(PublishedBookNote.scope, "book"),
+                and(
+                  eq(PublishedBookNote.scope, "edition"),
+                  eq(PublishedBookNote.bookEditionId, opts.editionId),
+                ),
+              )
+            : eq(PublishedBookNote.scope, "book"),
+          visibility,
+        ),
+      )
+      .groupBy(PublishedBookNote.scope),
+  ]);
 
   const notes = rows.map((row) => ({
     ...row,
@@ -250,6 +276,8 @@ export async function listPublishedNotesForBook(opts: {
   return {
     bookNotes: notes.filter((note) => note.scope === "book"),
     editionNotes: notes.filter((note) => note.scope === "edition"),
+    bookNotesCount: countRows.find((row) => row.scope === "book")?.total ?? 0,
+    editionNotesCount: countRows.find((row) => row.scope === "edition")?.total ?? 0,
   };
 }
 

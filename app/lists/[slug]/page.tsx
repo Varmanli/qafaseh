@@ -84,29 +84,27 @@ export default async function ReadingListPage({
             <span className="inline-flex min-h-8 items-center rounded-full border border-border/60 bg-card px-3 text-xs font-bold text-muted-foreground">{list.items.length.toLocaleString("fa-IR")} مرحله</span>
           </div>
 
-          <ol className="grid gap-4 lg:gap-5">
+          <ol className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
             {list.items.map(({ book, note, difficulty }, index) => {
               const bookHref = getPublicBookHref(book);
               return (
-                <li key={book.id}>
-                  <Link href={bookHref!} aria-label={`صفحه کتاب ${book.title}`} className="group relative isolate flex min-h-48 overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-sm outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-xl hover:shadow-primary/5 focus-visible:ring-2 focus-visible:ring-primary sm:min-h-52">
-                    <span aria-hidden="true" className="pointer-events-none absolute -left-10 -top-12 -z-10 size-40 rounded-full bg-primary/[0.05] blur-2xl transition-transform duration-300 group-hover:scale-125" />
-                    <div className="flex min-w-0 flex-1 flex-col justify-center p-4 sm:p-6">
-                      <span className="inline-flex w-fit min-h-7 items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 text-[11px] font-bold text-primary"><span>{(index + 1).toLocaleString("fa-IR", { minimumIntegerDigits: 2 })}</span><span className="text-primary/40" aria-hidden="true">·</span> گام از {list.items.length.toLocaleString("fa-IR")}</span>
-                      <h3 className="mt-3 text-base font-black leading-7 transition-colors group-hover:text-primary sm:text-xl">{book.title}</h3>
-                      <p className="mt-1 text-xs font-medium text-muted-foreground sm:text-sm">{book.author}</p>
-                      {difficulty && <span className="mt-3 w-fit rounded-full border border-border/70 bg-background/60 px-2.5 py-1 text-[11px] font-bold text-muted-foreground">برای شروع: {difficultyLabels[difficulty]}</span>}
-                      {note && <p className="mt-3 text-xs leading-6 text-muted-foreground sm:text-sm sm:leading-7">{note}</p>}
-                      <span className="mt-3 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-primary">رفتن به صفحهٔ کتاب <ArrowLeft aria-hidden="true" className="size-4 transition-transform group-hover:-translate-x-1" /></span>
-                    </div>
-                    <div aria-hidden="true" className="relative flex w-[34%] min-w-[6rem] shrink-0 items-center justify-center overflow-hidden border-r border-border/50 bg-gradient-to-br from-primary/[0.09] via-primary/[0.035] to-transparent sm:w-[26%] sm:min-w-[11rem]">
-                      <span className="pointer-events-none absolute -left-10 -top-10 size-32 rounded-full border border-primary/[0.08]" />
-                      <span className="pointer-events-none absolute -bottom-12 -right-8 size-32 rounded-full bg-primary/[0.07] blur-2xl" />
-                      <span className="relative block aspect-[2/3] w-[4.6rem] overflow-hidden rounded-lg border-2 border-card bg-muted shadow-[0_14px_28px_-12px_rgba(0,0,0,0.65)] transition-transform duration-300 group-hover:-translate-y-1 sm:w-[6.5rem]">
-                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-muted-foreground/50">قفسه</span>
-                        <BookCoverImage src={book.coverImage} alt="" fill sizes="(max-width: 640px) 74px, 104px" className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                <li key={book.id} className="group relative isolate flex h-full overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:shadow-xl hover:shadow-primary/10">
+                  <span aria-hidden="true" className="pointer-events-none absolute -left-10 -top-12 -z-10 size-40 rounded-full bg-primary/[0.07] blur-2xl transition-transform duration-500 group-hover:scale-125" />
+                  <Link href={bookHref!} aria-label={`مرحله ${(index + 1).toLocaleString("fa-IR")} از ${list.items.length.toLocaleString("fa-IR")}، صفحه کتاب ${book.title}`} className="flex h-full min-w-0 flex-1 flex-col outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset">
+                    <span className="flex items-center gap-4 p-4 sm:gap-5 sm:p-5">
+                      <span className="relative block aspect-[2/3] w-[5.75rem] shrink-0 overflow-hidden rounded-xl bg-muted shadow-[0_16px_30px_-14px_rgba(0,0,0,0.7)] transition-transform duration-300 group-hover:-translate-y-1 sm:w-[6.75rem]">
+                        <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-muted-foreground/50">قفسه</span>
+                        <BookCoverImage src={book.coverImage} alt="" fill sizes="(max-width: 640px) 92px, 108px" className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
                       </span>
-                    </div>
+                      <span className="flex min-w-0 flex-1 flex-col justify-center">
+                        <h3 className="line-clamp-3 text-base font-black leading-7 transition-colors group-hover:text-primary sm:text-lg">{book.title}</h3>
+                        <span className="mt-1.5 text-xs font-medium text-muted-foreground sm:text-sm">{book.author}</span>
+                        {difficulty && <span className="mt-2 w-fit rounded-full border border-border/70 bg-background/60 px-2 py-1 text-[10px] font-bold text-muted-foreground">سختی: {difficultyLabels[difficulty]}</span>}
+                        <span className="mt-4 inline-flex w-fit items-center gap-1.5 text-xs font-bold text-primary">مشاهده کتاب <ArrowLeft aria-hidden="true" className="size-4 transition-transform group-hover:-translate-x-1" /></span>
+                      </span>
+                      <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.12] to-primary/[0.035] text-2xl font-black leading-none tabular-nums text-primary shadow-sm shadow-primary/5 sm:size-12 sm:rounded-[1.1rem] sm:text-3xl">{(index + 1).toLocaleString("fa-IR")}</span>
+                    </span>
+                    {note && <span className="mx-4 block border-t border-border/60 py-4 text-xs leading-7 text-muted-foreground sm:mx-5 sm:text-sm sm:leading-7">{note}</span>}
                   </Link>
                 </li>
               );

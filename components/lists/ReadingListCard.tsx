@@ -9,10 +9,10 @@ export default function ReadingListCard({ list }: { list: ReadingListPreview }) 
     <Link
       href={`/lists/${list.slug}`}
       aria-label={`${list.title}، مشاهده ${list.mode === "ORDERED" ? "مسیر" : "مجموعه"}`}
-      className="group relative isolate flex min-h-56 overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-sm outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-xl hover:shadow-primary/5 focus-visible:ring-2 focus-visible:ring-primary"
+      className="group relative isolate flex min-h-56 flex-col overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-sm outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-xl hover:shadow-primary/5 focus-visible:ring-2 focus-visible:ring-primary sm:flex-row"
     >
       <span aria-hidden="true" className="pointer-events-none absolute -left-12 -top-16 -z-10 size-44 rounded-full bg-primary/[0.05] blur-2xl transition-transform duration-300 group-hover:scale-125" />
-      <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6">
+      <div className="order-2 flex min-w-0 flex-1 flex-col p-4 sm:order-1 sm:p-6">
         <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
           <span className="rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 py-1 text-primary">{list.category}</span>
           <span className="text-muted-foreground/50" aria-hidden="true">·</span>
@@ -26,12 +26,12 @@ export default function ReadingListCard({ list }: { list: ReadingListPreview }) 
           {list.mode === "ORDERED" ? "دیدن مسیر مطالعه" : "دیدن مجموعه"} {list.mode === "ORDERED" && <ArrowLeft aria-hidden="true" className="size-4 transition-transform group-hover:-translate-x-1" />}
         </span>
       </div>
-      <div aria-hidden="true" className="relative flex w-[38%] min-w-[6.5rem] shrink-0 flex-col items-center justify-center gap-2 overflow-hidden border-r border-border/50 bg-gradient-to-br from-primary/[0.09] via-primary/[0.035] to-transparent sm:w-[40%] sm:min-w-[10rem]">
-        <span className="pointer-events-none absolute -left-12 -top-10 size-36 rounded-full border border-primary/[0.08]" />
+      <div aria-hidden="true" className="relative order-1 flex h-40 w-full shrink-0 flex-col items-center justify-center gap-2 overflow-hidden border-b border-border/50 bg-gradient-to-b from-primary/[0.09] via-primary/[0.035] to-transparent px-3 sm:order-2 sm:h-auto sm:w-[40%] sm:min-w-[10rem] sm:border-b-0 sm:border-r sm:bg-gradient-to-br sm:px-2 sm:py-4">
+        <span className="pointer-events-none absolute -left-12 -top-10 size-36 rounded-full border border-primary/[0.06]" />
         <span className="pointer-events-none absolute -bottom-16 -right-10 size-40 rounded-full bg-primary/[0.07] blur-2xl" />
         {list.previewBooks.length > 0 ? <div className="relative flex items-center justify-center -space-x-7 [direction:rtl] sm:-space-x-9">
           {list.previewBooks.slice(0, 3).map((book, bookIndex) => (
-            <span key={book.id} className={`relative block aspect-[2/3] w-[3.35rem] overflow-hidden rounded-lg border-2 border-card bg-muted shadow-[0_12px_24px_-12px_rgba(0,0,0,0.65)] transition-transform duration-300 group-hover:-translate-y-1 sm:w-[5.25rem] ${bookIndex === 1 ? "-translate-y-2" : "translate-y-1"}`} style={{ zIndex: 3 - bookIndex }}>
+            <span key={book.id} className={`relative block h-[6.75rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg border-2 border-card bg-muted shadow-[0_12px_24px_-12px_rgba(0,0,0,0.65)] transition-transform duration-300 group-hover:-translate-y-1 sm:h-[7.875rem] sm:w-[5.25rem] ${bookIndex === 1 ? "-translate-y-2" : "translate-y-1"}`} style={{ zIndex: 3 - bookIndex }}>
               <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-muted-foreground/50">قفسه</span>
               <BookCoverImage src={book.coverImage} alt="" fill sizes="(max-width: 640px) 54px, 84px" className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
             </span>

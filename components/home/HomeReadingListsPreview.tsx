@@ -15,9 +15,9 @@ export default function HomeReadingListsPreview({
     <section dir="rtl">
       <HomeSectionHeader
         icon={ListOrdered}
-        title="مسیرهای مطالعه"
+        title="فهرست‌های مطالعه"
         href="/lists"
-        linkLabel="دیدن همه مسیرها"
+        linkLabel="دیدن همه فهرست‌ها"
       />
 
       <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">

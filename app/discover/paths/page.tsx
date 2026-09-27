@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Dice5, ListOrdered, Sparkles } from "l
 import PublicShell from "@/components/PublicShell";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import RandomPick from "@/components/discover/RandomPick";
+import ReadingListCard from "@/components/lists/ReadingListCard";
 import { getPublicBookHref } from "@/lib/book/public-href";
 import { getRandomDiscoveryBook } from "@/lib/book/discover-service";
 import { getDiscoverReadingPaths } from "@/lib/book/reading-lists-service";
@@ -93,30 +94,7 @@ export default async function DiscoverPathsPage({
             <span className="inline-flex min-h-9 items-center rounded-full border border-border/60 bg-card px-3 text-xs font-bold text-muted-foreground">{readingPaths.length.toLocaleString("fa-IR")} مسیر</span>
           </div>
           {readingPaths.length ? <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-            {readingPaths.map((path) => {
-              const preview = path.previewBooks;
-              return (
-                <Link key={path.slug} href={`/lists/${path.slug}`} className="group relative isolate flex min-h-52 overflow-hidden rounded-[1.5rem] border border-border/60 bg-card shadow-sm outline-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 focus-visible:ring-2 focus-visible:ring-primary sm:min-h-56">
-                  <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 -z-10 size-40 rounded-full bg-primary/[0.045] blur-2xl transition-transform duration-300 group-hover:scale-125" />
-                  <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
-                      <span className="rounded-full border border-primary/15 bg-primary/[0.07] px-2.5 py-1 text-primary">{path.bookCount.toLocaleString("fa-IR")} کتاب</span>
-                      <span className="text-muted-foreground/50" aria-hidden="true">·</span>
-                      <span className="text-muted-foreground">به ترتیب بخوان</span>
-                    </div>
-                    <h3 className="mt-3 text-base font-black leading-7 tracking-tight transition-colors group-hover:text-primary sm:text-lg">{path.title}</h3>
-                    {path.description && <p className="mt-1 line-clamp-2 text-xs leading-6 text-muted-foreground sm:text-sm">{path.description}</p>}
-                    <span className="mt-auto inline-flex min-h-10 items-center gap-1.5 pt-3 text-xs font-bold text-primary">دیدن مسیر <ArrowLeft aria-hidden="true" className="size-4 transition-transform group-hover:-translate-x-1" /></span>
-                  </div>
-                  <div className="relative flex w-28 shrink-0 items-center justify-center overflow-hidden border-r border-border/60 bg-muted/35 px-2 sm:w-36">
-                    <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-primary/[0.025]" />
-                    <div className="relative flex shrink-0 -space-x-7 [direction:rtl]">
-                      {preview.map((book, index) => <span key={book.id} className="relative block aspect-[2/3] w-[3.6rem] overflow-hidden rounded-lg border-2 border-card bg-muted shadow-lg transition-transform duration-300 group-hover:-translate-y-1 sm:w-[4.1rem]" style={{ zIndex: preview.length - index }}><span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-muted-foreground/50">قفسه</span><BookCoverImage src={book.coverImage} alt="" fill sizes="66px" className="object-cover" /></span>)}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+            {readingPaths.map((path) => <ReadingListCard key={path.slug} list={path} />)}
           </div> : <p className="rounded-2xl border border-border/60 bg-card p-5 text-sm text-muted-foreground">فعلاً مسیری برای نمایش وجود ندارد.</p>}
         </section>
       </main>

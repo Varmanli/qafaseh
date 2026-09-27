@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { Book, PersonalBookNote, PublicBookThought } from "@/db/schema";
 
@@ -19,6 +19,14 @@ export async function getPersonalBookNotes(bookId: string, userId: string) {
     )
     .where(and(eq(PersonalBookNote.bookId, bookId), eq(PersonalBookNote.userId, userId)))
     .orderBy(desc(PersonalBookNote.createdAt));
+}
+
+export async function countPersonalBookNotes(bookId: string, userId: string) {
+  const [result] = await db
+    .select({ count: count() })
+    .from(PersonalBookNote)
+    .where(and(eq(PersonalBookNote.bookId, bookId), eq(PersonalBookNote.userId, userId)));
+  return result?.count ?? 0;
 }
 
 export async function assertOwnedBook(bookId: string, userId: string) {

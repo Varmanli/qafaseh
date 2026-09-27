@@ -106,7 +106,7 @@ export async function getFeaturedHomeReadingLists(): Promise<ReadingListPreview[
     .select({ id: ReadingList.id })
     .from(HomeFeaturedReadingList)
     .innerJoin(ReadingList, eq(HomeFeaturedReadingList.readingListId, ReadingList.id))
-    .where(and(eq(ReadingList.status, "PUBLISHED"), eq(ReadingList.mode, "ORDERED")))
+    .where(eq(ReadingList.status, "PUBLISHED"))
     .orderBy(
       asc(HomeFeaturedReadingList.sortOrder),
       asc(HomeFeaturedReadingList.createdAt),
@@ -238,7 +238,7 @@ export async function searchFeaturedReadingLists(
       mode: ReadingList.mode,
     })
     .from(ReadingList)
-    .where(and(eq(ReadingList.status, "PUBLISHED"), eq(ReadingList.mode, "ORDERED"), ilike(ReadingList.title, `%${term}%`)))
+    .where(and(eq(ReadingList.status, "PUBLISHED"), ilike(ReadingList.title, `%${term}%`)))
     .orderBy(asc(ReadingList.title))
     .limit(12);
 }
@@ -294,7 +294,6 @@ export async function saveHomepageCuration(input: {
             and(
               inArray(ReadingList.id, readingListIds),
               eq(ReadingList.status, "PUBLISHED"),
-              eq(ReadingList.mode, "ORDERED"),
             ),
           )
       : Promise.resolve([]),

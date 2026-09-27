@@ -499,7 +499,6 @@ const SearchComponent = memo(function SearchComponent({
           className={cn(
             `
             ${variant === "dialog" ? "mt-3 max-h-[min(60dvh,32rem)]" : variant === "page" ? "relative mt-4 max-h-none" : "absolute inset-x-0 top-full z-50 mt-2 max-h-[min(34rem,calc(100dvh-7rem))]"}
-            overflow-y-auto overscroll-contain
             rounded-2xl sm:rounded-3xl
             border border-border/60
             bg-popover/95
@@ -511,6 +510,8 @@ const SearchComponent = memo(function SearchComponent({
 
             sm:p-2
           `,
+            variant !== "page" && "overflow-y-auto overscroll-contain",
+            variant === "page" && "rounded-[1.4rem] border-border/50 bg-card/45 p-1.5 shadow-sm sm:rounded-2xl sm:p-2",
           )}
         >
           {isLoading ? (
@@ -554,6 +555,7 @@ const SearchComponent = memo(function SearchComponent({
                   <SearchSection
                     key={section.key}
                     section={section}
+                    compact={variant === "page"}
                     itemIndexMap={itemIndexMap}
                     selectedIndex={selectedIndex}
                     onSelectIndex={setSelectedIndex}
@@ -607,6 +609,7 @@ const SearchComponent = memo(function SearchComponent({
 
 function SearchSection({
   section,
+  compact = false,
   itemIndexMap,
   selectedIndex,
   onSelectIndex,
@@ -628,6 +631,7 @@ function SearchSection({
         allHref: string;
         items: GlobalSearchReference[];
       };
+  compact?: boolean;
   itemIndexMap: Map<string, number>;
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
@@ -638,56 +642,54 @@ function SearchSection({
 
   return (
     <section
-      className="
-        overflow-hidden rounded-2xl
-        border border-border/45
-        bg-background/30
-      "
+      className={cn(
+        compact
+          ? "border-b border-border/45 last:border-0"
+          : "overflow-hidden rounded-2xl border border-border/45 bg-background/30",
+      )}
     >
       <header
-        className="
-          flex items-center justify-between
-          gap-3 border-b border-border/35
-          px-3 py-2.5
-        "
+        className={cn(
+          "flex items-center justify-between gap-3 border-b border-border/35 px-3 py-2.5",
+          compact && "border-0 px-2 pb-1 pt-3",
+        )}
       >
         <div className="flex min-w-0 items-center gap-2">
           <span
-            className="
-              flex size-7 shrink-0
-              items-center justify-center
-              rounded-lg bg-primary/8
-              text-primary
-            "
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary",
+              compact && "size-6 rounded-md bg-transparent text-muted-foreground",
+            )}
           >
             <Icon className="size-3.5" />
           </span>
 
-          <h2 className="truncate text-xs font-black text-foreground">
+          <h2
+            className={cn(
+              "truncate text-xs font-black text-foreground",
+              compact && "text-sm",
+            )}
+          >
             {section.title}
           </h2>
+          {compact ? (
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {section.items.length.toLocaleString("fa-IR")}
+            </span>
+          ) : null}
         </div>
 
         <Link
           href={section.allHref}
           onClick={onViewAll}
-          className="
-            inline-flex shrink-0 items-center
-            gap-0.5 rounded-lg
-            px-1.5 py-1
-            text-[10px] font-bold
-            text-muted-foreground
-            transition-colors
-
-            hover:text-primary
-          "
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-lg px-1.5 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:text-primary"
         >
           مشاهده همه
           <ChevronLeft className="size-3" />
         </Link>
       </header>
 
-      <div className="p-1.5">
+      <div className={cn("p-1.5", compact && "space-y-0 p-0")}>
         {section.key === "books"
           ? section.items.map((book) => {
               const index = itemIndexMap.get(`books-${book.id}`) ?? -1;
@@ -702,15 +704,8 @@ function SearchSection({
                   onFocus={() => onSelectIndex(index)}
                   onClick={() => onNavigate(getItemHref("books", book))}
                   className={cn(
-                    `
-                      flex w-full min-w-0 items-start gap-3.5
-                      rounded-2xl p-3 text-right sm:p-3.5
-                      outline-none
-                      transition-all duration-150
-
-                      focus-visible:ring-2
-                      focus-visible:ring-primary/20
-                    `,
+                    "flex w-full min-w-0 items-start gap-3 rounded-2xl p-2.5 text-right outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/20 sm:gap-3.5 sm:p-3.5",
+                    compact && "rounded-xl px-2.5 py-2 sm:px-3",
                     selected
                       ? `
                         bg-primary/[0.07]
@@ -738,15 +733,8 @@ function SearchSection({
                   onFocus={() => onSelectIndex(index)}
                   onClick={() => onNavigate(getItemHref(section.key, item))}
                   className={cn(
-                    `
-                      flex w-full min-w-0 items-center gap-3
-                      rounded-xl p-3 text-right
-                      outline-none
-                      transition-all duration-150
-
-                      focus-visible:ring-2
-                      focus-visible:ring-primary/20
-                    `,
+                    "flex w-full min-w-0 items-center gap-3 rounded-xl p-3 text-right outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/20",
+                    compact && "px-2.5 py-2",
                     selected
                       ? `
                         bg-primary/[0.07]
@@ -777,7 +765,7 @@ function BookResultCard({ book }: { book: GlobalSearchBook }) {
     <>
       <div
         className="
-          flex h-[100px] w-[70px] shrink-0
+          flex h-[84px] w-[58px] shrink-0
           items-center justify-center
           overflow-hidden rounded-lg
           border border-border/30
@@ -832,11 +820,11 @@ function BookResultCard({ book }: { book: GlobalSearchBook }) {
         {(book.translator || book.publisher) && (
           <div
             className="
-            mt-2.5 flex flex-wrap items-center
+            mt-2.5 hidden flex-wrap items-center
             gap-x-2 gap-y-1
             text-[11px] font-medium
               text-muted-foreground/75
-            sm:text-xs
+            sm:flex sm:text-xs
             "
           >
             {book.translator ? (

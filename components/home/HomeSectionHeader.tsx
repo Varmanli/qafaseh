@@ -26,7 +26,7 @@ export default function HomeSectionHeader({
         </span>
 
         <div className="flex min-w-0 items-center gap-2.5">
-          <h2 className="truncate text-xl font-black leading-none tracking-tight text-foreground sm:text-2xl">
+          <h2 className="truncate py-1 text-xl font-black leading-[1.5] tracking-tight text-foreground sm:text-2xl">
             {title}
           </h2>
 

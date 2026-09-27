@@ -142,8 +142,11 @@ export type BookDetailResult =
       translatorChips: ReferenceChipData[];
       publisherChip: ReferenceChipData | null;
       quotes: PublicQuote[];
+      quoteCount: number;
       bookNotes: PublicNote[];
+      bookNotesCount: number;
       editionNotes: PublicNote[];
+      editionNotesCount: number;
       externalLinks: PublicBookExternalLink[];
     };
 
@@ -688,7 +691,12 @@ export async function getBookDetail(
       editionId: selectedEdition?.id ?? null,
     }).catch((error) => {
       if (!isToastCorruptionError(error)) throw error;
-      return { bookNotes: [], editionNotes: [] };
+      return {
+        bookNotes: [],
+        bookNotesCount: 0,
+        editionNotes: [],
+        editionNotesCount: 0,
+      };
     }),
   ]);
 
@@ -732,7 +740,7 @@ export async function getBookDetail(
     selectedEdition as BookPresentationEdition | null,
   );
 
-  const { quotes } = await loadPublicQuotes(
+  const { quotes, total: quoteCount } = await loadPublicQuotes(
     siblingIds,
     {
       title: subject.title,
@@ -761,8 +769,11 @@ export async function getBookDetail(
     translatorChips,
     publisherChip: refData.publisher,
     quotes,
+    quoteCount,
     bookNotes: notes.bookNotes,
+    bookNotesCount: notes.bookNotesCount,
     editionNotes: notes.editionNotes,
+    editionNotesCount: notes.editionNotesCount,
     externalLinks,
   };
 }
