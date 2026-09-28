@@ -20,7 +20,10 @@ import BookCoverImage from "@/components/books/BookCoverImage";
 import { Button } from "@/components/ui/button";
 import Pagination from "@/components/ui/Pagination";
 import { ArchiveFilter } from "@/components/archive/ArchiveFilter";
-import { ArchiveSearch as SharedArchiveSearch, ArchiveToolbar } from "@/components/archive/ArchiveToolbar";
+import {
+  ArchiveSearch as SharedArchiveSearch,
+  ArchiveToolbar,
+} from "@/components/archive/ArchiveToolbar";
 
 import {
   DEFAULT_BOOK_ARCHIVE_FILTERS,
@@ -652,14 +655,31 @@ function EmptyArchive({
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
         {query.trim() ? (
-          <Button asChild type="button" size="sm" className="h-9 gap-2 rounded-lg px-3 text-xs font-bold">
-            <Link href={`/contact?topic=book&bookTitle=${encodeURIComponent(query.trim())}`}>
+          <Button
+            asChild
+            type="button"
+            size="sm"
+            className="h-9 gap-2 rounded-lg px-3 text-xs font-bold"
+          >
+            <Link
+              href={`/contact?topic=book&bookTitle=${encodeURIComponent(query.trim())}`}
+            >
               <BookPlus className="h-4 w-4" />
               درخواست افزودن کتاب
             </Link>
           </Button>
         ) : null}
-        {hasActiveFilters ? <Button type="button" variant="ghost" size="sm" onClick={onReset} className="h-9 rounded-lg px-3 text-xs text-muted-foreground">پاک کردن فیلترها</Button> : null}
+        {hasActiveFilters ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onReset}
+            className="h-9 rounded-lg px-3 text-xs text-muted-foreground"
+          >
+            پاک کردن فیلترها
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -840,64 +860,85 @@ export default function BookArchiveFilters({
       {/* ------------------------------------------------------------------ */}
 
       <ArchiveToolbar label="ابزارهای مرور کتاب‌ها">
-          <SharedArchiveSearch
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder={searchPlaceholder}
-            ariaLabel="جست‌وجوی کتاب"
+        <SharedArchiveSearch
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder={searchPlaceholder}
+          ariaLabel="جست‌وجوی کتاب"
+        />
+
+        <div className="shrink-0 lg:order-3">
+          <BookArchiveSortMenu value={draft.sort} onChange={handleSortChange} />
+        </div>
+
+        <ArchiveFilter
+          title="فیلتر کتاب‌ها"
+          description="نتیجه را بر اساس نیازت محدود کن"
+          label="فیلتر کتاب‌ها"
+          activeCount={activeFilterCount}
+          onReset={hasActiveFilters ? resetFilters : undefined}
+          resetLabel="پاک کردن همه"
+          mobileBeforeContent={
+            <div className="shrink-0 px-4 pb-2 pt-4">
+              <div className="group relative">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary"
+                />
+                <input
+                  type="search"
+                  dir="rtl"
+                  value={draft.q}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      q: event.target.value,
+                      page: 1,
+                    }))
+                  }
+                  placeholder="نام کتاب، نویسنده، مترجم یا ناشر..."
+                  aria-label="جست‌وجو در فیلتر کتاب‌ها"
+                  className="h-11 w-full rounded-xl border border-border bg-card pr-10 pl-10 text-sm font-semibold text-foreground outline-none placeholder:text-xs placeholder:font-medium placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
+                />
+                {draft.q ? (
+                  <button
+                    type="button"
+                    aria-label="پاک کردن جست‌وجو"
+                    onClick={() =>
+                      setDraft((current) => ({ ...current, q: "", page: 1 }))
+                    }
+                    className="absolute left-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          }
+          mobileFooter={(close) => (
+            <div className="shrink-0 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <Button
+                type="button"
+                onClick={close}
+                className="h-12 w-full rounded-xl text-sm font-black"
+              >
+                {isPending ? "در حال به‌روزرسانی" : "مشاهده کتاب‌ها"}
+              </Button>
+            </div>
+          )}
+        >
+          <BookArchiveFiltersPanel
+            draft={draft}
+            setDraft={setDraft}
+            options={options}
+            pending={isPending}
+            hideGenreFilter={hideGenreFilter}
+            hideAuthorFilter={hideAuthorFilter}
+            hideTranslatorFilter={hideTranslatorFilter}
+            hidePublisherFilter={hidePublisherFilter}
+            hideCountryFilter={hideCountryFilter}
           />
-
-          <div className="shrink-0 lg:order-3">
-            <BookArchiveSortMenu
-              value={draft.sort}
-              onChange={handleSortChange}
-            />
-          </div>
-
-          <ArchiveFilter
-            title="فیلتر کتاب‌ها"
-            description="نتیجه را بر اساس نیازت محدود کن"
-            label="فیلتر کتاب‌ها"
-            activeCount={activeFilterCount}
-            onReset={hasActiveFilters ? resetFilters : undefined}
-            resetLabel="پاک کردن همه"
-            mobileBeforeContent={
-              <div className="shrink-0 px-4 pb-2 pt-4">
-                <div className="group relative">
-                  <Search aria-hidden="true" className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary" />
-                  <input
-                    type="search"
-                    dir="rtl"
-                    value={draft.q}
-                    onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value, page: 1 }))}
-                    placeholder="نام کتاب، نویسنده، مترجم یا ناشر..."
-                    aria-label="جست‌وجو در فیلتر کتاب‌ها"
-                    className="h-11 w-full rounded-xl border border-border bg-card pr-10 pl-10 text-sm font-semibold text-foreground outline-none placeholder:text-xs placeholder:font-medium placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10"
-                  />
-                  {draft.q ? <button type="button" aria-label="پاک کردن جست‌وجو" onClick={() => setDraft((current) => ({ ...current, q: "", page: 1 }))} className="absolute left-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-3.5 w-3.5" /></button> : null}
-                </div>
-              </div>
-            }
-            mobileFooter={(close) => (
-              <div className="shrink-0 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-                <Button type="button" onClick={close} className="h-12 w-full rounded-xl text-sm font-black">
-                  {isPending ? "در حال به‌روزرسانی" : "مشاهده کتاب‌ها"}
-                </Button>
-              </div>
-            )}
-          >
-            <BookArchiveFiltersPanel
-              draft={draft}
-              setDraft={setDraft}
-              options={options}
-              pending={isPending}
-              hideGenreFilter={hideGenreFilter}
-              hideAuthorFilter={hideAuthorFilter}
-              hideTranslatorFilter={hideTranslatorFilter}
-              hidePublisherFilter={hidePublisherFilter}
-              hideCountryFilter={hideCountryFilter}
-            />
-          </ArchiveFilter>
+        </ArchiveFilter>
       </ArchiveToolbar>
 
       {/* ------------------------------------------------------------------ */}
@@ -914,7 +955,6 @@ export default function BookArchiveFilters({
           ${isPending ? "opacity-65" : "opacity-100"}
         `}
       >
-        {showBookCount ? <p className="mb-4 text-right text-sm font-semibold text-muted-foreground">کتاب‌ها · {archive.totalCount.toLocaleString("fa-IR")} کتاب</p> : null}
         {archive.items.length === 0 ? (
           <EmptyArchive
             hasActiveFilters={hasActiveFilters}

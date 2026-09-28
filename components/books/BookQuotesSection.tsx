@@ -73,6 +73,36 @@ export default function BookQuotesSection({
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [limit, setLimit] = useState(3);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (!isMobile) {
+      setLimit(items.length);
+      return;
+    }
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setLimit((prev) => Math.min(prev + 3, items.length));
+        }
+      },
+      {
+        rootMargin: "200px",
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [items.length, limit]);
+
   useEffect(() => {
     setItems(quotes);
   }, [quotes]);
@@ -314,7 +344,6 @@ export default function BookQuotesSection({
         showBook={showBook}
         background={quote.background}
         priority={index === 0}
-        editorial={variant === "preview"}
         manage={
           canManage
             ? {
@@ -328,18 +357,22 @@ export default function BookQuotesSection({
   }
 
   return (
-    <section className={cn("relative", !flat && "border-t border-border/40 py-6 sm:py-8")}>
+    <section className={cn("relative", !flat && "overflow-hidden rounded-2xl border border-border/50 bg-card/50 backdrop-blur-md transition-all hover:border-border/80")}>
       <div className="relative">
-        <div className={cn(!flat ? "pb-4 sm:pb-5" : "mb-4 px-1")}>
+        <div className={cn(!flat ? "border-b border-border/40 p-4 sm:p-5" : "px-1 mb-4")}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <Quote className="h-4 w-4" />
+              </span>
+
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-base font-bold text-foreground sm:text-lg">
-                    تکه‌هایی از این کتاب
+                    تکه‌های کتاب
                   </h2>
                   {hasQuotes ? (
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                       {(totalQuoteCount ?? quotes.length).toLocaleString(
                         "fa-IR",
                       )}{" "}
@@ -378,11 +411,31 @@ export default function BookQuotesSection({
           </div>
         </div>
 
-        <div className={!flat ? "max-w-4xl" : "py-1"}>
+        <div className={!flat ? "p-4 sm:p-5" : "py-1"}>
           {!hasQuotes ? (
             <EmptyQuotesState isLoggedIn={isLoggedIn} onAdd={openAdd} />
           ) : variant === "preview" ? (
-            <div>{items.slice(0, 3).map((quote, index) => renderQuoteCard(quote, index))}</div>
+            <div className="relative">
+              <Carousel
+                className="py-1"
+                ariaLabel="تکه‌های کتاب"
+                slideClassName="w-[min(84vw,320px)] flex-none snap-start md:w-auto md:basis-1/2 xl:basis-1/3 px-1"
+                containerClassName="gap-4 lg:gap-5"
+                slides={(() => {
+                  const carouselSlides = items.slice(0, limit).map((quote, index) => renderQuoteCard(quote, index));
+                  if (limit < items.length) {
+                    carouselSlides.push(
+                      <div
+                        ref={sentinelRef}
+                        key="sentinel"
+                        className="w-1 h-full shrink-0 flex items-center justify-center"
+                      />
+                    );
+                  }
+                  return carouselSlides;
+                })()}
+              />
+            </div>
           ) : (
             <div className="space-y-8">
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

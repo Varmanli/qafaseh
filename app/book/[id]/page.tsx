@@ -4,7 +4,6 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import {
   FiArchive,
-  FiArrowLeft,
   FiBookOpen,
   FiCalendar,
   FiClock,
@@ -20,6 +19,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
 import { getBookDetail } from "@/lib/book/detail-service";
 import PublicShell from "@/components/PublicShell";
+import { Carousel } from "@/components/ui/Carousel";
 import ReadingStatusControl from "@/components/books/ReadingStatusControl";
 import BookReadingTour from "@/components/onboarding/BookReadingTour";
 import BookNotesTour from "@/components/onboarding/BookNotesTour";
@@ -32,10 +32,7 @@ import BookExternalLinksPanel from "@/components/books/BookExternalLinksPanel";
 import BookCoverImage from "@/components/books/BookCoverImage";
 import BookShare from "@/components/books/BookShare";
 import BookIntroduction from "@/components/books/BookIntroduction";
-import MyBookNotesSummary from "@/components/books/MyBookNotesSummary";
 import SimilarBooksSection from "@/components/books/SimilarBooksSection";
-import { countPersonalBookNotes } from "@/lib/reading-notes/service";
-import { getPublicReadingListsForBook } from "@/lib/book/reading-lists-service";
 import RelatedMagazineArticles from "@/components/blog/RelatedMagazineArticles";
 import { getMagazineArticlesForBook } from "@/lib/blog/service";
 import { getSimilarBooks } from "@/lib/book/similar-books-service";
@@ -117,11 +114,8 @@ export default async function BookPage({
     translatorChips,
     publisherChip,
     quotes,
-    quoteCount,
     bookNotes,
-    bookNotesCount,
     editionNotes,
-    editionNotesCount,
     externalLinks,
   } = result;
 
@@ -139,19 +133,10 @@ export default async function BookPage({
   const loginHref = `/auth/login?redirect=/book/${encodeURIComponent(book.slug)}`;
 
   const genreList = book.genres.map((genre) => genre.name);
-  const [magazinePosts, similarBooks, readingLists, personalNotesCount] =
-    await Promise.all([
+  const [magazinePosts, similarBooks] = await Promise.all([
     getMagazineArticlesForBook(book.id),
     getSimilarBooks(book.id),
-    getPublicReadingListsForBook(book.id),
-    viewer && entry
-      ? countPersonalBookNotes(entry.id, viewer.id)
-      : Promise.resolve(null),
   ]);
-  const analysisPost = magazinePosts.find((post) =>
-    /خلاصه|تحلیل/.test(post.title + " " + (post.excerpt ?? "")),
-  );
-  const deeperPosts = magazinePosts.filter((post) => post.id !== analysisPost?.id);
   const visibleGenres = genreList.slice(0, 3);
   const hiddenGenres = genreList.slice(3);
 
@@ -321,17 +306,37 @@ export default async function BookPage({
           }}
         />
 
-        <section className="rounded-2xl border border-border/60 bg-card/45 p-4 sm:p-6 lg:p-8">
+        <section className="relative overflow-hidden rounded-[2.25rem] border border-border/70 bg-card/95 p-4 shadow-[0_30px_100px_-70px_rgba(0,0,0,0.55)] backdrop-blur-xl dark:bg-[#101815]/90 dark:shadow-[0_36px_120px_-64px_rgba(0,0,0,0.95)] sm:p-6 lg:p-8 xl:p-10">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-primary/25 to-transparent dark:via-white/20" />
+
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_22%,rgba(128,167,150,0.16),transparent_34%),radial-gradient(circle_at_18%_70%,rgba(43,98,82,0.10),transparent_36%),linear-gradient(135deg,rgba(255,255,255,0.35),transparent_45%,rgba(128,167,150,0.06))] dark:bg-[radial-gradient(circle_at_82%_22%,rgba(128,167,150,0.18),transparent_34%),radial-gradient(circle_at_18%_70%,rgba(43,98,82,0.16),transparent_36%),linear-gradient(135deg,rgba(255,255,255,0.035),transparent_45%,rgba(128,167,150,0.04))]" />
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.16] dark:opacity-[0.22]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, rgba(128,167,150,0.22) 1px, transparent 0)",
+              backgroundSize: "22px 22px",
+            }}
+          />
+
+          <div className="pointer-events-none absolute -right-28 top-8 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-32 bottom-10 h-80 w-80 rounded-full bg-emerald-300/10 blur-3xl dark:bg-emerald-300/5" />
+
+          <div className="pointer-events-none absolute -left-24 bottom-12 h-52 w-[42rem] rounded-[50%] border border-primary/10" />
+          <div className="pointer-events-none absolute -left-16 bottom-6 h-56 w-[46rem] rounded-[50%] border border-border/35 dark:border-white/5" />
+          <div className="pointer-events-none absolute -right-20 top-16 h-[26rem] w-[32rem] rounded-[50%] border border-primary/10" />
+
           <div
             dir="ltr"
             className="relative flex flex-col gap-8 pt-2 lg:grid lg:min-h-[520px] lg:grid-cols-[280px_minmax(0,1fr)_260px] lg:items-center lg:gap-10 lg:pt-0 xl:grid-cols-[300px_minmax(0,1fr)_280px] xl:gap-12"
           >
             <aside
               dir="rtl"
-              id="book-actions"
               className="order-3 w-full lg:order-1 lg:w-[280px] xl:w-[300px]"
             >
-              <div>
+              <div className="rounded-[1.8rem] border border-border/70 bg-background/55 p-3 shadow-[0_24px_80px_-58px_rgba(0,0,0,0.65)] backdrop-blur-md dark:bg-black/10">
                 <div className="grid gap-2.5">
                   {editions.length > 1 ? (
                     <>
@@ -389,14 +394,23 @@ export default async function BookPage({
               dir="rtl"
               className="order-2 min-w-0 text-center lg:order-2 lg:text-right"
             >
-              <p className="text-xs font-medium text-muted-foreground">
-                {genreList.length
-                  ? visibleGenres.join(" · ") +
-                    (hiddenGenres.length ? " · " + hiddenGenres.length.toLocaleString("fa-IR") + " ژانر دیگر" : "")
-                  : "کتاب"}
-              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                {visibleGenres.length > 0 ? (
+                  <>
+                    {visibleGenres.map((genre) => (
+                      <BookPill key={genre}>{genre}</BookPill>
+                    ))}
 
-              <h1 className="mt-3 text-2xl font-black leading-[1.35] tracking-tight text-foreground sm:text-4xl lg:max-w-3xl lg:text-[2.8rem]">
+                    {hiddenGenres.length > 0 ? (
+                      <HiddenGenresPill hiddenGenres={hiddenGenres} />
+                    ) : null}
+                  </>
+                ) : (
+                  <BookPill>صفحه کتاب</BookPill>
+                )}
+              </div>
+
+              <h1 className="mt-4 text-3xl font-black leading-[1.25] tracking-tight text-foreground drop-shadow-[0_10px_30px_rgba(0,0,0,0.18)] sm:text-4xl lg:max-w-3xl lg:text-5xl xl:text-[3.4rem] dark:drop-shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
                 {book.title}
               </h1>
 
@@ -430,7 +444,7 @@ export default async function BookPage({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-                  <div className="inline-flex items-center gap-2 text-sm">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/55 px-3.5 py-2 text-sm backdrop-blur-md dark:border-white/8 dark:bg-black/10">
                     <FiStar
                       className={
                         stats.averageRating != null
@@ -463,8 +477,15 @@ export default async function BookPage({
                   </div>
 
                   {topMoods.length > 0 ? (
-                    <div className="text-xs text-muted-foreground">
-                      {topMoods.slice(0, 3).join(" · ")}
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 lg:justify-start">
+                      {topMoods.slice(0, 3).map((mood) => (
+                        <span
+                          key={mood}
+                          className="inline-flex max-w-[120px] truncate rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
+                        >
+                          {mood}
+                        </span>
+                      ))}
                     </div>
                   ) : null}
                 </div>
@@ -505,7 +526,10 @@ export default async function BookPage({
               className="order-1 mx-auto w-full max-w-[230px] shrink-0 sm:max-w-[250px] lg:order-3 lg:mx-0 lg:w-[260px] lg:max-w-none xl:w-[280px]"
             >
               <div className="relative">
-                <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-secondary/40 ring-1 ring-border/70">
+                <div className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-primary/12 blur-3xl" />
+                <div className="pointer-events-none absolute -inset-2 rounded-[1.7rem] bg-gradient-to-b from-white/40 via-transparent to-black/10 dark:from-white/10 dark:to-black/20" />
+
+                <div className="relative aspect-[2/3] overflow-hidden rounded-[1.45rem] bg-secondary/40 shadow-[0_30px_75px_-46px_rgba(0,0,0,0.65)] ring-1 ring-border/80 dark:shadow-[0_34px_86px_-42px_rgba(0,0,0,0.92)] dark:ring-white/10">
                   <BookCoverImage
                     src={book.displayCoverImage || PLACEHOLDER}
                     alt={book.title}
@@ -515,78 +539,52 @@ export default async function BookPage({
                     priority
                   />
 
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/10 via-transparent to-white/16 dark:from-black/24 dark:to-white/8" />
                 </div>
               </div>
             </aside>
           </div>
 
-          {metaItems.length ? (
-            <div className="mt-6 grid grid-cols-2 gap-x-4 border-t border-border/40 pt-4 sm:grid-cols-3 lg:grid-cols-4">
-              {metaItems}
-            </div>
+          {metaItems.length > 0 ? (
+            <Carousel
+              className="relative mt-9"
+              ariaLabel="مشخصات کتاب"
+              align="start"
+              slideClassName="basis-[170px] sm:basis-[185px] lg:basis-[195px]"
+              containerClassName="justify-start gap-3"
+              slides={metaItems}
+              controls={false}
+            />
           ) : null}
+
+          <div className="mt-9">
+            <BookIntroduction content={book.description} />
+          </div>
         </section>
-        <BookPageNavigation
-          hasAbout={Boolean(book.description || analysisPost)}
-          hasPersonalNotes={isLoggedIn}
-          hasMagazinePosts={deeperPosts.length > 0}
-          hasSimilarBooks={similarBooks.length > 0}
-          hasReadingLists={readingLists.length > 0}
-        />
-        {book.description || analysisPost ? (
-          <section id="about" className="scroll-mt-28 border-b border-border/40 py-6 sm:py-8">
-            <BookIntroduction content={book.description} flat />
-            {analysisPost ? (
-              <Link href={"/blog/" + encodeURIComponent(analysisPost.slug)} className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
-                خلاصه کامل و تحلیل کتاب <FiArrowLeft className="h-4 w-4" />
-              </Link>
-            ) : null}
-          </section>
-        ) : null}
-        <div id="quotes" className="scroll-mt-28">
+        <RelatedMagazineArticles posts={magazinePosts} />
+        <div className="mt-10 lg:mt-12">
           <BookQuotesSection
             subjectBookId={book.id}
             viewerEntryId={entry?.id ?? null}
             viewerIsAdmin={isAdmin(viewer)}
             isLoggedIn={isLoggedIn}
             quotes={quotes}
-            totalQuoteCount={quoteCount}
             viewAllHref={`/book/${encodeURIComponent(book.slug)}/quotes`}
-            flat
           />
         </div>
 
-        <div id="community-notes" className="scroll-mt-28">
+        <div className="mt-10 lg:mt-12">
           <BookNotesTabsSection
             catalogBookId={book.id}
             selectedEditionId={selectedEdition?.id ?? null}
             isLoggedIn={isLoggedIn}
             bookNotes={bookNotes}
-            bookNotesCount={bookNotesCount}
             editionNotes={editionNotes}
-            editionNotesCount={editionNotesCount}
-            flat
             viewerId={viewer?.id ?? null}
-            editionNotesHref={
-              selectedEdition?.id
-                ? "/book/" + encodeURIComponent(book.slug) + "/notes?edition=" + encodeURIComponent(selectedEdition.id)
-                : undefined
-            }
             viewAllHref={`/book/${encodeURIComponent(book.slug)}/notes`}
           />
         </div>
-        {isLoggedIn ? (
-          <MyBookNotesSummary bookSlug={book.slug} notesCount={personalNotesCount} />
-        ) : null}
-        {deeperPosts.length > 0 ? (
-          <div id="magazine-content" className="scroll-mt-28">
-            <RelatedMagazineArticles posts={deeperPosts} />
-          </div>
-        ) : null}
-        <div id="more-books" className="scroll-mt-28">
-          <SimilarBooksSection books={similarBooks} />
-        </div>
-        {readingLists.length ? <RelatedBookReadingLists lists={readingLists} /> : null}
+        <SimilarBooksSection books={similarBooks} />
         <BookReadingTour isAuthenticated={isLoggedIn} />
         <BookNotesTour isAuthenticated={isLoggedIn && Boolean(entry)} />
       </div>
@@ -594,66 +592,32 @@ export default async function BookPage({
   );
 }
 
-function BookPageNavigation({
-  hasAbout,
-  hasPersonalNotes,
-  hasMagazinePosts,
-  hasSimilarBooks,
-  hasReadingLists,
-}: {
-  hasAbout: boolean;
-  hasPersonalNotes: boolean;
-  hasMagazinePosts: boolean;
-  hasSimilarBooks: boolean;
-  hasReadingLists: boolean;
-}) {
-  const links = [
-    hasAbout ? { href: "#about", label: "درباره" } : null,
-    { href: "#quotes", label: "تکه‌ها" },
-    { href: "#community-notes", label: "یادداشت‌ها" },
-    hasPersonalNotes ? { href: "#my-notes", label: "یادداشت‌های من" } : null,
-    hasMagazinePosts ? { href: "#magazine-content", label: "مطالب مرتبط" } : null,
-    hasSimilarBooks ? { href: "#more-books", label: "کتاب‌های مرتبط" } : null,
-    hasReadingLists ? { href: "#reading-lists", label: "فهرست‌ها" } : null,
-  ].filter((item): item is { href: string; label: string } => Boolean(item));
-
+function HiddenGenresPill({ hiddenGenres }: { hiddenGenres: string[] }) {
   return (
-    <nav aria-label="بخش‌های صفحه کتاب" className="sticky top-14 z-20 -mx-4 mt-3 border-b border-border/40 bg-background/90 px-4 backdrop-blur sm:top-16 sm:mx-0 sm:px-2">
-      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-max min-w-full items-center gap-5 py-3 sm:gap-6">
-          {links.map((item) => (
-            <a key={item.href} href={item.href} className="shrink-0 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-sm">
-              {item.label}
-            </a>
+    <span className="group relative inline-flex">
+      <span className="inline-flex h-8 items-center rounded-full border border-border/80 bg-background/65 px-3 text-[11px] font-bold text-muted-foreground shadow-sm backdrop-blur transition-colors hover:border-primary/25 hover:bg-primary/5 hover:text-primary">
+        +{hiddenGenres.length.toLocaleString("fa-IR")} مورد
+      </span>
+
+      <span className="pointer-events-none absolute right-0 top-[calc(100%+0.6rem)] z-50 hidden w-[min(260px,calc(100vw-2rem))] rounded-2xl border border-border/80 bg-card/95 p-3 text-right shadow-[0_24px_70px_-38px_rgba(0,0,0,0.65)] backdrop-blur-xl group-hover:block dark:shadow-[0_24px_70px_-38px_rgba(0,0,0,0.95)] sm:right-1/2 sm:translate-x-1/2">
+        <span className="absolute -top-1.5 right-6 h-3 w-3 rotate-45 border-r border-t border-border/80 bg-card/95 sm:right-1/2 sm:translate-x-1/2" />
+
+        <span className="relative z-10 mb-2 block text-[10px] font-black text-muted-foreground">
+          ژانرهای بیشتر
+        </span>
+
+        <span className="relative z-10 flex max-w-full flex-wrap gap-1.5">
+          {hiddenGenres.map((genre) => (
+            <span
+              key={genre}
+              className="inline-flex max-w-full rounded-full border border-primary/15 bg-primary/10 px-2.5 py-1 text-[10px] font-bold leading-5 text-primary"
+            >
+              <span className="max-w-[210px] truncate">{genre}</span>
+            </span>
           ))}
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-function RelatedBookReadingLists({
-  lists,
-}: {
-  lists: Array<{ id: string; slug: string; title: string; subtitle: string | null }>;
-}) {
-  return (
-    <section id="reading-lists" aria-labelledby="book-reading-lists-title" className="border-t border-border/40 py-6 sm:py-8">
-      <h2 id="book-reading-lists-title" className="text-base font-bold text-foreground sm:text-lg">این کتاب در فهرست‌ها</h2>
-      <ul className="mt-3 max-w-3xl divide-y divide-border/30">
-        {lists.map((list) => (
-          <li key={list.id}>
-            <Link href={"/lists/" + encodeURIComponent(list.slug)} className="flex items-center justify-between gap-4 py-3 text-sm transition-colors hover:text-primary">
-              <span className="min-w-0">
-                <span className="block font-semibold">{list.title}</span>
-                {list.subtitle ? <span className="mt-1 block truncate text-xs text-muted-foreground">{list.subtitle}</span> : null}
-              </span>
-              <FiArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+        </span>
+      </span>
+    </span>
   );
 }
 
@@ -667,9 +631,13 @@ function BookMiniStat({
   label: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
-      <span className="shrink-0">{icon}</span>
-      <span className="font-bold tabular-nums text-foreground">{value.toLocaleString("fa-IR")}</span>
+    <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border/80 bg-background/60 px-2.5 text-[10px] font-medium text-foreground backdrop-blur sm:h-auto sm:gap-2 sm:px-3.5 sm:py-2 sm:text-xs">
+      <span className="shrink-0 text-muted-foreground">{icon}</span>
+
+      <span className="shrink-0 font-bold tabular-nums text-foreground">
+        {value.toLocaleString("fa-IR")}
+      </span>
+
       <span>{label}</span>
     </span>
   );
@@ -691,22 +659,26 @@ function BookMetaItem({
   onboardingTarget?: string;
 }) {
   const className =
-    "group flex min-w-0 items-center gap-2 border-b border-border/30 py-2 text-right";
+    "group relative block h-full min-h-[86px] overflow-hidden rounded-[1.35rem] border border-border/70 bg-card/60 px-4 py-4 text-right backdrop-blur-md transition-colors hover:border-primary/25 hover:bg-card/80";
 
   const inner = (
     <>
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="inline-flex shrink-0 text-muted-foreground [&_svg]:h-3.5 [&_svg]:w-3.5">
+      <div className="flex items-center justify-start gap-2">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
           {icon}
         </span>
 
-        <span className="shrink-0 text-[11px] text-muted-foreground">
+        <span className="text-[13px] font-extrabold text-muted-foreground">
           {label}
         </span>
+      </div>
+
+      <div className="mt-3 flex items-center justify-center gap-1.5">
         {valueAvatar}
+
         <span
           className={
-            "line-clamp-1 min-w-0 text-xs font-bold text-foreground" +
+            "line-clamp-1 text-base font-black leading-7 text-foreground" +
             (href ? " transition-colors group-hover:text-primary" : "")
           }
         >
@@ -732,5 +704,25 @@ function BookMetaItem({
     <div data-onboarding={onboardingTarget} className={className}>
       {inner}
     </div>
+  );
+}
+
+function BookPill({
+  children,
+  tone = "default",
+}: {
+  children: ReactNode;
+  tone?: "default" | "muted";
+}) {
+  return (
+    <span
+      className={
+        tone === "default"
+          ? "inline-flex h-8 max-w-[140px] items-center truncate rounded-full border border-primary/15 bg-primary/10 px-3 text-[11px] font-bold text-primary shadow-sm backdrop-blur"
+          : "inline-flex h-8 max-w-[140px] items-center truncate rounded-full border border-border/80 bg-background/65 px-3 text-[11px] font-bold text-muted-foreground shadow-sm backdrop-blur"
+      }
+    >
+      {children}
+    </span>
   );
 }

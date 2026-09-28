@@ -48,7 +48,6 @@ interface QuoteCardProps {
   background?: QuoteBackgroundVariant;
   className?: string;
   priority?: boolean;
-  editorial?: boolean;
 }
 
 export default function QuoteCard({
@@ -60,7 +59,6 @@ export default function QuoteCard({
   background = "default",
   className,
   priority = false,
-  editorial = false,
 }: QuoteCardProps) {
   const [liked, setLiked] = useState(quote.likedByViewer);
   const [likeCount, setLikeCount] = useState(quote.likeCount);
@@ -191,19 +189,21 @@ export default function QuoteCard({
       <article
         dir="rtl"
         className={cn(
-          "group relative flex min-h-0 flex-col overflow-hidden",
-          !editorial && "h-full min-h-[390px]",
-          editorial
-            ? "min-h-0 border-b border-border/35 py-4 last:border-0"
-            : "rounded-[1.75rem] border border-border/65 bg-card/80 p-3.5 shadow-md transition-colors duration-150 hover:border-primary/20 hover:bg-card/90 md:shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)] md:transition-[border-color,background-color,box-shadow] md:duration-300 md:hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)] sm:min-h-[420px] sm:p-4",
+          "group relative flex h-full min-h-[390px] flex-col overflow-hidden",
+          "rounded-[1.75rem] border border-border/65 bg-card/80",
+          "p-3.5 sm:min-h-[420px] sm:p-4",
+          "shadow-md md:shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)]",
+          "transition-colors duration-150 md:transition-[border-color,background-color,box-shadow] md:duration-300",
+          "hover:border-primary/20 hover:bg-card/90",
+          "hover:shadow-md md:hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)]",
           className,
         )}
       >
         {/* top highlight */}
-        {!editorial ? <div
+        <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-10 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
-        /> : null}
+        />
 
         {/* Author */}
         {showAuthor && quote.authorUsername ? (
@@ -237,7 +237,6 @@ export default function QuoteCard({
           onOpen={openFullQuote}
           onKeyDown={handleQuoteKeyDown}
           priority={priority}
-          editorial={editorial}
         />
 
         {/* Actions */}
@@ -429,7 +428,6 @@ function QuoteContent({
   onOpen,
   onKeyDown,
   priority = false,
-  editorial = false,
 }: {
   quoteText: string;
   imageKey: string | null;
@@ -441,9 +439,8 @@ function QuoteContent({
   onOpen: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   priority?: boolean;
-  editorial?: boolean;
 }) {
-  const hasArtwork = !editorial && background !== "default";
+  const hasArtwork = background !== "default";
 
   return (
     <div
@@ -454,11 +451,11 @@ function QuoteContent({
       onKeyDown={onKeyDown}
       className={cn(
         "relative z-10 mt-3 flex min-h-0 flex-1 overflow-hidden",
-        !editorial && "rounded-[1.45rem] border",
-        !editorial && hasArtwork
+        "rounded-[1.45rem] border",
+        hasArtwork
           ? "border-white/10 bg-black"
-          : !editorial && "border-border/60 bg-background/30",
-        !editorial && "shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]",
+          : "border-border/60 bg-background/30",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]",
         canOpen &&
           "cursor-pointer transition-[border-color,box-shadow] duration-300",
         canOpen &&
@@ -470,26 +467,26 @@ function QuoteContent({
       )}
     >
       {/* Background belongs ONLY to the quote area. */}
-      {!editorial ? <QuoteBackground variant={background} /> : null}
+      <QuoteBackground variant={background} />
 
       {/* Decorative quote marks */}
-      {!editorial ? <QuoteIcon
+      <QuoteIcon
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute right-4 top-4 z-[1] h-7 w-7 sm:right-5 sm:top-5 sm:h-8 sm:w-8",
           hasArtwork ? "text-white/35" : "text-primary/25",
         )}
-      /> : null}
+      />
 
-      {!editorial ? <QuoteIcon
+      <QuoteIcon
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute bottom-4 left-4 z-[1] h-7 w-7 rotate-180 sm:bottom-5 sm:left-5 sm:h-8 sm:w-8",
           hasArtwork ? "text-white/15" : "text-primary/10",
         )}
-      /> : null}
+      />
 
-      <div className={cn("relative z-10 flex min-h-[120px] w-full flex-1 flex-col px-2 py-3 sm:px-4", !editorial && "min-h-[205px] px-5 py-6 sm:min-h-[230px] sm:py-7")}>
+      <div className="relative z-10 flex min-h-[205px] w-full flex-1 flex-col px-5 py-6 sm:min-h-[230px] sm:px-7 sm:py-7">
         {imageKey ? (
           <div
             className={cn(

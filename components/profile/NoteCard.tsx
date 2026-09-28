@@ -8,7 +8,6 @@ import {
   Check,
   Copy,
   Heart,
-  MoreHorizontal,
   NotebookPen,
   Pencil,
   Share2,
@@ -32,22 +31,17 @@ export default function NoteCard({
   showAuthor = false,
   showBook = true,
   manage,
-  editorial = false,
-  overflowActions = false,
 }: {
   note: PublicNote;
   canLike?: boolean;
   showAuthor?: boolean;
   showBook?: boolean;
   manage?: CardManage;
-  editorial?: boolean;
-  overflowActions?: boolean;
 }) {
   const [liked, setLiked] = useState(note.likedByViewer);
   const [likeCount, setLikeCount] = useState(note.likeCount);
   const [likePending, setLikePending] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false);
   const {
     contentRef,
     isExpandable,
@@ -144,12 +138,7 @@ export default function NoteCard({
   }
 
   return (
-    <article className={cn(
-      "relative",
-      editorial
-        ? "border-b border-border/35 py-4 last:border-0 sm:py-5"
-        : "overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5",
-    )}>
+    <article className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-md transition-all hover:border-border/80 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {showAuthor && note.authorUsername ? (
@@ -175,11 +164,8 @@ export default function NoteCard({
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <span className={cn(
-              "inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground",
-              editorial && "border-0 bg-transparent px-0 text-[10px]",
-            )}>
-              {!editorial ? <CalendarDays className="h-3.5 w-3.5" /> : null}
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
               {created}
             </span>
 
@@ -194,7 +180,6 @@ export default function NoteCard({
               aria-label={liked ? "برداشتن پسند" : "پسندیدن"}
               className={cn(
                 "inline-flex h-8 min-w-10 items-center justify-center gap-1 rounded-xl border px-2 text-[11px] font-bold tabular-nums transition-all disabled:opacity-60",
-                editorial && "border-0 bg-transparent",
                 liked
                   ? "border-rose-300/15 bg-rose-500/12 text-rose-300"
                   : "border-border/60 bg-background/50 text-muted-foreground hover:border-rose-300/20 hover:bg-rose-500/10 hover:text-rose-300",
@@ -204,40 +189,7 @@ export default function NoteCard({
               {likeCount.toLocaleString("fa-IR")}
             </button>
 
-            {overflowActions ? (
-              <div className="relative">
-                <button
-                  type="button"
-                  aria-label="کارهای بیشتر"
-                  aria-haspopup="menu"
-                  aria-expanded={actionsOpen}
-                  onClick={() => setActionsOpen((value) => !value)}
-                  className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                >
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
-                {actionsOpen ? (
-                  <div role="menu" className="absolute left-0 top-full z-20 mt-1 min-w-36 rounded-xl border border-border/70 bg-popover p-1 shadow-lg">
-                    <button role="menuitem" type="button" onClick={() => { void handleCopy(); setActionsOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-xs hover:bg-muted">
-                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />} کپی یادداشت
-                    </button>
-                    <button role="menuitem" type="button" onClick={() => { void handleShare(); setActionsOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-xs hover:bg-muted">
-                      <Share2 className="size-4" /> اشتراک‌گذاری
-                    </button>
-                    {manage ? (
-                      <>
-                        <button role="menuitem" type="button" onClick={() => { manage.onEdit(); setActionsOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-xs hover:bg-muted">
-                          <Pencil className="size-4" /> ویرایش
-                        </button>
-                        <button role="menuitem" type="button" onClick={() => { manage.onDelete(); setActionsOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-right text-xs text-destructive hover:bg-destructive/10">
-                          <Trash2 className="size-4" /> حذف
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5">
               <NoteIconAction
                 label="کپی یادداشت"
                 onClick={handleCopy}
@@ -276,13 +228,13 @@ export default function NoteCard({
                   />
                 </>
               ) : null}
-            </div>}
+            </div>
           </div>
         </div>
 
         <div
           className={cn(
-            "relative mt-3 transition-all duration-300",
+            "relative mt-4 transition-all duration-300",
             isCollapsed
               ? "max-h-24 overflow-hidden"
               : "max-h-none overflow-visible",
