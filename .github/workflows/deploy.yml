@@ -4,6 +4,10 @@ on:
   push:
     branches: [main, master]
 
+concurrency:
+  group: qafaseman-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -107,7 +111,7 @@ jobs:
         run: |
           echo "📤 ارسال پکیج فوق‌سبک standalone.tar.gz به سرور..."
           # rsync خودش پوشه مقصد را می‌سازد و بسیار سریع است
-          rsync -avz --progress -e "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=15" standalone.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
+          rsync -avz --progress -e "ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o ServerAliveInterval=15" standalone.tar.gz root@${{ secrets.SERVER_HOST }}:/opt/sites/qafaseman/
 
           if [ $? -eq 0 ]; then
             echo "✅ فایل بیلد فوق‌سبک با موفقیت آپلود شد."
@@ -118,14 +122,14 @@ jobs:
 
       - name: Upload remote deploy script
         run: |
-          scp -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no scripts/deploy-remote.sh root@${{ secrets.SERVER_HOST }}:/opt/sites/book-libray/
-          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "chmod +x /opt/sites/book-libray/deploy-remote.sh"
+          scp -O -o ConnectTimeout=10 -o StrictHostKeyChecking=no scripts/deploy-remote.sh root@${{ secrets.SERVER_HOST }}:/opt/sites/qafaseman/
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "chmod +x /opt/sites/qafaseman/deploy-remote.sh"
 
       - name: Execute remote deploy script via SSH
         timeout-minutes: 5
         run: |
           echo "🚀 اجرای اسکریپت دپلوی و شروع برنامه در سرور..."
-          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "bash /opt/sites/book-libray/deploy-remote.sh"
+          ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no root@${{ secrets.SERVER_HOST }} "bash /opt/sites/qafaseman/deploy-remote.sh"
 
       - name: Deployment Failure Alert
         if: failure()
