@@ -39,11 +39,9 @@ export const PublicBookThoughtType = pgEnum("PublicBookThoughtType", [
 ]);
 
 export const PurchasePriority = pgEnum("PurchasePriority", [
-  "MUST_HAVE", // حتما باید بخرم
-  "WANT_IT", // خیلی دلم می‌خواد
-  "NICE_TO_HAVE", // بد نیست داشته باشم
-  "IF_EXTRA_MONEY", // اگر پول اضافه داشتم
-  "NOT_IMPORTANT", // فعلا مهم نیست
+  "HIGH",
+  "MEDIUM",
+  "LOW",
 ]);
 
 // نمایانی پروفایل کاربر (حساب‌های جدید به‌صورت عمومی ساخته می‌شوند)
@@ -580,6 +578,23 @@ export const Book = pgTable("Book", {
     onDelete: "set null",
   }),
 });
+
+export const BookLoan = pgTable("BookLoan", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
+  userId: varchar("user_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+  bookId: varchar("book_id").references(() => Book.id, { onDelete: "set null" }),
+  bookTitle: text("book_title").notNull(),
+  bookAuthor: text("book_author").notNull(),
+  borrowerName: text("borrower_name").notNull(),
+  loanedAt: timestamp("loaned_at", { mode: "date" }).notNull(),
+  dueAt: timestamp("due_at", { mode: "date" }),
+  returnedAt: timestamp("returned_at", { mode: "date" }),
+  note: text("note"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  userIdx: index("BookLoan_user_idx").on(t.userId, t.returnedAt),
+  activeBookUnique: uniqueIndex("BookLoan_active_book_unique").on(t.bookId).where(sql`${t.returnedAt} IS NULL`),
+}));
 
 // ---------------- Quote ----------------
 export const Quote = pgTable(
@@ -1636,12 +1651,13 @@ export const Wishlist = pgTable("Wishlist", {
   genre: text("genre"),
   note: text("note"),
   priority: PurchasePriority("priority").notNull(),
+  catalogBookId: varchar("catalog_book_id").references(() => CatalogBook.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 
   userId: varchar("user_id")
     .notNull()
     .references(() => User.id, { onDelete: "cascade" }),
-});
+}, (t) => ({ userCatalogUnique: uniqueIndex("Wishlist_user_catalog_unique").on(t.userId, t.catalogBookId) }));
 
 // ---------------- Relations ----------------
 export const UserRelations = relations(User, ({ many }) => ({
@@ -1650,6 +1666,7 @@ export const UserRelations = relations(User, ({ many }) => ({
   quotes: many(Quote),
   sessions: many(Session),
   wishlist: many(Wishlist),
+  loans: many(BookLoan),
   passwordResetTokens: many(PasswordResetToken),
   blogPosts: many(BlogPost),
   publicThoughts: many(PublicBookThought),
@@ -1731,6 +1748,7 @@ export const BookEditionRelations = relations(BookEdition, ({ one, many }) => ({
 export const BookRelations = relations(Book, ({ one, many }) => ({
   user: one(User, { fields: [Book.userId], references: [User.id] }),
   quotes: many(Quote),
+  loans: many(BookLoan),
   catalogBook: one(CatalogBook, {
     fields: [Book.catalogBookId],
     references: [CatalogBook.id],
@@ -1821,6 +1839,12 @@ export const AccountRelations = relations(Account, ({ one }) => ({
 
 export const WishlistRelations = relations(Wishlist, ({ one }) => ({
   user: one(User, { fields: [Wishlist.userId], references: [User.id] }),
+  catalogBook: one(CatalogBook, { fields: [Wishlist.catalogBookId], references: [CatalogBook.id] }),
+}));
+
+export const BookLoanRelations = relations(BookLoan, ({ one }) => ({
+  user: one(User, { fields: [BookLoan.userId], references: [User.id] }),
+  book: one(Book, { fields: [BookLoan.bookId], references: [Book.id] }),
 }));
 
 export const BlogPostRelations = relations(BlogPost, ({ one }) => ({

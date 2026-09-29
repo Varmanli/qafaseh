@@ -12,6 +12,7 @@ function debug(...args: unknown[]) {
 
 export interface LibraryBook {
   id: string;
+  format: "PHYSICAL" | "ELECTRONIC";
   slug: string | null;
   title: string;
   author: string;
@@ -117,6 +118,7 @@ export async function getLibraryByUsername(
   const rawBooks = await db
     .select({
       id: Book.id,
+      format: Book.format,
       slug: Book.slug,
       title: Book.title,
       author: Book.author,

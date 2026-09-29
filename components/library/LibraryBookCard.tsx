@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   BookOpen,
   Heart,
+  Handshake,
   MoreVertical,
   Star,
   Trash2,
@@ -169,6 +170,7 @@ export default function LibraryBookCard({
 
                 {menuOpen && (
                   <div className="absolute left-0 mt-1 w-32 origin-top-left rounded-xl border border-border/80 bg-card/95 p-1 shadow-lg z-20">
+                    {book.format === "PHYSICAL" && <Link href={`/loans?bookId=${encodeURIComponent(book.id)}`} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-right text-xs text-foreground hover:bg-muted"><Handshake className="h-3.5 w-3.5" /> امانت دادن</Link>}
                     <button
                       type="button"
                       onClick={() => {
@@ -265,6 +267,7 @@ export default function LibraryBookCard({
 
               {menuOpen && (
                 <div className="absolute left-0 mt-1 w-32 origin-top-left rounded-xl border border-border/80 bg-card/95 p-1 shadow-lg z-20">
+                  {book.format === "PHYSICAL" && <Link href={`/loans?bookId=${encodeURIComponent(book.id)}`} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-right text-xs text-foreground hover:bg-muted"><Handshake className="h-3.5 w-3.5" /> امانت دادن</Link>}
                   <button
                     type="button"
                     onClick={() => {

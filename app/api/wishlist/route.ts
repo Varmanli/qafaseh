@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { Wishlist } from "@/db/schema";
+import { BookEdition, CatalogBook, Wishlist } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
 const wishlistCreateSchema = z.object({
-  title: z.string().trim().min(1, "عنوان کتاب الزامی است").max(255),
-  author: z.string().trim().min(1, "نام نویسنده الزامی است").max(255),
+  title: z.string().trim().min(1, "عنوان کتاب الزامی است").max(255).optional(),
+  author: z.string().trim().min(1, "نام نویسنده الزامی است").max(255).optional(),
+  catalogBookId: z.string().uuid().optional(),
   publisher: z.string().trim().max(255).nullish(),
   genre: z.string().trim().max(100).nullish(),
   translator: z.string().trim().max(255).nullish(),
   note: z.string().trim().max(1000).nullish(),
-  priority: z.enum([
-    "MUST_HAVE",
-    "WANT_IT",
-    "NICE_TO_HAVE",
-    "IF_EXTRA_MONEY",
-    "NOT_IMPORTANT",
-  ]),
-});
+  priority: z.enum(["HIGH", "MEDIUM", "LOW"]),
+}).refine((data) => !!data.catalogBookId || (!!data.title && !!data.author), { message: "کتاب یا عنوان و نویسنده لازم است" });
 
 // 📌 ایجاد آیتم جدید در Wishlist
 export async function POST(req: NextRequest) {
@@ -54,14 +49,22 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
+    const [catalog] = data.catalogBookId ? await db.select({ id: CatalogBook.id, title: CatalogBook.title, author: CatalogBook.author, genre: CatalogBook.genre })
+      .from(CatalogBook).where(and(eq(CatalogBook.id, data.catalogBookId), eq(CatalogBook.status, "APPROVED"))).limit(1) : [];
+    if (data.catalogBookId && !catalog) return NextResponse.json({ error: "کتاب کاتالوگ پیدا نشد" }, { status: 404 });
+    if (catalog) {
+      const [existing] = await db.select({ id: Wishlist.id }).from(Wishlist).where(and(eq(Wishlist.userId, user.id), eq(Wishlist.catalogBookId, catalog.id))).limit(1);
+      if (existing) return NextResponse.json({ error: "این کتاب از قبل در لیست خرید است" }, { status: 409 });
+    }
     const [newWishlist] = await db
       .insert(Wishlist)
       .values({
         userId: user.id,
-        title: data.title,
-        author: data.author,
+        title: catalog?.title ?? data.title!,
+        author: catalog?.author ?? data.author!,
+        catalogBookId: catalog?.id ?? null,
         publisher: data.publisher || null,
-        genre: data.genre || null,
+        genre: data.genre || catalog?.genre || null,
         translator: data.translator || null,
         note: data.note || null,
         priority: data.priority,
@@ -69,7 +72,7 @@ export async function POST(req: NextRequest) {
       .returning();
 
     return NextResponse.json(
-      { wishlist: newWishlist, message: "آیتم به لیست علاقه‌مندی‌ها اضافه شد" },
+      { wishlist: newWishlist, message: "کتاب به لیست خرید اضافه شد" },
       { status: 201 }
     );
   } catch (err) {
@@ -114,10 +117,9 @@ export async function GET(req: NextRequest) {
           sortOrder === "asc" ? asc(Wishlist.genre) : desc(Wishlist.genre);
         break;
       case "priority":
-        orderBy =
-          sortOrder === "asc"
-            ? asc(Wishlist.priority)
-            : desc(Wishlist.priority);
+        orderBy = sortOrder === "asc"
+          ? asc(sql`case ${Wishlist.priority} when 'HIGH' then 1 when 'MEDIUM' then 2 else 3 end`)
+          : desc(sql`case ${Wishlist.priority} when 'HIGH' then 1 when 'MEDIUM' then 2 else 3 end`);
         break;
       case "createdAt":
       default:
@@ -129,13 +131,22 @@ export async function GET(req: NextRequest) {
     }
 
     const userWishlist = await db
-      .select()
+      .select({
+        item: Wishlist,
+        catalogCover: CatalogBook.coverImage,
+        editionCover: BookEdition.coverImage,
+      })
       .from(Wishlist)
+      .leftJoin(CatalogBook, eq(Wishlist.catalogBookId, CatalogBook.id))
+      .leftJoin(BookEdition, eq(CatalogBook.primaryEditionId, BookEdition.id))
       .where(eq(Wishlist.userId, user.id))
       .orderBy(orderBy);
 
     const response = NextResponse.json({
-      wishlist: userWishlist,
+      wishlist: userWishlist.map(({ item, catalogCover, editionCover }) => ({
+        ...item,
+        coverImage: editionCover ?? catalogCover,
+      })),
       total: userWishlist.length,
       sortBy,
       sortOrder,

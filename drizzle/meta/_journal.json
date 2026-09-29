@@ -449,6 +449,13 @@
       "when": 1790467200001,
       "tag": "0063_reference_person_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1790467200002,
+      "tag": "0064_book_loans_purchase_list",
+      "breakpoints": true
     }
   ]
 }

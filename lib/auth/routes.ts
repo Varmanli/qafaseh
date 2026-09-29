@@ -6,6 +6,7 @@ const PROTECTED_PREFIXES = [
   "/account",
   "/admin",
   "/dashboard",
+  "/loans",
   "/reading",
   "/settings",
   "/wishlist",

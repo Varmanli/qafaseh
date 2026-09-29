@@ -14,15 +14,7 @@ const wishlistUpdateSchema = z.object({
   genre: z.string().trim().max(100).nullish(),
   translator: z.string().trim().max(255).nullish(),
   note: z.string().trim().max(1000).nullish(),
-  priority: z
-    .enum([
-      "MUST_HAVE",
-      "WANT_IT",
-      "NICE_TO_HAVE",
-      "IF_EXTRA_MONEY",
-      "NOT_IMPORTANT",
-    ])
-    .optional(),
+  priority: z.enum(["HIGH", "MEDIUM", "LOW"]).optional(),
 });
 
 // 📌 حذف آیتم خاص (فقط برای مالک)

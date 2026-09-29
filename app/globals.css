@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@daypicker/react/style.css";
 
 @custom-variant dark (&:is(.dark *));
 

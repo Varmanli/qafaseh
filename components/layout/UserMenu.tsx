@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   BookOpen,
+  Handshake,
+  ShoppingCart,
   ChevronDown,
   Loader2,
   LogOut,
@@ -78,6 +80,16 @@ export default function UserMenu({
         href: getLibraryPath(user.username),
         icon: BookOpen,
         onboardingTarget: "profile-menu-library",
+      },
+      {
+        label: "امانت‌های من",
+        href: "/loans",
+        icon: Handshake,
+      },
+      {
+        label: "لیست خرید",
+        href: "/wishlist",
+        icon: ShoppingCart,
       },
       {
         label: "گزارش مطالعه",
