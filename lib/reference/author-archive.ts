@@ -7,6 +7,7 @@ import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
 export interface AuthorArchiveItem {
   id: string; name: string; slug: string | null; coverImage: string | null;
   countryName: string | null; bookCount: number; averageRating: number | null; ratingCount: number;
+  latestBookYear: number | null; oldestBookYear: number | null;
 }
 export interface AuthorArchiveResult { items: AuthorArchiveItem[]; countries: string[]; totalCount: number; page: number; pageSize: number; pageCount: number; }
 type RawResult<T> = { rows: T[] };
@@ -17,7 +18,8 @@ const orderBy: Record<AuthorArchiveSort, ReturnType<typeof sql>> = {
   MOST_BOOKS: sql`"bookCount" DESC, "ratingCount" DESC, "name" ASC`,
   HIGHEST_RATED: sql`"weightedRating" DESC, "ratingCount" DESC, "bookCount" DESC, "name" ASC`,
   MOST_POPULAR: sql`"ratingCount" DESC, "bookCount" DESC, "name" ASC`,
-  NEWEST: sql`"createdAt" DESC, "name" ASC`, OLDEST: sql`"createdAt" ASC, "name" ASC`,
+  NEWEST: sql`"latestBookYear" DESC NULLS LAST, "bookCount" DESC, "name" ASC`,
+  OLDEST: sql`"oldestBookYear" ASC NULLS LAST, "bookCount" DESC, "name" ASC`,
   NAME_ASC: sql`"name" ASC`, NAME_DESC: sql`"name" DESC`,
 };
 
@@ -35,9 +37,12 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
     WITH author_book_links AS (
       SELECT DISTINCT reference_item_id, catalog_book_id
       FROM (${publicPersonBookRoles}) person_books
+      WHERE role = 'AUTHOR'
     ), author_stats AS (
       SELECT abl."reference_item_id" AS id,
         count(DISTINCT cb."id")::int AS "bookCount",
+        max(cb."first_published_year") AS "latestBookYear",
+        min(cb."first_published_year") AS "oldestBookYear",
         round(avg(b."rating") FILTER (WHERE b."rating" BETWEEN 1 AND 5), 1)::float AS "averageRating",
         count(b."rating") FILTER (WHERE b."rating" BETWEEN 1 AND 5)::int AS "ratingCount"
       FROM author_book_links abl
@@ -47,8 +52,9 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
     ), global_rating AS (
       SELECT coalesce(avg("rating") FILTER (WHERE "rating" BETWEEN 1 AND 5), 0)::float AS value FROM "Book"
     ), candidates AS (
-      SELECT r."id", r."name", r."slug", r."cover_image" AS "coverImage", r."country_name" AS "countryName", r."created_at" AS "createdAt",
+      SELECT r."id", r."name", r."slug", r."cover_image" AS "coverImage", r."country_name" AS "countryName",
         coalesce(s."bookCount", 0)::int AS "bookCount", s."averageRating", coalesce(s."ratingCount", 0)::int AS "ratingCount",
+        s."latestBookYear", s."oldestBookYear",
         (coalesce(s."ratingCount", 0)::float / (coalesce(s."ratingCount", 0) + 5) * coalesce(s."averageRating", g.value) + 5::float / (coalesce(s."ratingCount", 0) + 5) * g.value) AS "weightedRating"
       FROM "ReferenceItem" r LEFT JOIN author_stats s ON s.id = r."id" CROSS JOIN global_rating g
       WHERE r."status" = 'APPROVED' AND r."roles" @> ARRAY['AUTHOR']::"ReferenceType"[] AND r."canonical_reference_id" IS NULL

@@ -5,8 +5,8 @@ export const AUTHOR_ARCHIVE_SORT_OPTIONS = [
   { value: "MOST_BOOKS", label: "بیشترین کتاب" },
   { value: "HIGHEST_RATED", label: "بالاترین امتیاز" },
   { value: "MOST_POPULAR", label: "محبوب‌ترین" },
-  { value: "NEWEST", label: "جدیدترین" },
-  { value: "OLDEST", label: "قدیمی‌ترین" },
+  { value: "NEWEST", label: "تازه‌ترین کتاب" },
+  { value: "OLDEST", label: "قدیمی‌ترین کتاب" },
   { value: "NAME_ASC", label: "الفبا: الف تا ی" },
   { value: "NAME_DESC", label: "الفبا: ی تا الف" },
 ] as const;
@@ -31,7 +31,7 @@ function numberParam(value: SearchParamValue, min: number, max: number) {
 }
 
 export const DEFAULT_AUTHOR_ARCHIVE_FILTERS: AuthorArchiveFilters = {
-  q: "", country: "", minBooks: null, minRating: null, sort: "TOP", page: 1,
+  q: "", country: "", minBooks: null, minRating: null, sort: "MOST_BOOKS", page: 1,
 };
 
 export function parseAuthorArchiveSearchParams(params: Record<string, SearchParamValue>): AuthorArchiveFilters {
@@ -43,7 +43,7 @@ export function parseAuthorArchiveSearchParams(params: Record<string, SearchPara
     country: firstOf(params.country).trim(),
     minBooks: [5, 10, 20].includes(minBooks ?? 0) ? minBooks : null,
     minRating: [3, 4, 4.5].includes(rawRating) ? rawRating : null,
-    sort: AUTHOR_ARCHIVE_SORT_OPTIONS.some((item) => item.value === sort) ? sort : "TOP",
+    sort: AUTHOR_ARCHIVE_SORT_OPTIONS.some((item) => item.value === sort) ? sort : "MOST_BOOKS",
     page: numberParam(params.page, 1, 9999) ?? 1,
   };
 }
@@ -54,7 +54,7 @@ export function toAuthorArchiveSearchParams(filters: AuthorArchiveFilters) {
   if (filters.country) params.set("country", filters.country);
   if (filters.minBooks) params.set("minBooks", String(filters.minBooks));
   if (filters.minRating) params.set("minRating", String(filters.minRating));
-  if (filters.sort !== "TOP") params.set("sort", filters.sort);
+  if (filters.sort !== "MOST_BOOKS") params.set("sort", filters.sort);
   if (filters.page > 1) params.set("page", String(filters.page));
   return params;
 }

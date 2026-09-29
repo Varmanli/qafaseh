@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   return buildPageMetadata({
     title: "نویسنده‌ها",
-    description: "فهرست نویسنده‌ها و کتاب‌های مرتبط در قفسه.",
+    description: "نویسنده‌های قفسه را پیدا کن و کتاب‌هایی را ببین که نوشته‌اند.",
     path: "/authors",
   });
 }

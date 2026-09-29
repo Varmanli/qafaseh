@@ -7,9 +7,9 @@ import {
   toAuthorArchiveSearchParams,
 } from "@/lib/reference/author-archive-search";
 
-test("authors archive defaults to TOP rather than alphabetical order", () => {
+test("authors archive defaults to authored book count", () => {
   const filters = parseAuthorArchiveSearchParams({});
-  assert.equal(filters.sort, "TOP");
+  assert.equal(filters.sort, "MOST_BOOKS");
   assert.equal(toAuthorArchiveSearchParams(filters).toString(), "");
 });
 
@@ -25,7 +25,7 @@ test("authors archive rejects unsupported thresholds and sort values", () => {
   const filters = parseAuthorArchiveSearchParams({ minBooks: "7", minRating: "2", sort: "NAME" });
   assert.equal(filters.minBooks, null);
   assert.equal(filters.minRating, null);
-  assert.equal(filters.sort, "TOP");
+  assert.equal(filters.sort, "MOST_BOOKS");
 });
 
 test("initial URL state does not count as a search change and reset its page", () => {

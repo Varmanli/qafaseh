@@ -44,10 +44,10 @@ const ARCHIVE_SCOPE_BY_TYPE: Partial<
     (entity: { id: string; name: string }) => BookArchiveScope
   >
 > = {
-  AUTHOR: (entity) => ({ personId: entity.id }),
+  AUTHOR: (entity) => ({ personId: entity.id, personRole: "AUTHOR" }),
   GENRE: (entity) => ({ fixedGenre: entity.name }),
-  PUBLISHER: (entity) => ({ fixedPublisher: entity.name }),
-  TRANSLATOR: (entity) => ({ personId: entity.id }),
+  PUBLISHER: (entity) => ({ fixedPublisher: entity.name, fixedPublisherId: entity.id }),
+  TRANSLATOR: (entity) => ({ personId: entity.id, personRole: "TRANSLATOR", fixedTranslator: entity.name }),
   COUNTRY: (entity) => ({ fixedCountry: entity.name }),
 };
 
@@ -138,6 +138,10 @@ export default async function ReferencePublicView({
 
   const archiveScopeFactory = ARCHIVE_SCOPE_BY_TYPE[type];
   const archiveConfig = ARCHIVE_CONFIG_BY_TYPE[type];
+  const searchPlaceholder =
+    type === "AUTHOR" || type === "TRANSLATOR" || type === "PUBLISHER"
+      ? `جست‌وجو در کتاب‌های ${entity.name}`
+      : archiveConfig?.searchPlaceholder;
 
   const archiveScope = archiveScopeFactory?.(entity);
 
@@ -155,8 +159,6 @@ export default async function ReferencePublicView({
     type === "AUTHOR" ? (authorArchiveReturnPath ?? "/authors") : null;
 
   const hasMetaInformation = Boolean(
-    entity.birthYear ||
-    entity.deathYear ||
     entity.countryName ||
     entity.website,
   );
@@ -224,13 +226,6 @@ export default async function ReferencePublicView({
 
                   {hasMetaInformation ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                      {entity.birthYear || entity.deathYear ? (
-                        <span className="inline-flex items-center rounded-full border border-border/60 bg-background/55 px-3 py-1.5">
-                          {entity.birthYear ?? "؟"} -{" "}
-                          {entity.deathYear ?? "اکنون"}
-                        </span>
-                      ) : null}
-
                       {entity.countryName ? (
                         <span className="inline-flex items-center rounded-full border border-border/60 bg-background/55 px-3 py-1.5">
                           {entity.countryName}
@@ -275,7 +270,7 @@ export default async function ReferencePublicView({
               options={scopedArchiveData.options}
               archive={scopedArchiveData.archive}
               showBookCount={type === "AUTHOR" || type === "TRANSLATOR"}
-              searchPlaceholder={archiveConfig.searchPlaceholder}
+              searchPlaceholder={searchPlaceholder}
               hideGenreFilter={archiveConfig.hideGenreFilter}
               hideAuthorFilter={archiveConfig.hideAuthorFilter}
               hidePublisherFilter={archiveConfig.hidePublisherFilter}

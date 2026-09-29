@@ -38,10 +38,10 @@ export interface BookArchiveItem {
   coverImage: string | null;
   publishedYear: number | null;
   pageCount: number | null;
-  /** Set only when the archive query originated from a specific edition. */
+  /** Set when the archive is scoped to an entity with a matching edition. */
   editionId: string | null;
   editionLabel: string | null;
-  /** Explicit only for edition-originating scopes such as translator/publisher. */
+  /** Edition selected for the active person, translator, or publisher scope. */
   displayEdition: BookPresentationEdition | null;
   popularityCount: number;
   wantedCount: number;
@@ -66,15 +66,47 @@ export interface BookArchivePageData {
 
 export interface BookArchiveScope {
   personId?: string;
+  personRole?: "AUTHOR" | "TRANSLATOR";
   fixedAuthor?: string;
   fixedGenre?: string;
   fixedPublisher?: string;
+  fixedPublisherId?: string;
   fixedTranslator?: string;
   fixedCountry?: string;
 }
 
 function lowerEquals(column: unknown, value: string) {
   return sql`lower(${column}) = lower(${value})`;
+}
+
+function editionScopeMatch(scope: BookArchiveScope) {
+  const matches = [];
+  if (scope.personId && scope.personRole) {
+    matches.push(sql`exists (
+      select 1
+      from "BookEditionContributor" bec
+      join "ReferenceItem" profile on profile.id = bec.reference_item_id
+      where bec.book_edition_id = be.id
+        and coalesce(profile.canonical_reference_id, profile.id) = ${scope.personId}
+        and bec.role = ${scope.personRole}
+    )`);
+  }
+  if (scope.personRole === "TRANSLATOR" && scope.fixedTranslator) {
+    matches.push(sql`lower(be.translator) = lower(${scope.fixedTranslator})`);
+  }
+  if (scope.fixedPublisherId) {
+    matches.push(sql`exists (
+      select 1
+      from "BookEditionPublisher" bep
+      join "ReferenceItem" profile on profile.id = bep.reference_item_id
+      where bep.book_edition_id = be.id
+        and coalesce(profile.canonical_reference_id, profile.id) = ${scope.fixedPublisherId}
+    )`);
+  }
+  if (scope.fixedPublisher) {
+    matches.push(sql`lower(be.publisher) = lower(${scope.fixedPublisher})`);
+  }
+  return matches.length ? sql`(${sql.join(matches, sql` or `)})` : undefined;
 }
 
 function genreContains(column: unknown, value: string) {
@@ -114,6 +146,31 @@ function presentationEditionField<T>(
   fieldName: string,
   scope: BookArchiveScope,
 ) {
+  const scopedMatch = editionScopeMatch(scope);
+  if (scope.personRole || scope.fixedPublisherId) {
+    const normalized = fieldName.trim().toLowerCase();
+    if (!ALLOWED_EDITION_COLUMNS.has(normalized)) {
+      throw new Error(`Disallowed column identifier for edition archive subquery: ${fieldName}`);
+    }
+    return sql<T>`(
+      select be.${sql.identifier(normalized)}
+      from "BookEdition" be
+      where be.catalog_book_id = ${CatalogBook.id}
+        and be.status = 'APPROVED'
+      order by
+        case when ${scopedMatch ?? sql`false`} then 0 else 1 end,
+        case when ${CatalogBook.primaryEditionId} is not null and be.id = ${CatalogBook.primaryEditionId} then 0 else 1 end,
+        case when be.cover_image is not null and trim(be.cover_image) <> '' then 0 else 1 end,
+        (
+          case when be.publisher is not null and trim(be.publisher) <> '' then 1 else 0 end +
+          case when be.translator is not null and trim(be.translator) <> '' then 1 else 0 end +
+          case when coalesce(be.isbn13, be.isbn10, be.isbn) is not null and trim(coalesce(be.isbn13, be.isbn10, be.isbn)) <> '' then 1 else 0 end
+        ) desc,
+        be.created_at asc,
+        be.id asc
+      limit 1
+    )`;
+  }
   if (!scope.fixedTranslator && !scope.fixedPublisher) {
     return bestEditionField<T>(fieldName);
   }
@@ -160,10 +217,13 @@ function buildEditionExists(
     sql`be.status = 'APPROVED'`,
   ];
 
-  if (scope.fixedTranslator) {
+  const scopedMatch = editionScopeMatch(scope);
+  if (scope.personRole || scope.fixedPublisherId) {
+    if (scopedMatch) conditions.push(scopedMatch);
+  } else if (scope.fixedTranslator) {
     conditions.push(sql`lower(be.translator) = lower(${scope.fixedTranslator})`);
   }
-  if (scope.fixedPublisher) {
+  if (!scope.fixedPublisherId && scope.fixedPublisher) {
     conditions.push(sql`lower(be.publisher) = lower(${scope.fixedPublisher})`);
   }
 
@@ -620,7 +680,7 @@ export async function getBookArchivePageData(
         )`,
         publishedYear: presentationEditionField<number | null>("published_year", scope),
         pageCount: presentationEditionField<number | null>("page_count", scope),
-        editionId: scope.fixedTranslator || scope.fixedPublisher
+        editionId: scope.personRole || scope.fixedTranslator || scope.fixedPublisher
           ? presentationEditionField<string | null>("id", scope)
           : sql<string | null>`null`,
         editionLabel: presentationEditionField<string | null>("edition_label", scope),

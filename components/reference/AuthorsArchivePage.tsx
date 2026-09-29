@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BookOpen, MapPin, Star, UsersRound } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -151,7 +152,32 @@ export default function AuthorsArchivePage({
     apply(next);
   };
   return (
-    <div className="space-y-6">
+    <div dir="rtl" className="space-y-7 sm:space-y-9">
+      <header className="relative isolate overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-br from-primary/[0.10] via-card to-card px-5 py-7 shadow-sm sm:px-9 sm:py-10">
+        <div aria-hidden="true" className="absolute -left-14 -top-20 -z-10 size-64 rounded-full bg-primary/[0.08] blur-3xl" />
+        <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div className="max-w-2xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-background/70 px-3 py-1.5 text-xs font-bold text-primary shadow-sm">
+              <UsersRound aria-hidden="true" className="size-4" />
+              <span>راهنمای نویسندگان قفسه</span>
+            </div>
+            <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">نویسنده‌ها</h1>
+            <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
+              نویسندهٔ بعدی کتابت را پیدا کن؛ آثار هر نویسنده بر اساس کتاب‌هایی شمرده می‌شوند که نوشته است.
+            </p>
+          </div>
+          <div className="flex w-fit items-center gap-3 rounded-2xl border border-border/70 bg-background/75 px-4 py-3 shadow-sm backdrop-blur">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <UsersRound aria-hidden="true" className="size-5" />
+            </span>
+            <span>
+              <span className="block text-2xl font-black tabular-nums leading-none">{result.totalCount.toLocaleString("fa-IR")}</span>
+              <span className="mt-1 block text-xs font-semibold text-muted-foreground">نویسندهٔ تأییدشده</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
       <ArchiveToolbar label="ابزارهای مرور نویسنده‌ها">
         <ArchiveSearch
           value={query}
@@ -193,9 +219,15 @@ export default function AuthorsArchivePage({
           isPending ? "opacity-65 transition-opacity" : "transition-opacity"
         }
       >
+        <div className="mb-4 flex items-center justify-between gap-3 px-1 text-sm">
+          <p className="font-bold text-foreground">{filters.q || filters.country || filters.minBooks || filters.minRating ? "نتایج جست‌وجو" : "چهره‌های ادبی"}</p>
+          <p className="text-xs font-medium text-muted-foreground">{result.totalCount.toLocaleString("fa-IR")} نویسنده</p>
+        </div>
         {result.items.length === 0 ? (
           <div className="rounded-[1.8rem] border border-dashed border-border/70 bg-card/50 px-6 py-14 text-center">
+            <span className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground"><UsersRound aria-hidden="true" className="size-5" /></span>
             <h2 className="text-xl font-black">نویسنده‌ای پیدا نشد</h2>
+            <p className="mt-2 text-sm text-muted-foreground">عبارت جست‌وجو یا فیلترها را تغییر بده و دوباره بگرد.</p>
             {hasActiveAuthorArchiveFilters(filters) ? (
               <Button
                 type="button"
@@ -209,7 +241,7 @@ export default function AuthorsArchivePage({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 min-[430px]:gap-x-5 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 min-[430px]:gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {result.items.map((item) => (
                 <Link
                   key={item.id}
@@ -217,19 +249,24 @@ export default function AuthorsArchivePage({
                     item.slug ?? item.name,
                     searchParams.toString(),
                   )}
-                  className="group block"
+                  className="group block rounded-[1.5rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
-                  <article className="flex flex-col items-center text-center">
-                    <div className="relative rounded-full p-1 transition-transform duration-300 group-hover:-translate-y-1">
+                  <article className="flex h-full min-h-56 flex-col items-center rounded-[1.5rem] border border-border/70 bg-card px-3 py-5 text-center shadow-[0_2px_12px_rgba(0,0,0,0.025)] transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/25 group-hover:shadow-lg group-hover:shadow-primary/[0.06] sm:min-h-60 sm:px-4 sm:py-6">
+                    <div className="relative mb-1 rounded-full bg-gradient-to-br from-primary/20 to-transparent p-1 transition-transform duration-300 group-hover:scale-[1.04]">
                       <AuthorAvatar
                         name={item.name}
                         image={item.coverImage}
-                        sizeClassName="h-28 w-28 min-[390px]:h-32 min-[390px]:w-32 sm:h-36 sm:w-36"
+                        sizeClassName="h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32"
                       />
                     </div>
-                    <h2 className="mt-3 line-clamp-1 max-w-full font-black leading-6 tracking-tight text-foreground/90 group-hover:text-primary">
+                    <h2 className="mt-3 line-clamp-2 min-h-12 max-w-full font-black leading-6 tracking-tight text-foreground/90 group-hover:text-primary">
                       {item.name}
                     </h2>
+                    {item.countryName ? <p className="mt-1 flex max-w-full items-center gap-1 truncate text-xs font-medium text-muted-foreground"><MapPin aria-hidden="true" className="size-3 shrink-0" />{item.countryName}</p> : <span className="mt-1 h-4" />}
+                    <div className="mt-auto flex w-full items-center justify-center gap-2 border-t border-border/60 pt-4 text-xs font-bold text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5"><BookOpen aria-hidden="true" className="size-3.5 text-primary" />{item.bookCount.toLocaleString("fa-IR")} کتاب</span>
+                      {item.averageRating !== null ? <span className="inline-flex items-center gap-1 border-r border-border pr-2"><Star aria-hidden="true" className="size-3.5 fill-amber-400 text-amber-400" />{item.averageRating.toLocaleString("fa-IR")}</span> : null}
+                    </div>
                   </article>
                 </Link>
               ))}

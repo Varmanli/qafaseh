@@ -38,7 +38,12 @@ export function analyzeIranKetabExtraction(extraction: IranKetabExtractionEnvelo
   const entityConflicts = entities.filter(item => item.status === "CONFLICT" || item.status === "AMBIGUOUS").length;
   const editionConflicts = editions.filter(item => item.status === "CONFLICT").length;
   const insufficient = editions.some(item => item.status === "INSUFFICIENT_DATA") || !extraction.book.authors.length;
-  const catalogAmbiguous = catalogStatus === "POSSIBLE_MATCH" && catalogCandidates.length > 1;
+  // Same-title books with different authors are common and are only weak
+  // candidates. They should not block auto-import of a distinct book.
+  const plausibleCatalogCandidates = catalogCandidates.filter(
+    candidate => candidate.confidence === "HIGH" || candidate.confidence === "MEDIUM",
+  );
+  const catalogAmbiguous = catalogStatus === "POSSIBLE_MATCH" && plausibleCatalogCandidates.length > 1;
   const entityAmbiguous = entities.some(item => item.requiresManualSelection);
   const readiness: Readiness = conflicts.some(item => item.blocksImport) || editionConflicts > 0 ? "BLOCKED_BY_CONFLICT" : insufficient ? "INSUFFICIENT_DATA" : catalogAmbiguous ? "REQUIRES_CATALOG_SELECTION" : entityAmbiguous ? "REQUIRES_ENTITY_SELECTION" : "READY_FOR_REVIEW";
   return { catalog: { status: catalogStatus, selected, candidates: catalogCandidates }, editions, entities, conflicts: conflicts.filter(item => item.severity === "CRITICAL"), warnings: [...warnings, ...conflicts.filter(item => item.severity !== "CRITICAL")], summary: { catalogStatus, totalExtractedEditions: extraction.editions.length, newEditions: editions.filter(item => item.status === "NEW").length, exactEditionMatches: editions.filter(item => item.status === "EXACT_MATCH").length, possibleEditionMatches: editions.filter(item => item.status === "POSSIBLE_MATCH").length, conflictingEditions: editionConflicts, exactEntityMatches: exactEntities, possibleEntityMatches: possibleEntities, newEntities, entityConflicts, readiness, canProceedToReview: readiness === "READY_FOR_REVIEW", requiresManualReview: readiness !== "READY_FOR_REVIEW" } };

@@ -418,7 +418,12 @@ export async function commitIranKetabImport(params: {
             .from(ReferenceItem)
             .where(eq(ReferenceItem.id, entity.entityId))
             .limit(1);
-          if (!row || row.type !== entity.entityType)
+          const isPersonRole =
+            entity.entityType === "AUTHOR" || entity.entityType === "TRANSLATOR";
+          const referenceMatches = row && (isPersonRole
+            ? row.roles.includes(entity.entityType)
+            : row.type === entity.entityType);
+          if (!referenceMatches)
             throw new IranKetabCommitError(
               "STALE_DRAFT",
               "یکی از مراجع انتخاب‌شده تغییر کرده است.",
