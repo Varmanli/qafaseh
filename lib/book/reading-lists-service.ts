@@ -66,12 +66,13 @@ async function loadPublicItems(listIds: string[]) {
     .orderBy(ReadingListItem.listId, ReadingListItem.position);
 }
 
-export async function getReadingListsOverview(): Promise<ReadingListPreview[]> {
+export async function getReadingListsOverview(ids?: string[]): Promise<ReadingListPreview[]> {
+  if (ids && !ids.length) return [];
   // ponytail: 200 published lists per hub; add pagination when editorial volume reaches that ceiling.
   const lists = await db.select().from(ReadingList)
-    .where(eq(ReadingList.status, "PUBLISHED"))
+    .where(and(eq(ReadingList.status, "PUBLISHED"), ids ? inArray(ReadingList.id, ids) : undefined))
     .orderBy(sql`${ReadingList.featured} desc`, ReadingList.createdAt)
-    .limit(200);
+    .limit(ids ? ids.length : 200);
   if (!lists.length) return [];
   const ranked = db.select({
     listId: ReadingListItem.listId,

@@ -626,6 +626,38 @@ async function loadPublicQuotes(
 
 const DETAIL_QUOTE_LIMIT = 10;
 
+export async function getBookMetadata(ref: string) {
+  const subject = await loadSubjectRow(ref);
+  if (!subject) return null;
+
+  const [slug, editions] = await Promise.all([
+    ensureCatalogBookSlug({
+      id: subject.catalogBookId,
+      title: subject.title,
+      slug: subject.slug,
+    }),
+    loadApprovedEditions(subject.catalogBookId),
+  ]);
+  const display = resolveBookDisplayData({
+    title: subject.title,
+    subtitle: subject.subtitle,
+    author: subject.author,
+    editions,
+    primaryEditionId: subject.primaryEditionId,
+    catalogBookCover: subject.catalogCoverImage,
+    legacyBookCover: subject.legacyBookCoverImage,
+  });
+
+  return {
+    slug,
+    title: subject.title,
+    author: subject.author,
+    description: subject.description,
+    genres: subject.genre ? splitStoredGenres(subject.genre) : [],
+    displayCoverImage: display.displayCoverImage,
+  };
+}
+
 export async function getBookDetail(
   ref: string,
   viewerId?: string,

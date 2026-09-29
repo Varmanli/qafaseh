@@ -53,9 +53,9 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir https://iranketab.ir https://img.iranketab.ir https://lh3.googleusercontent.com",
-      "font-src 'self' data: https://cdn.jsdelivr.net",
+      "font-src 'self' data:",
       "connect-src 'self' https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir",
       "frame-ancestors 'none'",
     ].join("; "),
@@ -64,6 +64,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/@img/sharp-*/lib/**/*"],
+  },
   poweredByHeader: false,
   transpilePackages: ["@ghafaseh/iranketab-extractor"],
 

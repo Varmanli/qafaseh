@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getLibraryPath, getProfilePath } from "@/lib/library/paths";
 import {
@@ -27,6 +28,54 @@ import HomeGenreDiscovery from "@/components/home/HomeGenreDiscovery";
 
 export const dynamic = "force-dynamic";
 
+type HomeMeasure = ReturnType<typeof createHomePerfMeter>;
+
+function loadHomeSections(
+  userPromise: ReturnType<typeof getCurrentUser>,
+  measure: HomeMeasure,
+) {
+  const featuredBooksPromise = measure("featured books", () => getFeaturedBooks(8));
+  return {
+    featuredBooks: featuredBooksPromise,
+    popularBooks: featuredBooksPromise.then((books) =>
+      books.length ? [] : measure("popular books", () => getPopularBooks(8)),
+    ),
+    quotes: measure("recent quotes", () => userPromise.then((user) => getRecentHomeQuotes(10, user?.id))),
+    blogPosts: measure("featured blog posts", getFeaturedHomeBlogPosts),
+    authors: measure("featured authors", getFeaturedAuthors),
+    genres: measure("genres", () => getHomepageGenres(5)),
+    readingLists: measure("reading lists", getFeaturedHomeReadingLists),
+  };
+}
+
+type HomeData = ReturnType<typeof loadHomeSections>;
+
+async function HomeBooks({ data }: { data: HomeData }) {
+  const [featuredBooks, popularBooks] = await Promise.all([data.featuredBooks, data.popularBooks]);
+  const hasFeatured = featuredBooks.length > 0;
+  return <HomeBookCarousel books={hasFeatured ? featuredBooks : popularBooks} isFallback={!hasFeatured} />;
+}
+
+async function HomeQuotes({ data, isLoggedIn }: { data: HomeData; isLoggedIn: boolean }) {
+  return <HomeQuotesSection quotes={await data.quotes} isLoggedIn={isLoggedIn} />;
+}
+
+async function HomeAuthors({ data }: { data: HomeData }) {
+  return <HomePopularAuthors authors={await data.authors} />;
+}
+
+async function HomeGenres({ data }: { data: HomeData }) {
+  return <HomeGenreDiscovery genres={await data.genres} />;
+}
+
+async function HomeLists({ data }: { data: HomeData }) {
+  return <HomeReadingListsPreview lists={await data.readingLists} />;
+}
+
+async function HomeBlog({ data }: { data: HomeData }) {
+  return <HomeBlogPreview posts={await data.blogPosts} />;
+}
+
 function createHomePerfMeter(enabled: boolean, requestId: string) {
   return async function measure<T>(operation: string, fn: () => Promise<T>): Promise<T> {
     if (!enabled) return fn();
@@ -48,32 +97,11 @@ export default async function HomePage() {
   const requestId = perf ? crypto.randomUUID() : "";
   const measure = createHomePerfMeter(perf, requestId);
   const userPromise = measure("session", getCurrentUser);
-  const [
-    user,
-    featuredBooks,
-    recentQuotes,
-    featuredBlogPosts,
-    dbHeroSlides,
-    featuredAuthors,
-    popularBooks,
-    genres,
-    readingLists,
-  ] = await measure("all homepage data", () => Promise.all([
+  const homeData = loadHomeSections(userPromise, measure);
+  const [user, dbHeroSlides] = await Promise.all([
     userPromise,
-    measure("featured books", () => getFeaturedBooks(8)),
-    measure("recent quotes", () => userPromise.then((currentUser) => getRecentHomeQuotes(10, currentUser?.id))),
-    measure("featured blog posts", getFeaturedHomeBlogPosts),
     measure("hero slides", getHeroSlides),
-    measure("featured authors", getFeaturedAuthors),
-    measure("popular books", () => getPopularBooks(8)),
-    measure("genres", () => getHomepageGenres(5)),
-    measure("reading lists", getFeaturedHomeReadingLists),
-  ]));
-
-  // کتاب‌های پیشنهادی از انتخاب ادمین می‌آیند؛ در نبود انتخاب، fallback به
-  // کتاب‌های اخیر عمومی (به‌صورت شفاف با برچسب «تازه‌ترین‌ها»).
-  const hasFeatured = featuredBooks.length > 0;
-  const showcaseBooks = hasFeatured ? featuredBooks : popularBooks;
+  ]);
 
   const isLoggedIn = !!user;
   const libraryHref = getLibraryPath(user?.username);
@@ -131,29 +159,34 @@ export default async function HomePage() {
           </div>
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_650px]">
-            <HomeBookCarousel books={showcaseBooks} isFallback={!hasFeatured} />
+            <Suspense fallback={<div className="h-[650px]" aria-hidden="true" />}>
+              <HomeBooks data={homeData} />
+            </Suspense>
           </div>
-
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_560px]">
-            <HomeQuotesSection quotes={recentQuotes} isLoggedIn={isLoggedIn} />
+            <Suspense fallback={<div className="h-[560px]" aria-hidden="true" />}>
+              <HomeQuotes data={homeData} isLoggedIn={isLoggedIn} />
+            </Suspense>
           </div>
-
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_400px]">
-            <HomePopularAuthors authors={featuredAuthors} />
+            <Suspense fallback={<div className="h-[400px]" aria-hidden="true" />}>
+              <HomeAuthors data={homeData} />
+            </Suspense>
           </div>
-
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_380px]">
-            <HomeGenreDiscovery genres={genres} />
+            <Suspense fallback={<div className="h-[380px]" aria-hidden="true" />}>
+              <HomeGenres data={homeData} />
+            </Suspense>
           </div>
-
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_560px]">
-            <HomeReadingListsPreview lists={readingLists} />
+            <Suspense fallback={<div className="h-[560px]" aria-hidden="true" />}>
+              <HomeLists data={homeData} />
+            </Suspense>
           </div>
-
-          {/* <HomeFeatureCards /> */}
-
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_520px]">
-            <HomeBlogPreview posts={featuredBlogPosts} />
+            <Suspense fallback={<div className="h-[520px]" aria-hidden="true" />}>
+              <HomeBlog data={homeData} />
+            </Suspense>
           </div>
         </div>
       </div>

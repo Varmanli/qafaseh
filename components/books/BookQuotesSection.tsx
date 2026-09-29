@@ -331,7 +331,7 @@ export default function BookQuotesSection({
     });
   }
 
-  function renderQuoteCard(quote: PublicQuote, index?: number) {
+  function renderQuoteCard(quote: PublicQuote) {
     const canManage =
       viewerIsAdmin || Boolean(viewerEntryId && quote.bookId === viewerEntryId);
 
@@ -343,7 +343,6 @@ export default function BookQuotesSection({
         showAuthor
         showBook={showBook}
         background={quote.background}
-        priority={index === 0}
         manage={
           canManage
             ? {
@@ -422,7 +421,7 @@ export default function BookQuotesSection({
                 slideClassName="w-[min(84vw,320px)] flex-none snap-start md:w-auto md:basis-1/2 xl:basis-1/3 px-1"
                 containerClassName="gap-4 lg:gap-5"
                 slides={(() => {
-                  const carouselSlides = items.slice(0, limit).map((quote, index) => renderQuoteCard(quote, index));
+                  const carouselSlides = items.slice(0, limit).map(renderQuoteCard);
                   if (limit < items.length) {
                     carouselSlides.push(
                       <div

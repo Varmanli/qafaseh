@@ -13,7 +13,7 @@ export default function HomeQuotesSection({
   isLoggedIn: boolean;
 }) {
   const hasQuotes = quotes.length > 0;
-  const carouselSlides = quotes.map((quote, index) => (
+  const carouselSlides = quotes.map((quote) => (
     <QuoteCard
       key={quote.id}
       quote={quote}
@@ -21,7 +21,6 @@ export default function HomeQuotesSection({
       showAuthor
       showBook
       background={quote.background}
-      priority={index === 0} // Eager load only the first visible card
       className="
         min-h-[440px]
         w-full

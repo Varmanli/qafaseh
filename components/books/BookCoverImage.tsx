@@ -7,22 +7,6 @@ import { normalizeMediaUrl } from "@/lib/book/cover";
 
 const PLACEHOLDER_COVER = "/placeholder-cover.svg";
 
-export function shouldBypassImageOptimizer(src: string | null | undefined): boolean {
-  if (!src) return false;
-  try {
-    const url = new URL(src);
-    const hostname = url.hostname.toLowerCase();
-
-    return (
-      hostname.endsWith(".arvanstorage.ir") ||
-      hostname.endsWith(".liara.space") ||
-      hostname.includes("s3.ir-thr-at1")
-    );
-  } catch {
-    return false;
-  }
-}
-
 type BookCoverImageProps = {
   src: string | null | undefined;
   alt: string;
@@ -46,8 +30,8 @@ export default function BookCoverImage({
 }: BookCoverImageProps) {
   const resolvedSrc = normalizeMediaUrl(src) ?? PLACEHOLDER_COVER;
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [optimizerFailedSrc, setOptimizerFailedSrc] = useState<string | null>(null);
   const displayedSrc = failedSrc === resolvedSrc ? PLACEHOLDER_COVER : resolvedSrc;
-  const bypassOptimizer = shouldBypassImageOptimizer(displayedSrc);
 
   return (
     <Image
@@ -59,8 +43,14 @@ export default function BookCoverImage({
       sizes={sizes}
       priority={priority}
       className={className}
-      unoptimized={bypassOptimizer}
-      onError={() => setFailedSrc(resolvedSrc)}
+      unoptimized={optimizerFailedSrc === displayedSrc}
+      onError={() => {
+        if (displayedSrc !== PLACEHOLDER_COVER && optimizerFailedSrc !== displayedSrc) {
+          setOptimizerFailedSrc(displayedSrc);
+        } else {
+          setFailedSrc(resolvedSrc);
+        }
+      }}
     />
   );
 }

@@ -17,7 +17,7 @@ import {
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
-import { getBookDetail } from "@/lib/book/detail-service";
+import { getBookDetail, getBookMetadata } from "@/lib/book/detail-service";
 import PublicShell from "@/components/PublicShell";
 import { Carousel } from "@/components/ui/Carousel";
 import ReadingStatusControl from "@/components/books/ReadingStatusControl";
@@ -54,13 +54,11 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const result = await getBookDetail(decodeURIComponent(id));
+  const book = await getBookMetadata(decodeURIComponent(id));
 
-  if (!result.found) {
+  if (!book) {
     return { title: "کتاب پیدا نشد | قفسه" };
   }
-
-  const { book } = result;
   const description =
     book.description
       ?.replace(/<[^>]+>/g, " ")
@@ -77,7 +75,7 @@ export async function generateMetadata({
     keywords: [
       book.title,
       book.author,
-      ...book.genres.map((genre) => genre.name),
+      ...book.genres,
     ],
   });
 }
@@ -114,8 +112,11 @@ export default async function BookPage({
     translatorChips,
     publisherChip,
     quotes,
+    quoteCount,
     bookNotes,
+    bookNotesCount,
     editionNotes,
+    editionNotesCount,
     externalLinks,
   } = result;
 
@@ -131,6 +132,9 @@ export default async function BookPage({
 
   const isLoggedIn = !!viewer;
   const loginHref = `/auth/login?redirect=/book/${encodeURIComponent(book.slug)}`;
+  const notesHref = `/book/${encodeURIComponent(book.slug)}/notes${
+    selectedEdition?.id ? `?edition=${encodeURIComponent(selectedEdition.id)}` : ""
+  }`;
 
   const genreList = book.genres.map((genre) => genre.name);
   const [magazinePosts, similarBooks] = await Promise.all([
@@ -290,7 +294,7 @@ export default async function BookPage({
   ].filter(Boolean);
 
   return (
-    <PublicShell>
+    <PublicShell user={viewer}>
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:py-8">
         <script
           type="application/ld+json"
@@ -569,6 +573,7 @@ export default async function BookPage({
             viewerIsAdmin={isAdmin(viewer)}
             isLoggedIn={isLoggedIn}
             quotes={quotes}
+            totalQuoteCount={quoteCount}
             viewAllHref={`/book/${encodeURIComponent(book.slug)}/quotes`}
           />
         </div>
@@ -579,9 +584,12 @@ export default async function BookPage({
             selectedEditionId={selectedEdition?.id ?? null}
             isLoggedIn={isLoggedIn}
             bookNotes={bookNotes}
+            bookNotesCount={bookNotesCount}
             editionNotes={editionNotes}
+            editionNotesCount={editionNotesCount}
             viewerId={viewer?.id ?? null}
-            viewAllHref={`/book/${encodeURIComponent(book.slug)}/notes`}
+            viewAllHref={notesHref}
+            loginHref={loginHref}
           />
         </div>
         <SimilarBooksSection books={similarBooks} />

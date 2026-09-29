@@ -184,67 +184,26 @@ export async function listPublishedNotesForBook(opts: {
   bookNotesCount: number;
   editionNotesCount: number;
 }> {
-  const filters = [
-    and(
-      eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
-      eq(PublishedBookNote.scope, "book"),
-    ),
-  ];
-
-  if (opts.editionId) {
-    filters.push(
-      and(
-        eq(PublishedBookNote.catalogBookId, opts.catalogBookId),
-        eq(PublishedBookNote.scope, "edition"),
-        eq(PublishedBookNote.bookEditionId, opts.editionId),
-      ),
-    );
-  }
-
   const visibility = opts.viewerId
     ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, opts.viewerId))
     : eq(User.profileVisibility, "PUBLIC");
 
-  const [rows, countRows] = await Promise.all([
-    db
-    .select({
-      id: PublishedBookNote.id,
-      content: PublishedBookNote.content,
-      bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
-      catalogBookId: PublishedBookNote.catalogBookId,
-      bookEditionId: PublishedBookNote.bookEditionId,
-      scope: PublishedBookNote.scope,
-      bookSlug: CatalogBook.slug,
-      bookTitle: CatalogBook.title,
-      bookAuthor: CatalogBook.author,
-      bookCover: sql<string | null>`coalesce(${BookEdition.coverImage}, ${CatalogBook.coverImage})`,
-      createdAt: PublishedBookNote.createdAt,
-      likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
-      likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
-        opts.viewerId ?? null
-      }), false)`,
-      authorUserId: User.id,
-      authorUsername: User.username,
-      authorName: User.name,
-      authorImage: User.image,
-    })
-    .from(PublishedBookNote)
-    .innerJoin(User, eq(PublishedBookNote.userId, User.id))
-    .innerJoin(CatalogBook, eq(PublishedBookNote.catalogBookId, CatalogBook.id))
-    .leftJoin(BookEdition, eq(PublishedBookNote.bookEditionId, BookEdition.id))
-    .leftJoin(
-      PublishedBookNoteLike,
-      eq(PublishedBookNoteLike.noteId, PublishedBookNote.id),
-    )
-    .where(
-      and(
-        or(...filters),
-        visibility,
-      ),
-    )
-    .groupBy(PublishedBookNote.id, User.id, CatalogBook.id, BookEdition.id)
-    .orderBy(desc(PublishedBookNote.createdAt))
-    .limit(100),
+  const [bookResult, editionResult, countRows] = await Promise.all([
+    getPublishedNotesForBook({
+      catalogBookId: opts.catalogBookId,
+      viewerId: opts.viewerId,
+      scope: "book",
+      limit: 3,
+    }),
+    opts.editionId
+      ? getPublishedNotesForBook({
+          catalogBookId: opts.catalogBookId,
+          viewerId: opts.viewerId,
+          scope: "edition",
+          editionId: opts.editionId,
+          limit: 3,
+        })
+      : Promise.resolve({ notes: [] as PublicNote[], hasMore: false }),
     db
       .select({ scope: PublishedBookNote.scope, total: count() })
       .from(PublishedBookNote)
@@ -267,15 +226,9 @@ export async function listPublishedNotesForBook(opts: {
       .groupBy(PublishedBookNote.scope),
   ]);
 
-  const notes = rows.map((row) => ({
-    ...row,
-    scope: (row.scope ?? "book") as "book" | "edition",
-    likedByViewer: Boolean(row.likedByViewer),
-  }));
-
   return {
-    bookNotes: notes.filter((note) => note.scope === "book"),
-    editionNotes: notes.filter((note) => note.scope === "edition"),
+    bookNotes: bookResult.notes,
+    editionNotes: editionResult.notes,
     bookNotesCount: countRows.find((row) => row.scope === "book")?.total ?? 0,
     editionNotesCount: countRows.find((row) => row.scope === "edition")?.total ?? 0,
   };

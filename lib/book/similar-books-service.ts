@@ -1,5 +1,9 @@
-import { getCatalogDiscoverySignals, getDiscoveryCards } from "@/lib/book/discover-service";
-import { isPublicDiscoveryBook, scoreSimilarity, type CatalogDiscoverySignals } from "@/lib/book/discovery-signals";
+import { and, eq, inArray, like, or, type SQL } from "drizzle-orm";
+import { db } from "@/db";
+import { BookSearchIndex, CatalogBook, CatalogBookContributor } from "@/db/schema";
+import { discoverySignalFields, getDiscoveryCards, publicCatalogBookCondition } from "@/lib/book/discover-service";
+import { genresOf, isPublicDiscoveryBook, scoreSimilarity, type CatalogDiscoverySignals } from "@/lib/book/discovery-signals";
+import { compactSearchText, normalizeSearchText } from "@/lib/book/search-normalize";
 import { discoveryDay, rankRecommendations, RECOMMENDATION_WEIGHTS } from "@/lib/book/recommendation-ranking";
 import { similarBooksById } from "@/lib/book/similar-books-config";
 
@@ -38,13 +42,44 @@ export function selectSimilarBookIds(
 }
 
 export async function getSimilarBooks(sourceBookId: string): Promise<SimilarBook[]> {
-  // ponytail: one lightweight keyset scan is exact for this small catalog;
-  // add an indexed taxonomy candidate query if signal scans become expensive.
-  const rows = await getCatalogDiscoverySignals();
-  const source = rows.find((book) => book.id === sourceBookId);
+  const [source] = await db.select(discoverySignalFields).from(CatalogBook)
+    .where(and(publicCatalogBookCondition, eq(CatalogBook.id, sourceBookId))).limit(1);
   if (!source) return [];
   const curated = [...new Set(similarBooksById[sourceBookId] ?? [])].filter((id) => id !== sourceBookId);
-  const ids = selectSimilarBookIds(source, curated, rows);
+  const matches: SQL[] = [];
+  if (curated.length) matches.push(inArray(CatalogBook.id, curated));
+
+  const indexedMatches: SQL[] = [];
+  if (source.author.trim()) {
+    indexedMatches.push(and(
+      eq(BookSearchIndex.kind, "AUTHOR"),
+      eq(BookSearchIndex.valueCompact, compactSearchText(source.author)),
+    )!);
+  }
+  const genres = genresOf(source).map(normalizeSearchText).filter(Boolean);
+  if (genres.length) {
+    indexedMatches.push(and(
+      eq(BookSearchIndex.kind, "GENRE"),
+      or(...genres.map((genre) => like(BookSearchIndex.valueNormalized, `%${genre}%`))),
+    )!);
+  }
+  if (indexedMatches.length) {
+    matches.push(inArray(CatalogBook.id, db.select({ id: BookSearchIndex.catalogBookId })
+      .from(BookSearchIndex).where(or(...indexedMatches))));
+  }
+  if (source.contributorIds.length) {
+    matches.push(inArray(CatalogBook.id, db.select({ id: CatalogBookContributor.catalogBookId })
+      .from(CatalogBookContributor)
+      .where(and(
+        eq(CatalogBookContributor.role, "AUTHOR"),
+        inArray(CatalogBookContributor.referenceItemId, source.contributorIds),
+      ))));
+  }
+  if (!matches.length) return [];
+
+  const candidates = await db.select(discoverySignalFields).from(CatalogBook)
+    .where(and(publicCatalogBookCondition, or(...matches)));
+  const ids = selectSimilarBookIds(source, curated, candidates);
   const cards = await getDiscoveryCards(ids);
   return cards.flatMap((book) => book.slug ? [{ ...book, slug: book.slug }] : []);
 }

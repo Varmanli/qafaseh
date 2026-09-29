@@ -77,3 +77,24 @@ test("automatic results prefer specific taxonomy and diversify near-equal author
   assert(selected.includes("other"));
   assert(!selected.includes("weak"));
 });
+
+test("indexed candidates preserve full-catalog recommendations", { skip: process.env.RUN_BOOK_DB_TESTS !== "1" }, async () => {
+  const { pool } = await import("@/db");
+  const { getCatalogDiscoverySignals, getDiscoveryCards } = await import("./discover-service");
+  const { similarBooksById } = await import("./similar-books-config");
+  const { getSimilarBooks, selectSimilarBookIds } = await service;
+  try {
+    const rows = await getCatalogDiscoverySignals();
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const sources = [...rows.slice(0, 5), ...Object.keys(similarBooksById).slice(0, 3).flatMap((id) => byId.get(id) ?? [])];
+    for (const source of sources) {
+      const curated = [...new Set(similarBooksById[source.id] ?? [])].filter((id) => id !== source.id);
+      const expected = (await getDiscoveryCards(selectSimilarBookIds(source, curated, rows)))
+        .filter((candidate) => candidate.slug).map((candidate) => candidate.id);
+      const actual = (await getSimilarBooks(source.id)).map((candidate) => candidate.id);
+      assert.deepEqual(actual, expected, source.id);
+    }
+  } finally {
+    await pool.end();
+  }
+});

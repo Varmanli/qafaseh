@@ -113,7 +113,7 @@ export async function getFeaturedHomeReadingLists(): Promise<ReadingListPreview[
     );
   if (!selected.length) return [];
 
-  const byId = new Map((await getReadingListsOverview()).map((list) => [list.id, list]));
+  const byId = new Map((await getReadingListsOverview(selected.map(({ id }) => id))).map((list) => [list.id, list]));
   return selected
     .map(({ id }) => byId.get(id))
     .filter((list): list is ReadingListPreview => Boolean(list));

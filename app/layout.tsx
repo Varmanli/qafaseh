@@ -159,13 +159,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" dir="rtl" className="dark" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@latest/dist/font-face.css"
-        />
-      </head>
       <body>
         <AppProviders>{children}</AppProviders>
       </body>

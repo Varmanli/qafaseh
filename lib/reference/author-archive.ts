@@ -31,7 +31,6 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
     1 = 1
     ${term ? sql`AND "name" ILIKE ${`%${term}%`}` : sql``}
     ${filters.country ? sql`AND "countryName" = ${filters.country}` : sql``}
-    ${filters.minBooks ? sql`AND "bookCount" >= ${filters.minBooks}` : sql``}
     ${filters.minRating ? sql`AND "averageRating" >= ${filters.minRating}` : sql``}`;
   const statement = sql`
     WITH author_book_links AS (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,12 +22,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import RichTextEditor from "@/components/content/RichTextEditor";
 import NoteCard from "@/components/profile/NoteCard";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import type { PublicNote } from "@/lib/notes/service";
 import { richTextToPlainText } from "@/lib/content/rich-text";
+
+const RichTextEditor = dynamic(() => import("@/components/content/RichTextEditor"), { ssr: false });
 
 type NoteTab = "book" | "edition";
 
@@ -36,6 +38,8 @@ export default function BookNotesTabsSection({
   isLoggedIn,
   bookNotes,
   editionNotes,
+  bookNotesCount,
+  editionNotesCount,
   viewerId,
   viewAllHref,
   loginHref,
@@ -48,6 +52,8 @@ export default function BookNotesTabsSection({
   isLoggedIn: boolean;
   bookNotes: PublicNote[];
   editionNotes: PublicNote[];
+  bookNotesCount?: number;
+  editionNotesCount?: number;
   viewerId: string | null;
   viewAllHref?: string;
   loginHref?: string;
@@ -174,8 +180,8 @@ export default function BookNotesTabsSection({
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                       {(activeTab === "edition"
-                        ? editionNotes.length
-                        : bookNotes.length
+                        ? editionNotesCount ?? editionNotes.length
+                        : bookNotesCount ?? bookNotes.length
                       ).toLocaleString("fa-IR")}{" "}
                       یادداشت
                     </span>
@@ -224,7 +230,7 @@ export default function BookNotesTabsSection({
                 active={activeTab === "book"}
                 onClick={() => setActiveTab("book")}
                 label="یادداشت‌های کتاب"
-                count={bookNotes.length}
+                count={bookNotesCount ?? bookNotes.length}
               />
 
               {hasEditionTab ? (
@@ -232,7 +238,7 @@ export default function BookNotesTabsSection({
                   active={activeTab === "edition"}
                   onClick={() => setActiveTab("edition")}
                   label="یادداشت‌های این نسخه"
-                  count={editionNotes.length}
+                  count={editionNotesCount ?? editionNotes.length}
                 />
               ) : null}
             </div>

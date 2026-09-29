@@ -5,7 +5,6 @@ import Image from "next/image";
 import { UserRound } from "lucide-react";
 
 import { normalizeCoverImage } from "@/lib/book/cover";
-import { shouldBypassImageOptimizer } from "@/components/books/BookCoverImage";
 
 export default function AuthorAvatar({
   name,
@@ -22,13 +21,12 @@ export default function AuthorAvatar({
   iconClassName?: string;
   className?: string;
 }) {
-  const [imgError, setImgError] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [optimizerFailedSrc, setOptimizerFailedSrc] = useState<string | null>(null);
   const initial = name.trim().charAt(0) || "ن";
-  // Author portraits use the same URL normalization and S3 optimizer bypass as
-  // book artwork. This produces the same SSR output in the directory, book
-  // header, and author profile while rejecting empty/invalid URLs up front.
+  // Keep the direct URL as a fallback when a remote optimizer request fails.
   const imageSrc = normalizeCoverImage(image);
-  const showImage = !!imageSrc && !imgError;
+  const showImage = !!imageSrc && failedSrc !== imageSrc;
 
   return (
     <div
@@ -41,8 +39,11 @@ export default function AuthorAvatar({
           fill
           sizes="128px"
           className="object-cover"
-          unoptimized={shouldBypassImageOptimizer(imageSrc)}
-          onError={() => setImgError(true)}
+          unoptimized={optimizerFailedSrc === imageSrc}
+          onError={() => {
+            if (optimizerFailedSrc === imageSrc) setFailedSrc(imageSrc);
+            else setOptimizerFailedSrc(imageSrc);
+          }}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-primary">

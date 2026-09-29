@@ -18,7 +18,7 @@ export default function HomeBookCarousel({
       <div className="mb-4 sm:mb-5">
         <HomeSectionHeader
           icon={BookMarked}
-          title="کتاب های پیشنهادی"
+          title={isFallback ? "تازه‌ترین کتاب‌ها" : "کتاب‌های پیشنهادی"}
           href="/books"
         />
       </div>
