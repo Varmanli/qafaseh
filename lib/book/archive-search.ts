@@ -1,9 +1,12 @@
+import { compactSearchText } from "@/lib/book/search-normalize";
+
 // The desktop archive uses a five-column grid, so a full page is a complete
 // 5 × 6 set of cards. All archive limit/offset/page-count math derives from
 // this single constant.
 export const BOOK_ARCHIVE_PAGE_SIZE = 30;
 
 export const BOOK_ARCHIVE_SORT_OPTIONS = [
+  { value: "RELEVANCE", label: "مرتبط‌ترین" },
   { value: "NEWEST", label: "جدیدترین" },
   { value: "OLDEST", label: "قدیمی‌ترین" },
   { value: "TITLE_ASC", label: "عنوان از الف تا ی" },
@@ -103,6 +106,8 @@ export function parseBookArchiveSearchParams(
   searchParams: Record<string, SearchParamValue>,
 ): BookArchiveFilters {
   const sort = firstOf(searchParams.sort).trim() as BookArchiveSort;
+  const q = firstOf(searchParams.q) || firstOf(searchParams.query);
+  const hasQuery = Boolean(compactSearchText(q));
   const hasCover = firstOf(searchParams.cover).trim() as BookArchiveCoverFilter;
 
   const [minPages, maxPages] = normalizeRange(
@@ -123,7 +128,7 @@ export function parseBookArchiveSearchParams(
     // here feeds a modified value back from the URL and can move the caret or
     // discard characters while a user is typing. `query` is accepted as a
     // shareable URL alias while existing `q` links remain compatible.
-    q: firstOf(searchParams.q) || firstOf(searchParams.query),
+    q,
     genre: firstOf(searchParams.genre).trim(),
     author: firstOf(searchParams.author).trim(),
     translator: firstOf(searchParams.translator).trim(),
@@ -138,9 +143,9 @@ export function parseBookArchiveSearchParams(
     maxRating,
     minYear,
     maxYear,
-    sort: BOOK_ARCHIVE_SORT_OPTIONS.some((item) => item.value === sort)
+    sort: BOOK_ARCHIVE_SORT_OPTIONS.some((item) => item.value === sort) && (sort !== "RELEVANCE" || hasQuery)
       ? sort
-      : "POPULAR",
+      : hasQuery ? "RELEVANCE" : "POPULAR",
     page: parseNumber(searchParams.page, 1, 9999) ?? 1,
   };
 }
@@ -183,7 +188,8 @@ export function toBookArchiveSearchParams(filters: BookArchiveFilters) {
     params.set("maxRating", String(filters.maxRating));
   if (filters.minYear !== null) params.set("minYear", String(filters.minYear));
   if (filters.maxYear !== null) params.set("maxYear", String(filters.maxYear));
-  if (filters.sort !== "POPULAR") params.set("sort", filters.sort);
+  const defaultSort = compactSearchText(filters.q) ? "RELEVANCE" : "POPULAR";
+  if (filters.sort !== defaultSort && !(filters.sort === "RELEVANCE" && defaultSort === "POPULAR")) params.set("sort", filters.sort);
   if (filters.page > 1) params.set("page", String(filters.page));
 
   return params;

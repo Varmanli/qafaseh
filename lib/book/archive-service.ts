@@ -12,6 +12,7 @@ import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { splitStoredGenres, STORED_GENRE_SEPARATOR } from "@/lib/book/genres";
 import type { BookPresentationEdition } from "@/lib/book/presentation";
 import { compactSearchText } from "@/lib/book/search-normalize";
+import { searchMatchSql, searchRankSql } from "@/lib/book/search-ranking";
 import { personBookCondition, publicPersonBookRoles } from "@/lib/reference/book-contributions";
 import { normalizeContributorRoles, type ContributorRole } from "@/lib/reference/contributor-roles";
 import {
@@ -217,18 +218,14 @@ function buildCatalogConditions(
     conditions.push(genreContains(CatalogBook.genre, scope.fixedGenre));
   }
 
-  if (filters.q) {
+  if (compactSearchText(filters.q)) {
     const compact = compactSearchText(filters.q);
     conditions.push(
       sql`(
         exists (
           select 1 from "BookSearchIndex" si
           where si.catalog_book_id = ${CatalogBook.id}
-            and (
-              si.value_compact = ${compact}
-              or si.value_compact like ${`${compact}%`}
-              or (length(${compact}) >= 4 and si.value_compact % ${compact})
-            )
+            and ${searchMatchSql(compact, sql`si.value_compact`)}
         )
       )`,
     );
@@ -324,7 +321,7 @@ function buildStatsJoin() {
     .as("book_archive_stats");
 }
 
-function sortOrder(sort: BookArchiveSort, stats: ReturnType<typeof buildStatsJoin>) {
+function sortOrder(sort: BookArchiveSort, stats: ReturnType<typeof buildStatsJoin>, query: string) {
   const titleAsc = asc(CatalogBook.title);
   const titleDesc = desc(CatalogBook.title);
   const newest = desc(CatalogBook.createdAt);
@@ -340,6 +337,16 @@ function sortOrder(sort: BookArchiveSort, stats: ReturnType<typeof buildStatsJoi
   const id = asc(CatalogBook.id);
 
   switch (sort) {
+    case "RELEVANCE": {
+      if (!query) return [popularity, wanted, newest, id];
+      const rank = sql<number>`(
+        select min(${searchRankSql(query, sql`si.value_compact`, sql`si.kind`)})
+        from "BookSearchIndex" si
+        where si.catalog_book_id = ${CatalogBook.id}
+          and ${searchMatchSql(query, sql`si.value_compact`)}
+      )`;
+      return [asc(rank), popularity, wanted, newest, id];
+    }
     case "OLDEST":
       return [oldest, titleAsc, id];
     case "TITLE_ASC":
@@ -625,7 +632,7 @@ export async function getBookArchivePageData(
       .from(CatalogBook)
       .leftJoin(stats, eq(stats.catalogBookId, CatalogBook.id))
       .where(and(...conditions))
-      .orderBy(...sortOrder(filters.sort, stats))
+      .orderBy(...sortOrder(filters.sort, stats, compactSearchText(filters.q)))
       .limit(BOOK_ARCHIVE_PAGE_SIZE)
       .offset(offset);
   const normalizedRows = await Promise.all(

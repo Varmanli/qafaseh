@@ -12,8 +12,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         books: [],
         authors: [],
-        translators: [],
         publishers: [],
+        magazine: [],
+        users: [],
+        hasMore: { books: false, authors: false, publishers: false, magazine: false, users: false },
       });
     }
 

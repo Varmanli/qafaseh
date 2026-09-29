@@ -1,9 +1,11 @@
-import { and, arrayContains, asc, eq, ilike, isNull, sql } from "drizzle-orm";
+import { and, arrayContains, asc, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { Book, ReferenceItem } from "@/db/schema";
+import { BlogCategory, BlogPost, Book, ReferenceItem, User } from "@/db/schema";
 import { searchPublicBooks } from "@/lib/book/search-service";
+import { normalizeSearchText } from "@/lib/book/search-normalize";
 import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
+import { searchPublicUsers, type PublicUserSearchResult } from "@/lib/search/user-search";
 
 export interface GlobalSearchBook {
   id: string;
@@ -28,13 +30,21 @@ export interface GlobalSearchReference {
 export interface GlobalSearchResponse {
   books: GlobalSearchBook[];
   authors: GlobalSearchReference[];
-  translators: GlobalSearchReference[];
   publishers: GlobalSearchReference[];
+  magazine: GlobalSearchMagazine[];
+  users: PublicUserSearchResult[];
+  hasMore: { books: boolean; authors: boolean; publishers: boolean; magazine: boolean; users: boolean };
+}
+
+export interface GlobalSearchMagazine {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
 }
 
 const REFERENCE_FIELD_BY_TYPE = {
   AUTHOR: Book.author,
-  TRANSLATOR: Book.translator,
   PUBLISHER: Book.publisher,
 } as const;
 
@@ -59,8 +69,9 @@ async function searchReferences(
   query: string,
   limit: number,
 ): Promise<GlobalSearchReference[]> {
-  const term = `%${query}%`;
-  const prefix = `${query}%`;
+  const normalized = normalizeSearchText(query);
+  if (!normalized) return [];
+  const name = sql`qafaseh_search_normalize(${ReferenceItem.name})`;
 
   const rows = await db
     .select({
@@ -73,17 +84,17 @@ async function searchReferences(
     .from(ReferenceItem)
     .where(
       and(
-        type === "AUTHOR" || type === "TRANSLATOR"
+        type === "AUTHOR"
           ? arrayContains(ReferenceItem.roles, [type])
           : eq(ReferenceItem.type, type),
         isNull(ReferenceItem.canonicalReferenceId),
         eq(ReferenceItem.status, "APPROVED"),
         sql`${ReferenceItem.slug} is not null`,
-        ilike(ReferenceItem.name, term),
+        sql`strpos(${name}, ${normalized}) > 0`,
       ),
     )
     .orderBy(
-      sql`case when lower(${ReferenceItem.name}) like lower(${prefix}) then 0 else 1 end`,
+      sql`case when ${name} = ${normalized} then 0 when strpos(${name}, ${normalized}) = 1 then 1 else 2 end`,
       asc(ReferenceItem.name),
     )
     .limit(limit);
@@ -103,6 +114,30 @@ async function searchBooks(query: string, limit: number): Promise<GlobalSearchBo
   return searchPublicBooks(query, limit);
 }
 
+async function searchMagazine(query: string, limit: number): Promise<GlobalSearchMagazine[]> {
+  const escapedQuery = query.replace(/[\\%_]/g, "\\$&");
+  const term = `%${escapedQuery}%`;
+  const prefix = `${escapedQuery}%`;
+  return db.select({ id: BlogPost.id, slug: BlogPost.slug, title: BlogPost.title, excerpt: BlogPost.excerpt })
+    .from(BlogPost)
+    .leftJoin(User, eq(BlogPost.createdById, User.id))
+    .leftJoin(BlogCategory, eq(BlogPost.categoryId, BlogCategory.id))
+    .where(and(
+      eq(BlogPost.status, "PUBLISHED"),
+      isNotNull(BlogPost.publishedAt),
+      or(
+        ilike(BlogPost.title, term), ilike(BlogPost.excerpt, term), ilike(BlogPost.content, term),
+        ilike(User.name, term), ilike(BlogCategory.name, term),
+        sql`exists (select 1 from "BlogPostBook" article_book inner join "CatalogBook" book on book.id = article_book.book_id where article_book.post_id = ${BlogPost.id} and (book.title ilike ${term} or book.author ilike ${term}))`,
+      ),
+    ))
+    .orderBy(
+      sql`case when lower(trim(${BlogPost.title})) = lower(${query}) then 0 when ${BlogPost.title} ilike ${prefix} then 1 when ${BlogPost.title} ilike ${term} then 2 when ${BlogPost.excerpt} ilike ${term} then 3 else 4 end`,
+      desc(BlogPost.publishedAt), desc(BlogPost.id),
+    )
+    .limit(limit);
+}
+
 export async function searchGlobal(
   rawQuery: string,
   { limitPerGroup = 4 }: { limitPerGroup?: number } = {},
@@ -114,22 +149,27 @@ export async function searchGlobal(
     return {
       books: [],
       authors: [],
-      translators: [],
       publishers: [],
+      magazine: [],
+      users: [],
+      hasMore: { books: false, authors: false, publishers: false, magazine: false, users: false },
     };
   }
 
-  const [books, authors, translators, publishers] = await Promise.all([
-    searchBooks(query, safeLimit),
-    searchReferences("AUTHOR", query, safeLimit),
-    searchReferences("TRANSLATOR", query, safeLimit),
-    searchReferences("PUBLISHER", query, safeLimit),
+  const [books, authors, publishers, magazine, users] = await Promise.all([
+    searchBooks(query, safeLimit + 1),
+    searchReferences("AUTHOR", query, safeLimit + 1),
+    searchReferences("PUBLISHER", query, safeLimit + 1),
+    searchMagazine(query, safeLimit + 1),
+    searchPublicUsers(query, safeLimit + 1),
   ]);
 
   return {
-    books,
-    authors,
-    translators,
-    publishers,
+    books: books.slice(0, safeLimit),
+    authors: authors.slice(0, safeLimit),
+    publishers: publishers.slice(0, safeLimit),
+    magazine: magazine.slice(0, safeLimit),
+    users: users.slice(0, safeLimit),
+    hasMore: { books: books.length > safeLimit, authors: authors.length > safeLimit, publishers: publishers.length > safeLimit, magazine: magazine.length > safeLimit, users: users.length > safeLimit },
   };
 }

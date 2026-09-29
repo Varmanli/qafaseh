@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { BookEdition, CatalogBook } from "@/db/schema";
@@ -7,6 +7,7 @@ import { displayCoverFieldSql } from "@/lib/book/display-cover";
 import { preferredEditionFieldSql } from "@/lib/book/primary-edition";
 import { ensureCatalogBookSlug } from "@/lib/book/public-slug";
 import { compactSearchText, normalizeSearchText } from "@/lib/book/search-normalize";
+import { searchMatchSql, searchRankSql } from "@/lib/book/search-ranking";
 
 export interface PublicBookSearchResult {
   id: string;
@@ -38,34 +39,19 @@ export async function searchPublicBooks(rawQuery: string, limit = 20): Promise<P
       select
         i.catalog_book_id as "catalogBookId",
         i.edition_id as "editionId",
-        case
-          when i.value_compact = ${compact} and i.kind = 'CANONICAL_TITLE' then 0
-          when i.value_compact = ${compact} and i.kind in ('EDITION_TITLE', 'EDITION_LABEL') then 1
-          when i.value_compact = ${compact} and i.kind in ('AUTHOR', 'AUTHOR_REFERENCE', 'AUTHOR_ALIAS') then 8
-          when i.value_compact = ${compact} then 2
-          when i.value_compact like ${`${compact}%`} and i.kind = 'CANONICAL_TITLE' then 3
-          when i.value_compact like ${`${compact}%`} and i.kind in ('EDITION_TITLE', 'EDITION_LABEL') then 4
-          when i.value_compact like ${`${compact}%`} and i.kind in ('AUTHOR', 'AUTHOR_REFERENCE', 'AUTHOR_ALIAS') then 8
-          when i.value_compact like ${`${compact}%`} then 5
-          when length(${compact}) >= 4 and i.kind in ('CANONICAL_TITLE', 'EDITION_TITLE', 'EDITION_LABEL') and i.value_compact % ${compact} then 6
-          when length(${compact}) >= 4 and i.kind in ('AUTHOR', 'AUTHOR_REFERENCE', 'AUTHOR_ALIAS') and i.value_compact % ${compact} then 8
-          when length(${compact}) >= 4 and i.value_compact % ${compact} then 7
-          else 99
-        end as rank,
+        ${searchRankSql(compact, sql`i.value_compact`, sql`i.kind`)} as rank,
         similarity(i.value_compact, ${compact}) as similarity
       from "BookSearchIndex" i
-      where i.value_compact = ${compact}
-         or i.value_compact like ${`${compact}%`}
-         or (length(${compact}) >= 4 and i.value_compact % ${compact})
+      where ${searchMatchSql(compact, sql`i.value_compact`)}
     ), best as (
       select distinct on ("catalogBookId") "catalogBookId", "editionId" as "matchedEditionId", rank, similarity
       from candidates
-      where rank < 99
       order by "catalogBookId", rank asc, similarity desc, "editionId" nulls last
     )
-    select "catalogBookId", "matchedEditionId", rank
+    select best."catalogBookId", best."matchedEditionId", best.rank
     from best
-    order by rank asc, similarity desc, "catalogBookId"
+    join "CatalogBook" c on c.id = best."catalogBookId" and c.status = 'APPROVED'
+    order by best.rank asc, best.similarity desc, c.created_at desc, best."catalogBookId"
     limit ${safeLimit}
   `);
 

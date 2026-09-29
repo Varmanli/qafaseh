@@ -832,6 +832,9 @@ export default function BookArchiveFilters({
     setDraft((current) => ({
       ...current,
       q: value,
+      sort: value.trim() && current.sort === "POPULAR" && !searchParams.has("sort")
+        ? "RELEVANCE"
+        : !value.trim() && current.sort === "RELEVANCE" ? "POPULAR" : current.sort,
       page: 1,
     }));
   };
