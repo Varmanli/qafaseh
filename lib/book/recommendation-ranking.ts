@@ -1,11 +1,12 @@
 import { splitStoredGenres } from "./genres";
 import type { CatalogDiscoverySignals } from "./discovery-signals";
+import { normalizeSearchText } from "./search-normalize";
 
 const BROAD_GENRES = new Set(["داستان", "ادبیات", "ادبیات داستانی", "ادبیات معاصر", "رمان"]);
 const SPECIFIC_LITERATURE_GENRES = new Set(["ادبیات کلاسیک", "ادبیات رئالیسم جادویی"]);
-export function isBroadGenre(genre: string) { return BROAD_GENRES.has(genre.toLocaleLowerCase("fa")); }
+export function isBroadGenre(genre: string) { return BROAD_GENRES.has(normalizeSearchText(genre)); }
 export function distinctiveGenres(book: Pick<CatalogDiscoverySignals, "genre">): string[] {
-  return splitStoredGenres(book.genre).map((genre) => genre.toLocaleLowerCase("fa"))
+  return splitStoredGenres(book.genre).map(normalizeSearchText)
     .filter((genre) => !isBroadGenre(genre) && !genre.startsWith("دهه ") &&
       (!genre.startsWith("ادبیات ") || SPECIFIC_LITERATURE_GENRES.has(genre)));
 }
@@ -49,27 +50,37 @@ export function rankRecommendations<T extends CatalogDiscoverySignals, C extends
 ): C[] {
   const remaining = [...candidates].sort((a, b) => b.score - a.score || a.book.id.localeCompare(b.book.id));
   const selected: C[] = [];
-  const prior = [...preselected];
+  const authors = new Set<string>();
+  const contributorIds = new Set<string>();
+  const selectedGenres = new Set<string>();
+  const traits = new Map(candidates.map(({ book }) => [book.id, {
+    author: normalizeSearchText(book.author), genres: distinctiveGenres(book),
+    rotation: seededFraction(seed, book.id) * RECOMMENDATION_WEIGHTS.rotationMax,
+  }]));
+  function remember(book: T) {
+    const author = normalizeSearchText(book.author);
+    if (author) authors.add(author);
+    for (const id of book.contributorIds) contributorIds.add(id);
+    for (const genre of distinctiveGenres(book)) selectedGenres.add(genre);
+  }
+  preselected.forEach(remember);
   while (remaining.length && selected.length < limit) {
     const best = remaining[0].score;
     let winner = 0;
     let winnerScore = -Infinity;
     for (let index = 0; index < remaining.length && remaining[index].score >= best - RECOMMENDATION_WEIGHTS.relevanceWindow; index++) {
       const item = remaining[index];
-      const author = item.book.author.trim().toLocaleLowerCase("fa");
-      const genres = distinctiveGenres(item.book);
-      const sameAuthor = prior.some((book) =>
-        (author && book.author.trim().toLocaleLowerCase("fa") === author) ||
-        item.book.contributorIds.some((id) => book.contributorIds.includes(id)));
-      const sharedGenre = genres.length && prior.some((book) => distinctiveGenres(book).some((genre) => genres.includes(genre)));
-      const adjusted = item.score + seededFraction(seed, item.book.id) * RECOMMENDATION_WEIGHTS.rotationMax
+      const { author, genres, rotation } = traits.get(item.book.id)!;
+      const sameAuthor = authors.has(author) || item.book.contributorIds.some((id) => contributorIds.has(id));
+      const sharedGenre = genres.some((genre) => selectedGenres.has(genre));
+      const adjusted = item.score + rotation
         - (sameAuthor ? RECOMMENDATION_WEIGHTS.sameAuthorPenalty : 0)
         - (sharedGenre ? RECOMMENDATION_WEIGHTS.sharedSpecificGenrePenalty : 0);
       if (adjusted > winnerScore) { winner = index; winnerScore = adjusted; }
     }
     const [item] = remaining.splice(winner, 1);
     selected.push(item);
-    prior.push(item.book);
+    remember(item.book);
   }
   return selected;
 }

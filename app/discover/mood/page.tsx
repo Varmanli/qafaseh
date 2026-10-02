@@ -6,8 +6,8 @@ import PublicShell from "@/components/PublicShell";
 import DiscoveryChoices from "@/components/discover/DiscoveryChoices";
 import DiscoveryResults from "@/components/discover/DiscoveryResults";
 import { moods, topics } from "@/lib/book/discover-config";
-import { getCatalogDiscoverySignals, getDiscoveryCards } from "@/lib/book/discover-service";
-import { selectDiscoveryIds } from "@/lib/book/discovery-signals";
+import { COLLECTION_MAX_PAGES, getCollectionRecommendations } from "@/lib/book/discovery-recommendations";
+import { getCurrentUser } from "@/lib/auth/session";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
@@ -31,13 +31,16 @@ export default async function DiscoverMoodPage({
   const selected = first(params[selectedKind]);
   const collections = selectedKind === "topic" ? topics : moods;
   const selectedCollection = collections.find((item) => item.slug === selected);
-  const books = selectedCollection
-    ? await getDiscoveryCards(selectDiscoveryIds(await getCatalogDiscoverySignals(), selectedCollection))
-    : [];
+  const viewer = await getCurrentUser();
+  const requestedPage = Number(first(params.page));
+  const page = Number.isInteger(requestedPage) && requestedPage >= 1 ? Math.min(requestedPage, COLLECTION_MAX_PAGES) : 1;
+  const { books, hasMore } = selectedCollection
+    ? await getCollectionRecommendations(selectedCollection, viewer?.id, page)
+    : { books: [], hasMore: false };
   const isTopic = selectedKind === "topic";
 
   return (
-    <PublicShell>
+    <PublicShell user={viewer}>
       <main dir="rtl" className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-9">
         <header className="relative isolate overflow-hidden rounded-[1.75rem] bg-primary-deep p-5 text-white shadow-[0_24px_70px_-38px_rgba(43,98,82,0.6)] sm:rounded-[2rem] sm:p-8 lg:p-10">
           <div aria-hidden="true" className="pointer-events-none absolute -left-16 -top-24 -z-10 size-64 rounded-full border border-white/10 sm:size-80" />
@@ -91,23 +94,27 @@ export default async function DiscoverMoodPage({
           </div>
 
           <div className="p-4 sm:p-6">
-            {selectedCollection ? (
+            <DiscoveryChoices
+              kind={selectedKind}
+              basePath="/discover/mood"
+              items={collections.map(({ slug, title, description }) => ({ slug, title, description }))}
+              selected={selected}
+            >
+            {selectedCollection && (
+              <div className="mt-7 border-t border-border/60 pt-6">
               <DiscoveryResults
                 id={isTopic ? "topic-results" : "mood-results"}
                 title={selectedCollection.title}
                 books={books}
                 showChangeLink={false}
               />
-            ) : (
-              <DiscoveryChoices
-                kind={selectedKind}
-                basePath="/discover/mood"
-                items={collections.map(({ slug, title, description }) => ({ slug, title, description }))}
-                selected={selected}
-              >
-                {null}
-              </DiscoveryChoices>
+              {(hasMore || page > 1) && <nav aria-label="صفحه‌های پیشنهاد کتاب" className="mt-6 flex flex-wrap gap-4">
+                {page > 1 && <Link href={`/discover/mood?${selectedKind}=${selected}&page=${page - 1}`} scroll={false} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-bold text-primary"><ArrowRight aria-hidden="true" className="size-4" />پیشنهادهای قبلی</Link>}
+                {hasMore && <Link href={`/discover/mood?${selectedKind}=${selected}&page=${page + 1}`} scroll={false} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground">پیشنهادهای دیگر</Link>}
+              </nav>}
+              </div>
             )}
+            </DiscoveryChoices>
           </div>
         </section>
       </main>

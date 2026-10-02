@@ -383,6 +383,9 @@ export const CatalogBook = pgTable("CatalogBook", {
   slugNormalized: text("slug_normalized"),
   originalTitle: text("original_title"),
   description: text("description"),
+  discoveryText: text("discovery_text").generatedAlwaysAs(
+    sql`qafaseh_discovery_text(coalesce("genre", '') || ' ' || coalesce("description", ''))`,
+  ),
   coverImage: text("cover_image"),
   author: text("author").notNull(),
   language: varchar("language", { length: 50 }),
@@ -400,7 +403,10 @@ export const CatalogBook = pgTable("CatalogBook", {
   }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+}, (t) => ({
+  discoveryTextIdx: index("CatalogBook_discovery_text_idx").using("gin", sql`${t.discoveryText} gin_trgm_ops`)
+    .where(sql`${t.status} = 'APPROVED'`),
+}));
 
 // ---------------- BookEdition (نسخه/چاپ مشخص از یک کتاب کانونی) ----------------
 export const BookEdition = pgTable("BookEdition", {
@@ -582,6 +588,7 @@ export const Book = pgTable("Book", {
   }),
 }, (t) => ({
   catalogUserEditionIdx: index("Book_catalog_user_edition_idx").on(t.catalogBookId, t.userId, t.editionId),
+  userStatusCatalogIdx: index("Book_user_status_catalog_idx").on(t.userId, t.status, t.catalogBookId),
 }));
 
 export const BookLoan = pgTable("BookLoan", {

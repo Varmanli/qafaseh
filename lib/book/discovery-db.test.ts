@@ -4,15 +4,17 @@ import test from "node:test";
 
 test("new public catalog books participate without config edits", { skip: !process.env.DATABASE_URL }, async () => {
   const { db, pool } = await import("../../db");
-  const { CatalogBook, BookEdition } = await import("../../db/schema");
+  const { CatalogBook, BookEdition, Book, User } = await import("../../db/schema");
   const { inArray } = await import("drizzle-orm");
   const { getCatalogDiscoverySignals } = await import("./discover-service");
   const { selectDiscoveryIds } = await import("./discovery-signals");
   const { selectQuizBooks } = await import("./discover-quiz");
   const { moods } = await import("./discover-config");
   const { getSimilarBooks } = await import("./similar-books-service");
+  const { getDiscoveryExclusions } = await import("./discovery-recommendations");
   const suffix = randomUUID().slice(0, 8);
   const ids: string[] = [`zzzz-discovery-regression-${suffix}`, ...Array.from({ length: 4 }, () => randomUUID())];
+  const viewerIds = [randomUUID(), randomUUID()];
   try {
     await db.insert(CatalogBook).values(ids.map((id, index) => ({
       id, slug: `discovery-regression-${suffix}-${index}`,
@@ -24,6 +26,16 @@ test("new public catalog books participate without config edits", { skip: !proce
     await db.insert(BookEdition).values(ids.slice(0, 2).map((catalogBookId) => ({
       catalogBookId, pageCount: 200, status: "APPROVED" as const,
     })));
+    await db.insert(User).values(viewerIds.map((id) => ({ id, name: "Discovery regression", profileVisibility: "PRIVATE" as const })));
+    await db.insert(Book).values(ids.map((catalogBookId, index) => ({
+      catalogBookId, userId: viewerIds[0], title: "[TEST:discovery-history]", author: "Test author", genre: "Test",
+      format: "PHYSICAL" as const, status: (["FINISHED", "READING", "PAUSED", "STOPPED", "UNREAD"] as const)[index],
+    })));
+    await db.insert(Book).values({ catalogBookId: ids[4], userId: viewerIds[1],
+      title: "[TEST:discovery-history]", author: "Test author", genre: "Test", format: "PHYSICAL", status: "FINISHED" });
+    assert.deepEqual(new Set(await getDiscoveryExclusions(viewerIds[0])), new Set(ids.slice(0, 4)));
+    assert.deepEqual(await getDiscoveryExclusions(viewerIds[1]), [ids[4]]);
+    assert.deepEqual(await getDiscoveryExclusions(), []);
     const signals = await getCatalogDiscoverySignals();
     assert(signals.some((book) => book.id === ids[0]));
     assert.equal(signals.find((book) => book.id === ids[0])?.pageCount, 200);
@@ -40,6 +52,7 @@ test("new public catalog books participate without config edits", { skip: !proce
     assert((await getSimilarBooks(ids[3])).some((book) => book.id === ids[4]));
   } finally {
     try {
+      await db.delete(User).where(inArray(User.id, viewerIds));
       await db.delete(CatalogBook).where(inArray(CatalogBook.id, ids));
       assert.equal((await db.select({ id: CatalogBook.id }).from(CatalogBook).where(inArray(CatalogBook.id, ids))).length, 0);
     } finally { await pool.end(); }

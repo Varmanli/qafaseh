@@ -463,6 +463,27 @@
       "when": 1790899200000,
       "tag": "0065_book_detail_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1790899200001,
+      "tag": "0066_discovery_text_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1790899200002,
+      "tag": "0067_discovery_stored_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1790899200003,
+      "tag": "0068_discovery_reading_history_index",
+      "breakpoints": true
     }
   ]
 }

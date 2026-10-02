@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { moods, topics } from "./discover-config";
-import { selectDiscoveryIds } from "./discovery-signals";
+import { commitmentOf, scoreCollection, selectDiscoveryIds } from "./discovery-signals";
 import { scoreQuizBook, selectQuizBooks, type QuizCandidate } from "./discover-quiz";
 import { discoveryDay } from "./recommendation-ranking";
 
@@ -32,12 +32,12 @@ test("curated traits boost but never restrict candidates", () => {
 
 test("commitment uses edition length and missing length stays eligible", () => {
   const answers = { kind: "any", mood: "any", commitment: "short" };
-  assert.equal(scoreQuizBook(book("short", { pageCount: 200 }), answers).score, 1.5);
-  assert.equal(scoreQuizBook(book("medium", { pageCount: 350 }), answers).score, -0.5);
+  assert.equal(scoreQuizBook(book("short", { pageCount: 200 }), answers).metadataScore, 1.5);
+  assert.equal(scoreQuizBook(book("medium", { pageCount: 350 }), answers).metadataScore, -0.5);
   assert.equal(scoreQuizBook(book("unknown"), answers).score, 0);
   assert.equal(scoreQuizBook(book("invalid", { pageCount: 0 }), answers).score, 0);
-  assert.equal(scoreQuizBook(book("medium", { pageCount: 350 }), { ...answers, commitment: "medium" }).score, 1.5);
-  assert.equal(scoreQuizBook(book("long", { pageCount: 500 }), { ...answers, commitment: "long" }).score, 1.5);
+  assert.equal(scoreQuizBook(book("medium", { pageCount: 350 }), { ...answers, commitment: "medium" }).metadataScore, 1.5);
+  assert.equal(scoreQuizBook(book("long", { pageCount: 500 }), { ...answers, commitment: "long" }).metadataScore, 1.5);
 });
 
 test("reroll keeps relevant books, excludes shown IDs and deduplicates canonical works", () => {
@@ -113,4 +113,71 @@ test("same-score selection is deterministic and diversifies authors", () => {
   const selected = selectQuizBooks(candidates, answers);
   assert.deepEqual(selected, selectQuizBooks([...candidates].reverse(), answers));
   assert.equal(new Set(selected.map(({ id }) => candidates.find((item) => item.id === id)!.author)).size, 3);
+});
+
+test("calm and thematic discovery use descriptions beyond fixed editorial books", () => {
+  const calm = moods.find((item) => item.slug === "calm")!;
+  const newCalm = book("new-calm", { description: "<p>راهنمایی آرامش‌بخش برای زندگی ساده و آرامش درونی.</p>" });
+  const notCalm = book("crime", { genre: "داستان جنایی", description: "این روایت آرامش بخش به نظر می‌رسد اما داستان یک قاتل است." });
+  const onlyTitle = book("title", { title: "هوگا و آرامش درونی" });
+  const negated = book("negated", { description: "این کتاب آرامش بخش نیست." });
+  const unrelatedWord = book("substring", { description: "کتاب درباره هوگارستان است." });
+  assert.deepEqual(selectDiscoveryIds([notCalm, onlyTitle, negated, unrelatedWord, newCalm], calm), [newCalm.id]);
+  const thought = book("new-thought", { description: "متنی درباره‌ی معنای زندگی و پرسش های وجودی." });
+  assert(selectDiscoveryIds([thought], topics.find((item) => item.slug === "life")!).includes(thought.id));
+  assert.equal(scoreCollection(newCalm, calm).semanticScore, 3);
+  assert.equal(scoreCollection(book("repeat", { description: "هوگا ".repeat(100) }), calm).semanticScore, 2.5);
+  assert(scoreCollection(book("home", { description: "این خانه آرامش بخش است." }), calm).score > 0);
+});
+
+test("short stays short and every stated preference has actual evidence", () => {
+  assert.equal(commitmentOf(200), "short");
+  assert.equal(commitmentOf(201), "medium");
+  assert.equal(commitmentOf(400), "medium");
+  assert.equal(commitmentOf(401), "long");
+  assert.equal(commitmentOf(Infinity), null);
+  const candidates = [
+    book("perfect", { genre: "داستان معمایی • داستان تریلر", pageCount: 190 }),
+    book("too-long", { slug: "دیزی-دارکر", genre: "داستان تریلر", pageCount: 600, description: "فضای تاریک، تعلیق و روایتی ترسناک" }),
+    book("length-only", { pageCount: 150 }),
+    book("unknown", { genre: "داستان تریلر" }),
+  ];
+  const selected = selectQuizBooks(candidates, { kind: "exciting", mood: "dark", commitment: "short" });
+  assert.deepEqual(selected.map(({ id }) => id), ["perfect", "unknown"]);
+  assert(selected[0].reason?.includes("۱۹۰"));
+  assert(selected[1].reason?.includes("مشخص نیست"));
+  assert(!selected[1].reason?.includes("خواندن کوتاه"));
+  assert.deepEqual(selectQuizBooks([book("just-kind", { genre: "داستان فانتزی" })],
+    { kind: "exciting", mood: "calm", commitment: "any" }), []);
+  const fantasy = book("character", { genre: "داستان فانتزی", description: "یک قهرمان با دشمنی ترسناک روبه‌رو می‌شود." });
+  assert.deepEqual(selectDiscoveryIds([fantasy], moods.find(({ slug }) => slug === "dark")!), []);
+  const boxSet = book("box-set", { title: "داستان هشت جلدی", genre: "داستان فانتزی" });
+  assert.deepEqual(selectQuizBooks([boxSet], { kind: "exciting", mood: "elsewhere", commitment: "medium" }), []);
+  assert(selectQuizBooks([boxSet], { kind: "exciting", mood: "elsewhere", commitment: "long" })[0].reason?.includes("چندجلدی"));
+});
+
+test("complete content matches precede disclosed partial choices and duplicates collapse", () => {
+  const answers = { kind: "reflective", mood: "calm", commitment: "any" };
+  const complete = book("complete", { genre: "فلسفه", description: "درباره آرامش درونی" });
+  const partial = book("partial", { description: "هوگا و زندگی ساده و آرامش درونی", hasCover: true });
+  const duplicate = book("duplicate", { ...complete, id: "duplicate", slug: "duplicate-slug", author: complete.author, title: complete.title });
+  const selected = selectQuizBooks([partial, duplicate, complete], answers);
+  assert.equal(selected.length, 2);
+  assert.equal(selected[0].id, "complete");
+  assert(selected[1].reason?.includes("گونه‌ای متفاوت"));
+});
+
+test("large-catalog selection reaches a strongest late book and remains deterministic", () => {
+  const candidates = Array.from({ length: 20000 }, (_, index) => book(`book-${index}`, {
+    author: `Author ${index % 300}`, genre: "داستان تریلر", pageCount: 160,
+  }));
+  const late = book("zz-late", { genre: "داستان تریلر", pageCount: 180,
+    description: "رمانی با فضای تاریک و ترسناک، تعلیق و هیجان انگیز.", hasCover: true });
+  candidates.push(late);
+  const answers = { kind: "exciting", mood: "dark", commitment: "short" };
+  const selected = selectQuizBooks(candidates, answers, [], "2026-10-02");
+  assert.equal(selected[0].id, late.id);
+  assert.deepEqual(selectQuizBooks([...candidates].reverse(), answers, [], "2026-10-02"), selected);
+  const next = selectQuizBooks(candidates, answers, selected.map(({ id }) => id), "2026-10-02");
+  assert.equal(new Set([...selected, ...next].map(({ id }) => id)).size, 6);
 });

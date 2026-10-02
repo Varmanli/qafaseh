@@ -14,7 +14,7 @@ export default function DiscoveryResults({
 }: {
   id?: string;
   title: string;
-  books: ArchiveBookCardData[];
+  books: (ArchiveBookCardData & { reason?: string | null })[];
   backHref?: string;
   showChangeLink?: boolean;
 }) {
@@ -40,6 +40,7 @@ export default function DiscoveryResults({
                 <p className="mt-2 text-[11px] font-black tabular-nums text-primary">{(index + 1).toLocaleString("fa-IR")}</p>
                 <p className="mt-0.5 line-clamp-2 text-sm font-black leading-6 transition-colors group-hover:text-primary">{book.title}</p>
                 <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{book.author}</p>
+                {book.reason && <p className="mt-2 text-xs leading-5 text-primary">{book.reason}</p>}
               </Link>
             );
           })}
