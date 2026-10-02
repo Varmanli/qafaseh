@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { getBookDetail } from "@/lib/book/detail-service";
+import { getBookOverview, getBookMetadata } from "@/lib/book/detail-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import PublicShell from "@/components/PublicShell";
 import BookCoverImage from "@/components/books/BookCoverImage";
@@ -34,17 +34,17 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const result = await getBookDetail(decodeURIComponent(id));
+  const book = await getBookMetadata(decodeURIComponent(id));
 
-  if (!result.found) return { title: "مطالعه من | قفسه" };
+  if (!book) return { title: "مطالعه من | قفسه" };
 
   const metadata = await buildPageMetadata({
-    title: `مطالعه من: ${result.book.title}`,
-    description: `فضای شخصی شما برای کتاب ${result.book.title} در قفسه.`,
-    path: `/book/${encodeURIComponent(result.book.slug)}/my`,
-    image: result.book.displayCoverImage,
+    title: `مطالعه من: ${book.title}`,
+    description: `فضای شخصی شما برای کتاب ${book.title} در قفسه.`,
+    path: `/book/${encodeURIComponent(book.slug)}/my`,
+    image: book.displayCoverImage,
     type: "book",
-    keywords: [result.book.title, "مطالعه من", "مطالعه شخصی"],
+    keywords: [book.title, "مطالعه من", "مطالعه شخصی"],
   });
 
   return {
@@ -66,7 +66,7 @@ export default async function MyBookPage({
     redirect(`/auth/login?redirect=${encodeURIComponent(`/book/${ref}/my`)}`);
   }
 
-  const result = await getBookDetail(ref, user.id);
+  const result = await getBookOverview(ref, user.id);
   if (!result.found) notFound();
 
   const { book, presentation, viewer: entry } = result;
@@ -83,7 +83,7 @@ export default async function MyBookPage({
       };
 
   return (
-    <PublicShell>
+    <PublicShell user={user}>
       <div
         dir="rtl"
         className="

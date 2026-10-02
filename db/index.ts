@@ -11,10 +11,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// ساخت یک connection pool به PostgreSQL
-const pool = new Pool({
+// Reuse the pool across development reloads instead of opening more connections.
+const globalForDb = globalThis as typeof globalThis & { ghafasehPool?: Pool };
+const pool = globalForDb.ghafasehPool ?? new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+if (process.env.NODE_ENV !== "production") globalForDb.ghafasehPool = pool;
 
 // اتصال Drizzle به دیتابیس با schema
 export const db = drizzle(pool, { schema });

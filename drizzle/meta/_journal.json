@@ -456,6 +456,13 @@
       "when": 1790467200002,
       "tag": "0064_book_loans_purchase_list",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1790899200000,
+      "tag": "0065_book_detail_indexes",
+      "breakpoints": true
     }
   ]
 }

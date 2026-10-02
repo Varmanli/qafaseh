@@ -399,10 +399,11 @@ export async function getPublishedNotesForBook(opts: {
       bookAuthor: CatalogBook.author,
       bookCover: sql<string | null>`coalesce(${BookEdition.coverImage}, ${CatalogBook.coverImage})`,
       createdAt: PublishedBookNote.createdAt,
-      likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
-      likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
-        opts.viewerId ?? null
-      }), false)`,
+      likeCount: sql<number>`(select count(*)::int from ${PublishedBookNoteLike}
+        where ${PublishedBookNoteLike.noteId} = ${PublishedBookNote.id})`,
+      likedByViewer: sql<boolean>`exists (select 1 from ${PublishedBookNoteLike}
+        where ${PublishedBookNoteLike.noteId} = ${PublishedBookNote.id}
+          and ${PublishedBookNoteLike.userId} = ${opts.viewerId ?? null})`,
       authorUserId: User.id,
       authorUsername: User.username,
       authorName: User.name,
@@ -412,10 +413,6 @@ export async function getPublishedNotesForBook(opts: {
     .innerJoin(User, eq(PublishedBookNote.userId, User.id))
     .innerJoin(CatalogBook, eq(PublishedBookNote.catalogBookId, CatalogBook.id))
     .leftJoin(BookEdition, eq(PublishedBookNote.bookEditionId, BookEdition.id))
-    .leftJoin(
-      PublishedBookNoteLike,
-      eq(PublishedBookNoteLike.noteId, PublishedBookNote.id),
-    )
     .where(
       and(
         ...filters,
@@ -427,8 +424,7 @@ export async function getPublishedNotesForBook(opts: {
           : eq(User.profileVisibility, "PUBLIC"),
       ),
     )
-    .groupBy(PublishedBookNote.id, User.id, CatalogBook.id, BookEdition.id)
-    .orderBy(desc(PublishedBookNote.createdAt))
+    .orderBy(desc(PublishedBookNote.createdAt), desc(PublishedBookNote.id))
     .limit(limit + 1)
     .offset(offset);
 

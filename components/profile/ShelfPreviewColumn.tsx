@@ -105,7 +105,7 @@ export default function ShelfPreviewColumn({
                     src={book.coverImage || PLACEHOLDER}
                     alt={book.title}
                     fill
-                    sizes="64px"
+                    sizes="(min-width: 1280px) 180px, 16vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
 

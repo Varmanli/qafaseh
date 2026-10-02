@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import {
@@ -17,7 +17,7 @@ import {
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
-import { getBookDetail, getBookMetadata } from "@/lib/book/detail-service";
+import { getBookOverview, getBookCommunity, getBookMetadata, type BookOverviewResult } from "@/lib/book/detail-service";
 import PublicShell from "@/components/PublicShell";
 import { Carousel } from "@/components/ui/Carousel";
 import ReadingStatusControl from "@/components/books/ReadingStatusControl";
@@ -87,12 +87,10 @@ export default async function BookPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ edition?: string }>;
 }) {
-  const { id } = await params;
-  const { edition } = await searchParams;
+  const [{ id }, { edition }, viewer] = await Promise.all([params, searchParams, getCurrentUser()]);
 
   const ref = decodeURIComponent(id);
-  const viewer = await getCurrentUser();
-  const result = await getBookDetail(ref, viewer?.id, edition ?? null);
+  const result = await getBookOverview(ref, viewer?.id, edition ?? null);
 
   if (!result.found) notFound();
 
@@ -111,12 +109,6 @@ export default async function BookPage({
     translatorChip,
     translatorChips,
     publisherChip,
-    quotes,
-    quoteCount,
-    bookNotes,
-    bookNotesCount,
-    editionNotes,
-    editionNotesCount,
     externalLinks,
   } = result;
 
@@ -137,10 +129,6 @@ export default async function BookPage({
   }`;
 
   const genreList = book.genres.map((genre) => genre.name);
-  const [magazinePosts, similarBooks] = await Promise.all([
-    getMagazineArticlesForBook(book.id),
-    getSimilarBooks(book.id),
-  ]);
   const visibleGenres = genreList.slice(0, 3);
   const hiddenGenres = genreList.slice(3);
 
@@ -565,39 +553,62 @@ export default async function BookPage({
             <BookIntroduction content={book.description} />
           </div>
         </section>
-        <RelatedMagazineArticles posts={magazinePosts} />
-        <div className="mt-10 lg:mt-12">
-          <BookQuotesSection
-            subjectBookId={book.id}
-            viewerEntryId={entry?.id ?? null}
-            viewerIsAdmin={isAdmin(viewer)}
-            isLoggedIn={isLoggedIn}
-            quotes={quotes}
-            totalQuoteCount={quoteCount}
-            viewAllHref={`/book/${encodeURIComponent(book.slug)}/quotes`}
-          />
-        </div>
-
-        <div className="mt-10 lg:mt-12">
-          <BookNotesTabsSection
-            catalogBookId={book.id}
-            selectedEditionId={selectedEdition?.id ?? null}
-            isLoggedIn={isLoggedIn}
-            bookNotes={bookNotes}
-            bookNotesCount={bookNotesCount}
-            editionNotes={editionNotes}
-            editionNotesCount={editionNotesCount}
-            viewerId={viewer?.id ?? null}
-            viewAllHref={notesHref}
-            loginHref={loginHref}
-          />
-        </div>
-        <SimilarBooksSection books={similarBooks} />
+        <Suspense fallback={<BookSectionSkeleton label="مطالب مرتبط" />}>
+          <BookMagazineArticles bookId={book.id} />
+        </Suspense>
+        <Suspense fallback={<BookSectionSkeleton label="نقل‌قول‌ها و یادداشت‌ها" />}>
+          <BookCommunitySections result={result} viewerId={viewer?.id} viewerIsAdmin={isAdmin(viewer)} notesHref={notesHref} loginHref={loginHref} />
+        </Suspense>
+        <Suspense fallback={<BookSectionSkeleton label="کتاب‌های مشابه" />}>
+          <BookSimilarBooks bookId={book.id} />
+        </Suspense>
         <BookReadingTour isAuthenticated={isLoggedIn} />
-        <BookNotesTour isAuthenticated={isLoggedIn && Boolean(entry)} />
       </div>
     </PublicShell>
   );
+}
+
+async function BookMagazineArticles({ bookId }: { bookId: string }) {
+  return <RelatedMagazineArticles posts={await getMagazineArticlesForBook(bookId)} />;
+}
+
+async function BookSimilarBooks({ bookId }: { bookId: string }) {
+  return <SimilarBooksSection books={await getSimilarBooks(bookId)} />;
+}
+
+async function BookCommunitySections({ result, viewerId, viewerIsAdmin, notesHref, loginHref }: {
+  result: Extract<BookOverviewResult, { found: true }>;
+  viewerId?: string;
+  viewerIsAdmin: boolean;
+  notesHref: string;
+  loginHref: string;
+}) {
+  const { book, selectedEdition, viewer: entry } = result;
+  const community = await getBookCommunity(book, viewerId, selectedEdition?.id);
+  return <>
+    <div className="mt-10 lg:mt-12">
+      <BookQuotesSection subjectBookId={book.id} viewerEntryId={entry?.id ?? null}
+        viewerIsAdmin={viewerIsAdmin} isLoggedIn={Boolean(viewerId)} quotes={community.quotes}
+        totalQuoteCount={community.quoteCount} viewAllHref={`/book/${encodeURIComponent(book.slug)}/quotes`} />
+    </div>
+    <div className="mt-10 lg:mt-12">
+      <BookNotesTabsSection catalogBookId={book.id} selectedEditionId={selectedEdition?.id ?? null}
+        isLoggedIn={Boolean(viewerId)} bookNotes={community.bookNotes} editionNotes={community.editionNotes}
+        bookNotesCount={community.bookNotesCount} editionNotesCount={community.editionNotesCount} viewerId={viewerId ?? null}
+        viewAllHref={notesHref} loginHref={loginHref} />
+    </div>
+    <BookNotesTour isAuthenticated={Boolean(viewerId && entry)} />
+  </>;
+}
+
+function BookSectionSkeleton({ label }: { label: string }) {
+  return <div role="status" aria-label={`در حال بارگذاری ${label}`} className="mt-10 rounded-2xl border border-border/50 bg-card/50 p-5 lg:mt-12">
+    <span className="sr-only">در حال بارگذاری {label}</span>
+    <div aria-hidden="true" className="motion-safe:animate-pulse">
+      <div className="h-5 w-44 rounded bg-muted" />
+      <div className="mt-5 h-36 rounded-xl bg-muted/60" />
+    </div>
+  </div>;
 }
 
 function HiddenGenresPill({ hiddenGenres }: { hiddenGenres: string[] }) {

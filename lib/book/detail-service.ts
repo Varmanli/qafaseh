@@ -1,4 +1,5 @@
 import { and, arrayContains, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { db } from "@/db";
 import {
@@ -284,7 +285,7 @@ async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> 
   return legacy;
 }
 
-async function loadSubjectRow(ref: string): Promise<SubjectRow | undefined> {
+const loadSubjectRow = cache(async (ref: string): Promise<SubjectRow | undefined> => {
   const subject = await loadBookSubjectRow(ref);
   if (subject) return subject;
 
@@ -294,9 +295,9 @@ async function loadSubjectRow(ref: string): Promise<SubjectRow | undefined> {
 
   if (!catalogBookId) return undefined;
   return loadBookSubjectRow(catalogBookId);
-}
+});
 
-async function loadApprovedEditions(catalogBookId: string): Promise<BookEditionSummary[]> {
+const loadApprovedEditions = cache(async (catalogBookId: string): Promise<BookEditionSummary[]> => {
   const rows = await db
     .select({
       id: BookEdition.id,
@@ -332,15 +333,7 @@ async function loadApprovedEditions(catalogBookId: string): Promise<BookEditionS
     ...row,
     coverImage: coalesceCoverImage(row.coverImage),
   }));
-}
-
-async function resolveSiblingBookIds(catalogBookId: string): Promise<string[]> {
-  const rows = await db
-    .select({ id: Book.id })
-    .from(Book)
-    .where(eq(Book.catalogBookId, catalogBookId));
-  return rows.map((row) => row.id);
-}
+});
 
 async function loadViewerEntry(
   viewerId: string | undefined,
@@ -349,55 +342,42 @@ async function loadViewerEntry(
 ): Promise<ViewerLibraryEntry | null> {
   if (!viewerId) return null;
 
-  const filters = selectedEditionId
-    ? [
-        and(
-          eq(Book.userId, viewerId),
-          eq(Book.catalogBookId, catalogBookId),
-          eq(Book.editionId, selectedEditionId),
-        ),
-        and(eq(Book.userId, viewerId), eq(Book.catalogBookId, catalogBookId)),
-      ]
-    : [and(eq(Book.userId, viewerId), eq(Book.catalogBookId, catalogBookId))];
+  const [entry] = await db
+    .select({
+      id: Book.id,
+      status: Book.status,
+      rating: Book.rating,
+      isFavorite: Book.isFavorite,
+      review: Book.review,
+      moodTags: Book.moodTags,
+      editionId: Book.editionId,
+      catalogBookId: Book.catalogBookId,
+      pageCount: Book.pageCount,
+      currentPage: Book.currentPage,
+      progress: Book.progress,
+      readingUpdatedAt: Book.readingUpdatedAt,
+    })
+    .from(Book)
+    .where(and(eq(Book.userId, viewerId), eq(Book.catalogBookId, catalogBookId)))
+    .orderBy(sql`case when ${Book.editionId} = ${selectedEditionId} then 0 else 1 end`)
+    .limit(1);
 
-  for (const where of filters) {
-    const [entry] = await db
-      .select({
-        id: Book.id,
-        status: Book.status,
-        rating: Book.rating,
-        isFavorite: Book.isFavorite,
-        review: Book.review,
-        moodTags: Book.moodTags,
-        editionId: Book.editionId,
-        catalogBookId: Book.catalogBookId,
-        pageCount: Book.pageCount,
-        currentPage: Book.currentPage,
-        progress: Book.progress,
-        readingUpdatedAt: Book.readingUpdatedAt,
-      })
-      .from(Book)
-      .where(where)
-      .limit(1);
-
-    if (entry) {
-      return {
-        id: entry.id,
-        status: entry.status,
-        rating: entry.rating,
-        isFavorite: entry.isFavorite,
-        privateNote: entry.review,
-        moodTags: entry.moodTags ?? [],
-        editionId: entry.editionId,
-        catalogBookId: entry.catalogBookId,
-        pageCount: entry.pageCount,
-        currentPage: entry.currentPage,
-        progress: entry.progress,
-        readingUpdatedAt: entry.readingUpdatedAt,
-      };
-    }
+  if (entry) {
+    return {
+      id: entry.id,
+      status: entry.status,
+      rating: entry.rating,
+      isFavorite: entry.isFavorite,
+      privateNote: entry.review,
+      moodTags: entry.moodTags ?? [],
+      editionId: entry.editionId,
+      catalogBookId: entry.catalogBookId,
+      pageCount: entry.pageCount,
+      currentPage: entry.currentPage,
+      progress: entry.progress,
+      readingUpdatedAt: entry.readingUpdatedAt,
+    };
   }
-
   return null;
 }
 
@@ -423,22 +403,13 @@ async function loadBookStats(catalogBookId: string): Promise<BookStats> {
 }
 
 async function loadTopMoods(catalogBookId: string): Promise<string[]> {
-  const rows = await db
-    .select({ moodTags: Book.moodTags })
-    .from(Book)
-    .where(eq(Book.catalogBookId, catalogBookId));
-
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    for (const tag of row.moodTags ?? []) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-  }
-
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([tag]) => tag);
+  const result = await db.execute<{ mood: string }>(sql`
+    select mood from ${Book}
+    cross join lateral unnest(${Book.moodTags}) as tags(mood)
+    where ${Book.catalogBookId} = ${catalogBookId}
+    group by mood order by count(*) desc, mood asc limit 3
+  `);
+  return result.rows.map((row) => row.mood);
 }
 
 async function loadReferenceLinks(subject: {
@@ -490,7 +461,7 @@ async function loadReferenceLinks(subject: {
     return { links: {}, images: {}, genres: [], authors: [], translators: [], publisher: null };
   }
 
-  const rows = await db
+  const rowsQuery = db
     .select({
       type: ReferenceItem.type,
       roles: ReferenceItem.roles,
@@ -501,21 +472,8 @@ async function loadReferenceLinks(subject: {
     .from(ReferenceItem)
     .where(and(eq(ReferenceItem.status, "APPROVED"), or(...conds)));
 
-  const links: BookReferenceLinks = {};
-  const images: BookReferenceImages = {};
-
-  for (const pair of pairs) {
-    const match = rows.find(
-      (row) => row.roles.includes(pair.type) && row.slug && row.name.toLowerCase() === pair.name.toLowerCase(),
-    );
-    if (match?.slug) links[pair.key] = match.slug;
-    // Keep the DTO on the same media contract as relation rows below. This
-    // matters for the fallback chip path, which otherwise would hand a raw
-    // storage key to the browser while relation-backed chips received a URL.
-    if (match) images[pair.key] = coalesceCoverImage(match.coverImage);
-  }
-
-  const [authorRows, translatorRows, publisherRows] = await Promise.all([
+  const [rows, authorRows, translatorRows, publisherRows] = await Promise.all([
+    rowsQuery,
     db.select({ name: ReferenceItem.name, slug: ReferenceItem.slug, image: ReferenceItem.coverImage })
       .from(CatalogBookContributor)
       .innerJoin(ReferenceItem, eq(ReferenceItem.id, CatalogBookContributor.referenceItemId))
@@ -537,6 +495,16 @@ async function loadReferenceLinks(subject: {
       : Promise.resolve([]),
   ]);
 
+  const links: BookReferenceLinks = {};
+  const images: BookReferenceImages = {};
+  for (const pair of pairs) {
+    const match = rows.find(
+      (row) => row.roles.includes(pair.type) && row.slug && row.name.toLowerCase() === pair.name.toLowerCase(),
+    );
+    if (match?.slug) links[pair.key] = match.slug;
+    if (match) images[pair.key] = coalesceCoverImage(match.coverImage);
+  }
+
   return {
     links,
     images,
@@ -555,7 +523,7 @@ async function loadReferenceLinks(subject: {
 const BOOK_QUOTES_PAGE_SIZE = 12;
 
 async function loadPublicQuotes(
-  siblingIds: string[],
+  catalogBookId: string,
   subject: {
     title: string;
     author: string;
@@ -565,12 +533,11 @@ async function loadPublicQuotes(
   viewerId?: string,
   options: { limit?: number; offset?: number } = {},
 ): Promise<{ quotes: PublicQuote[]; total: number }> {
-  if (siblingIds.length === 0) return { quotes: [], total: 0 };
-
   const visibility = viewerId
     ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, viewerId))
     : eq(User.profileVisibility, "PUBLIC");
-  const where = and(inArray(Quote.bookId, siblingIds), visibility);
+  const where = and(inArray(Quote.bookId,
+    db.select({ id: Book.id }).from(Book).where(eq(Book.catalogBookId, catalogBookId))), visibility);
 
   const query = db
     .select({
@@ -583,15 +550,13 @@ async function loadPublicQuotes(
       authorUsername: User.username,
       authorName: User.name,
       authorImage: User.image,
-      likeCount: sql<number>`count(${QuoteLike.id})::int`,
-      likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${viewerId ?? null}), false)`,
+      likeCount: sql<number>`(select count(*)::int from ${QuoteLike} where ${QuoteLike.quoteId} = ${Quote.id})`,
+      likedByViewer: sql<boolean>`exists (select 1 from ${QuoteLike}
+        where ${QuoteLike.quoteId} = ${Quote.id} and ${QuoteLike.userId} = ${viewerId ?? null})`,
     })
     .from(Quote)
-    .innerJoin(Book, eq(Quote.bookId, Book.id))
     .innerJoin(User, eq(Quote.userId, User.id))
-    .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
     .where(where)
-    .groupBy(Quote.id, User.id)
     .orderBy(desc(Quote.createdAt), desc(Quote.id))
     .limit(Math.min(options.limit ?? 10, 50))
     .offset(Math.max(options.offset ?? 0, 0));
@@ -599,7 +564,7 @@ async function loadPublicQuotes(
   const [rows, [{ total }]] = await Promise.all([
     query,
     db
-      .select({ total: sql<number>`count(distinct ${Quote.id})::int` })
+      .select({ total: sql<number>`count(*)::int` })
       .from(Quote)
       .innerJoin(User, eq(Quote.userId, User.id))
       .where(where),
@@ -649,6 +614,7 @@ export async function getBookMetadata(ref: string) {
   });
 
   return {
+    id: subject.catalogBookId,
     slug,
     title: subject.title,
     author: subject.author,
@@ -658,21 +624,24 @@ export async function getBookMetadata(ref: string) {
   };
 }
 
-export async function getBookDetail(
+type BookCommunity = Pick<Extract<BookDetailResult, { found: true }>,
+  "quotes" | "quoteCount" | "bookNotes" | "bookNotesCount" | "editionNotes" | "editionNotesCount">;
+
+export type BookOverviewResult = { found: false } |
+  Omit<Extract<BookDetailResult, { found: true }>, keyof BookCommunity>;
+
+export async function getBookOverview(
   ref: string,
   viewerId?: string,
   preferredEditionId?: string | null,
-): Promise<BookDetailResult> {
+): Promise<BookOverviewResult> {
   const subject = await loadSubjectRow(ref);
   if (!subject) return { found: false };
 
-  const slug = await ensureCatalogBookSlug({
-    id: subject.catalogBookId,
-    title: subject.title,
-    slug: subject.slug,
-  });
-
-  const editions = await loadApprovedEditions(subject.catalogBookId);
+  const [slug, editions] = await Promise.all([
+    ensureCatalogBookSlug({ id: subject.catalogBookId, title: subject.title, slug: subject.slug }),
+    loadApprovedEditions(subject.catalogBookId),
+  ]);
   const display = resolveBookDisplayData({
     title: subject.title,
     subtitle: subject.subtitle,
@@ -701,9 +670,7 @@ export async function getBookDetail(
   }
 
   const genreNames = subject.genre ? splitStoredGenres(subject.genre) : [];
-  const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
-
-  const [viewer, stats, topMoods, refData, externalLinks, notes] = await Promise.all([
+  const [viewer, stats, topMoods, refData, externalLinks] = await Promise.all([
     loadViewerEntry(viewerId, subject.catalogBookId, selectedEdition?.id ?? null),
     loadBookStats(subject.catalogBookId),
     loadTopMoods(subject.catalogBookId),
@@ -717,19 +684,6 @@ export async function getBookDetail(
       country: subject.country,
     }),
     getPublicBookExternalLinks(subject.catalogBookId),
-    listPublishedNotesForBook({
-      catalogBookId: subject.catalogBookId,
-      viewerId,
-      editionId: selectedEdition?.id ?? null,
-    }).catch((error) => {
-      if (!isToastCorruptionError(error)) throw error;
-      return {
-        bookNotes: [],
-        bookNotesCount: 0,
-        editionNotes: [],
-        editionNotesCount: 0,
-      };
-    }),
   ]);
 
   const authorChip: ReferenceChipData = {
@@ -772,18 +726,6 @@ export async function getBookDetail(
     selectedEdition as BookPresentationEdition | null,
   );
 
-  const { quotes, total: quoteCount } = await loadPublicQuotes(
-    siblingIds,
-    {
-      title: subject.title,
-      author: subject.author,
-      coverImage: book.coverImage,
-      slug,
-    },
-    viewerId,
-    { limit: DETAIL_QUOTE_LIMIT },
-  );
-
   return {
     found: true,
     book,
@@ -800,14 +742,33 @@ export async function getBookDetail(
     translatorChip,
     translatorChips,
     publisherChip: refData.publisher,
-    quotes,
-    quoteCount,
-    bookNotes: notes.bookNotes,
-    bookNotesCount: notes.bookNotesCount,
-    editionNotes: notes.editionNotes,
-    editionNotesCount: notes.editionNotesCount,
     externalLinks,
   };
+}
+
+export async function getBookCommunity(
+  book: Pick<BookDetailMeta, "id" | "title" | "author" | "coverImage" | "slug">,
+  viewerId?: string,
+  editionId?: string | null,
+): Promise<BookCommunity> {
+  const [{ quotes, total: quoteCount }, notes] = await Promise.all([
+    loadPublicQuotes(book.id, book, viewerId, { limit: DETAIL_QUOTE_LIMIT }),
+    listPublishedNotesForBook({ catalogBookId: book.id, viewerId, editionId }).catch((error) => {
+      if (!isToastCorruptionError(error)) throw error;
+      return { bookNotes: [], bookNotesCount: 0, editionNotes: [], editionNotesCount: 0 };
+    }),
+  ]);
+  return { quotes, quoteCount, ...notes };
+}
+
+export async function getBookDetail(
+  ref: string,
+  viewerId?: string,
+  preferredEditionId?: string | null,
+): Promise<BookDetailResult> {
+  const overview = await getBookOverview(ref, viewerId, preferredEditionId);
+  if (!overview.found) return overview;
+  return { ...overview, ...await getBookCommunity(overview.book, viewerId, overview.selectedEdition?.id) };
 }
 
 export interface BookQuotesPageHeader {
@@ -838,14 +799,11 @@ export async function getBookQuotesPage(
   const subject = await loadSubjectRow(ref);
   if (!subject) return { found: false };
 
-  const slug = await ensureCatalogBookSlug({
-    id: subject.catalogBookId,
-    title: subject.title,
-    slug: subject.slug,
-  });
-
-  const siblingIds = await resolveSiblingBookIds(subject.catalogBookId);
-  const editions = await loadApprovedEditions(subject.catalogBookId);
+  const [slug, editions, viewer] = await Promise.all([
+    ensureCatalogBookSlug({ id: subject.catalogBookId, title: subject.title, slug: subject.slug }),
+    loadApprovedEditions(subject.catalogBookId),
+    loadViewerEntry(viewerId, subject.catalogBookId, null),
+  ]);
   const display = resolveBookDisplayData({
     title: subject.title,
     author: subject.author,
@@ -858,7 +816,7 @@ export async function getBookQuotesPage(
 
   const currentPage = Math.max(1, Math.floor(page));
   const { quotes, total } = await loadPublicQuotes(
-    siblingIds,
+    subject.catalogBookId,
     {
       title: subject.title,
       author: subject.author,
@@ -868,10 +826,6 @@ export async function getBookQuotesPage(
     viewerId,
     { limit: BOOK_QUOTES_PAGE_SIZE, offset: (currentPage - 1) * BOOK_QUOTES_PAGE_SIZE },
   );
-  const [viewer] = await Promise.all([
-    loadViewerEntry(viewerId, subject.catalogBookId, null),
-  ]);
-
   return {
     found: true,
     book: {

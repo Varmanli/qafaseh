@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from "next/navigation";
 
-import { getBookDetail } from "@/lib/book/detail-service";
+import { getBookMetadata } from "@/lib/book/detail-service";
 import { decodeShortBookKey } from "@/lib/book/short-link";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +14,8 @@ export default async function ShortBookLinkPage({
   const bookId = decodeShortBookKey(key);
   if (!bookId) notFound();
 
-  const result = await getBookDetail(bookId);
-  if (!result.found) notFound();
+  const book = await getBookMetadata(bookId);
+  if (!book) notFound();
 
-  permanentRedirect(`/book/${encodeURIComponent(result.book.slug)}`);
+  permanentRedirect(`/book/${encodeURIComponent(book.slug)}`);
 }

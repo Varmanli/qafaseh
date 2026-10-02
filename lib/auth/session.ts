@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { User } from "@/db/schema";
@@ -22,7 +23,7 @@ export interface SessionUser {
  * در صورت نبود/نامعتبری توکن یا حذف کاربر، null برمی‌گرداند.
  * فقط در سرور (Server Components / Route Handlers) قابل استفاده است.
  */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE)?.value;
   if (!token) return null;
@@ -54,4 +55,4 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   }
 
   return user;
-}
+});

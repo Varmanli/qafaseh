@@ -283,6 +283,7 @@ export const ReferenceItem = pgTable(
   (t) => ({
     // اسلاگ یکتا در هر نوع (نویسنده و ناشر هم‌نام مجازند).
     typeSlugUnique: unique("ReferenceItem_type_slug_unique").on(t.type, t.slug),
+    nameLowerIdx: index("ReferenceItem_name_lower_idx").on(sql`lower(${t.name})`),
   }),
 );
 
@@ -433,7 +434,9 @@ export const BookEdition = pgTable("BookEdition", {
   }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
-});
+}, (t) => ({
+  catalogIdx: index("BookEdition_catalog_book_id_idx").on(t.catalogBookId),
+}));
 
 export const CatalogBookContributor = pgTable(
   "CatalogBookContributor",
@@ -577,7 +580,9 @@ export const Book = pgTable("Book", {
   editionId: varchar("edition_id").references(() => BookEdition.id, {
     onDelete: "set null",
   }),
-});
+}, (t) => ({
+  catalogUserEditionIdx: index("Book_catalog_user_edition_idx").on(t.catalogBookId, t.userId, t.editionId),
+}));
 
 export const BookLoan = pgTable("BookLoan", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`).notNull(),
@@ -1277,6 +1282,9 @@ export const PublishedBookNote = pgTable(
   (table) => ({
     userIdx: index("PublishedBookNote_user_id_idx").on(table.userId),
     bookIdx: index("PublishedBookNote_book_id_idx").on(table.bookId),
+    catalogScopeCreatedIdx: index("PublishedBookNote_catalog_scope_created_idx").on(
+      table.catalogBookId, table.scope, table.createdAt, table.id,
+    ),
     createdAtIdx: index("PublishedBookNote_created_at_idx").on(table.createdAt),
     updatedAtIdx: index("PublishedBookNote_updated_at_idx").on(table.updatedAt),
     contentLength: check(

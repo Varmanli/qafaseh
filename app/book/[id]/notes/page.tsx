@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ArrowRight, NotebookPen } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { getBookDetail } from "@/lib/book/detail-service";
+import { getBookOverview, getBookMetadata } from "@/lib/book/detail-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { getPublishedNotesForBook } from "@/lib/notes/service";
 import PublicShell from "@/components/PublicShell";
@@ -23,13 +23,11 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const result = await getBookDetail(decodeURIComponent(id));
+  const book = await getBookMetadata(decodeURIComponent(id));
 
-  if (!result.found) {
+  if (!book) {
     return { title: "یادداشت‌های کتاب | قفسه" };
   }
-
-  const { book } = result;
 
   return buildPageMetadata({
     title: `یادداشت‌های کتاب ${book.title}`,
@@ -53,7 +51,7 @@ export default async function BookNotesPage({
 
   const ref = decodeURIComponent(id);
   const viewer = await getCurrentUser();
-  const result = await getBookDetail(ref, viewer?.id, edition ?? null);
+  const result = await getBookOverview(ref, viewer?.id, edition ?? null);
 
   if (!result.found) notFound();
 
