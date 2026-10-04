@@ -43,7 +43,7 @@ function loadHomeSections(
     ),
     quotes: measure("recent quotes", () => userPromise.then((user) => getRecentHomeQuotes(10, user?.id))),
     recentActivity: measure("recent activities", () =>
-      userPromise.then((user) => user ? getFollowingFeed(user.id, null, 3) : null),
+      userPromise.then((user) => user ? getFollowingFeed(user.id, null, 3, false) : null),
     ),
     blogPosts: measure("featured blog posts", getFeaturedHomeBlogPosts),
     authors: measure("featured authors", getFeaturedAuthors),

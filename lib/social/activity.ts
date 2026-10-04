@@ -73,7 +73,7 @@ export function decodeFeedCursor(value: string | null) {
   }
 }
 
-function activityQuery(viewerId?: string, reader: Pick<typeof db, "select"> = db) {
+function activityQuery(viewerId?: string, reader: Pick<typeof db, "select"> = db, includeContent = true) {
   return reader.select({
     id: Activity.id,
     actorUserId: Activity.actorUserId,
@@ -95,7 +95,7 @@ function activityQuery(viewerId?: string, reader: Pick<typeof db, "select"> = db
     contentOwnerName: ContentOwner.name,
     contentOwnerImage: ContentOwner.image,
     noteId: PublishedBookNote.id,
-    noteContent: PublishedBookNote.content,
+    noteContent: includeContent ? PublishedBookNote.content : sql<string | null>`null`,
     noteCreatedAt: PublishedBookNote.createdAt,
     noteScope: PublishedBookNote.scope,
     noteEditionId: PublishedBookNote.bookEditionId,
@@ -104,14 +104,16 @@ function activityQuery(viewerId?: string, reader: Pick<typeof db, "select"> = db
     contentOwnerId: ContentOwner.id,
     contentCanEdit: sql<boolean>`coalesce(${ContentOwner.id} = ${viewerId ?? null}, false)`,
     quoteId: Quote.id,
-    quoteContent: Quote.content,
+    quoteContent: includeContent ? Quote.content : sql<string | null>`null`,
     quoteImageKey: Quote.imageKey,
     quoteBackground: Quote.background,
     quotePage: Quote.page,
     quoteLikeCount: sql<number>`(select count(*)::int from ${QuoteLike} where ${QuoteLike.quoteId} = ${Quote.id})`,
     quoteLikedByViewer: sql<boolean>`exists (select 1 from ${QuoteLike} where ${QuoteLike.quoteId} = ${Quote.id} and ${QuoteLike.userId} = ${viewerId ?? null})`,
-    quoteCommentCount: sql<number>`(select count(*)::int from ${SocialComment} where ${SocialComment.targetType} = 'QUOTE' and ${SocialComment.targetId} = ${Quote.id})`,
-    noteCommentCount: sql<number>`(select count(*)::int from ${SocialComment} where ${SocialComment.targetType} = 'NOTE' and ${SocialComment.targetId} = ${PublishedBookNote.id})`,
+    // A popular note can make PostgreSQL prefer a full scan. Don't execute that
+    // correlated count for reading events whose content id is null.
+    quoteCommentCount: sql<number>`case when ${Quote.id} is null then 0 else (select count(*)::int from ${SocialComment} where ${SocialComment.targetType} = 'QUOTE' and ${SocialComment.targetId} = ${Quote.id}) end`,
+    noteCommentCount: sql<number>`case when ${PublishedBookNote.id} is null then 0 else (select count(*)::int from ${SocialComment} where ${SocialComment.targetType} = 'NOTE' and ${SocialComment.targetId} = ${PublishedBookNote.id}) end`,
     activityCommentCount: sql<number>`(select count(*)::int from ${SocialComment} where ${SocialComment.targetType} = 'ACTIVITY' and ${SocialComment.targetId} = ${Activity.id})`,
     likeCount: sql<number>`(select count(*)::int from ${ActivityLike} where ${ActivityLike.activityId} = ${Activity.id})`,
     likedByViewer: sql<boolean>`exists (select 1 from ${ActivityLike} where ${ActivityLike.activityId} = ${Activity.id} and ${ActivityLike.userId} = ${viewerId ?? null})`,
@@ -134,11 +136,11 @@ const visibleActivityContent = or(
   and(eq(Activity.type, "LIKED_QUOTE"), eq(Quote.bookId, Book.id), eq(Quote.userId, Book.userId), sql`exists (select 1 from ${QuoteLike} where ${QuoteLike.quoteId} = ${Quote.id} and ${QuoteLike.userId} = ${Activity.actorUserId})`),
 );
 
-export async function getFollowingFeed(viewerId: string, cursorValue: string | null, limit = 20) {
+export async function getFollowingFeed(viewerId: string, cursorValue: string | null, limit = 20, includeContent = true) {
   const cursor = decodeFeedCursor(cursorValue);
   if (cursorValue && !cursor) throw new Error("INVALID_CURSOR");
   const pageSize = Math.max(1, Math.min(limit, 20));
-  const rows = await activityQuery(viewerId)
+  const rows = await activityQuery(viewerId, db, includeContent)
     .innerJoin(Follow, and(eq(Follow.followingId, Activity.actorUserId), eq(Follow.followerId, viewerId)))
     .where(and(
       visibleActivityContent,
@@ -150,7 +152,7 @@ export async function getFollowingFeed(viewerId: string, cursorValue: string | n
   const hasMore = rows.length > pageSize;
   const pageRows = rows.slice(0, pageSize);
   return {
-    items: toFeedItems(pageRows),
+    items: toFeedItems(pageRows, includeContent),
     nextCursor: hasMore && pageRows.length ? encodeFeedCursor(pageRows[pageRows.length - 1].createdAt, pageRows[pageRows.length - 1].id) : null,
   };
 }
@@ -206,7 +208,7 @@ export async function toggleActivityLike(id: string, userId: string) {
   });
 }
 
-function toFeedItems(rows: Awaited<ReturnType<typeof activityQuery>>) {
+function toFeedItems(rows: Awaited<ReturnType<typeof activityQuery>>, includeContent = true) {
   return rows.map((row) => ({
     id: row.id,
     actorUserId: row.actorUserId,
@@ -231,7 +233,7 @@ function toFeedItems(rows: Awaited<ReturnType<typeof activityQuery>>) {
     bookPageCount: row.bookPageCount,
     bookHref: `/book/${encodeURIComponent(row.bookSlug || row.catalogBookId || row.bookId)}`,
     noteId: row.noteId,
-    note: row.noteId && row.noteContent && row.noteCreatedAt ? {
+    note: includeContent && row.noteId && row.noteContent && row.noteCreatedAt ? {
       id: row.noteId,
       content: row.noteContent,
       bookId: row.bookId,
@@ -252,7 +254,7 @@ function toFeedItems(rows: Awaited<ReturnType<typeof activityQuery>>) {
       authorName: row.contentOwnerName,
       authorImage: row.contentOwnerImage,
     } : null,
-    quote: row.quoteId ? {
+    quote: includeContent && row.quoteId ? {
       id: row.quoteId,
       content: row.quoteContent ?? "",
       imageKey: row.quoteImageKey,

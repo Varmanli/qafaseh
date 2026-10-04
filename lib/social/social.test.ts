@@ -60,6 +60,14 @@ test("following graph, feed visibility and stable pagination", { skip: !hasDatab
     assert.equal(feed.items.length, 4);
     assert.deepEqual(new Set(feed.items.map((item) => item.type)), new Set(["STARTED_READING", "FINISHED_READING", "PUBLISHED_NOTE", "PUBLISHED_QUOTE"]));
     assert.ok(feed.items.every((item) => item.actorUsername === actorName));
+    const summary = await getFollowingFeed(viewerId, null, 3, false);
+    const fullPage = await getFollowingFeed(viewerId, null, 3);
+    assert.deepEqual(summary, {
+      ...fullPage,
+      items: fullPage.items.map((item) => ({ ...item, note: null, quote: null })),
+    });
+    assert.ok(feed.items.some((item) => item.note?.content === "<p>A public note</p>"));
+    assert.ok(feed.items.some((item) => item.quote?.content === "A public quote"));
     assert.deepEqual((await getProfileRecentActivity(actorId)).map((item) => item.id), feed.items.map((item) => item.id));
     const strangerActivity = await getProfileRecentActivity(strangerId);
     assert.equal(strangerActivity.length, 1);
@@ -73,6 +81,7 @@ test("following graph, feed visibility and stable pagination", { skip: !hasDatab
     assert.equal((await getProfileRecentActivity(actorId)).length, 2);
     await db.update(User).set({ profileVisibility: "PRIVATE" }).where(eq(User.id, actorId));
     assert.equal((await getFollowingFeed(viewerId, null)).items.length, 0);
+    assert.equal((await getFollowingFeed(viewerId, null, 3, false)).items.length, 0);
     assert.deepEqual(await getProfileRecentActivity(actorId), []);
     assert.deepEqual(await getProfileRecentActivity(actorId, viewerId), []);
     assert.equal((await getProfileRecentActivity(actorId, actorId)).length, 2);

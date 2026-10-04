@@ -11,6 +11,7 @@
     "start:prod": "npm run start:next",
     "lint": "eslint",
     "test": "tsx --test --test-concurrency=1 lib/**/*.test.ts",
+    "perf:social": "tsx --env-file=.env scripts/benchmark-social.ts",
     "seed:pagination": "tsx --env-file=.env scripts/seed-pagination.ts",
     "seed:pagination:clean": "tsx --env-file=.env scripts/seed-pagination.ts --clean",
     "email:test": "tsx scripts/test-email.ts",
