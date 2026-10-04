@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getPublicProfile } from "@/lib/profile/service";
 import { getPublicQuotesByUsername } from "@/lib/quotes/service";
 import { getPublishedNotesByUsername } from "@/lib/notes/service";
+import { getFollowState } from "@/lib/social/follow";
+import { getProfileRecentActivity } from "@/lib/social/activity";
 import {
   isReservedUsername,
   normalizeUsername,
@@ -16,9 +18,11 @@ import PublicShell from "@/components/PublicShell";
 import LibraryShowcase from "@/components/profile/LibraryShowcase";
 import QuotesSection from "@/components/profile/QuotesSection";
 import NotesSection from "@/components/profile/NotesSection";
+import HomeRecentActivity from "@/components/home/HomeRecentActivity";
 import ProfileHeader, {
   type ProfileSocialLink,
 } from "@/components/profile/ProfileHeader";
+import FollowButton from "@/components/profile/FollowButton";
 
 export const dynamic = "force-dynamic";
 
@@ -146,12 +150,14 @@ export default async function RootProfilePage({
   }
 
   if (result.isPrivate) {
+    const isFollowing = viewer ? (await getFollowState(result.userId, viewer.id)).isFollowing : false;
     return (
       <Shell>
         <PrivateProfileState
           name={result.displayName}
           username={result.username || username}
           image={result.image}
+          isFollowing={isFollowing}
         />
       </Shell>
     );
@@ -159,15 +165,17 @@ export default async function RootProfilePage({
 
   const { profile, stats, books, isOwner } = result;
   const profileUsername = profile.username || username;
+  const followState = await getFollowState(profile.userId, viewer?.id);
 
   const joined = new Date(profile.joinedAt).toLocaleDateString("fa-IR", {
     year: "numeric",
     month: "long",
   });
 
-  const [quotesResult, notesResult] = await Promise.all([
+  const [quotesResult, notesResult, recentActivity] = await Promise.all([
     getPublicQuotesByUsername(username, viewer?.id, { limit: 5 }),
     getPublishedNotesByUsername(username, viewer?.id, { limit: 5 }),
+    getProfileRecentActivity(profile.userId, viewer?.id, 3),
   ]);
 
   const quotes =
@@ -176,17 +184,10 @@ export default async function RootProfilePage({
   const notes =
     notesResult.found && !notesResult.isPrivate ? notesResult.notes : [];
 
-  const quotesHasMore =
-    quotesResult.found && !quotesResult.isPrivate
-      ? quotesResult.hasMore
-      : false;
-
-  const notesHasMore =
-    notesResult.found && !notesResult.isPrivate ? notesResult.hasMore : false;
-
   return (
     <Shell>
-      <div className="space-y-4 sm:space-y-5">
+      <div>
+        <div className="lg:grid lg:grid-cols-2 lg:items-stretch lg:gap-4">
         <ProfileHeader
           name={profile.displayName}
           username={profileUsername}
@@ -203,16 +204,26 @@ export default async function RootProfilePage({
           averageRating={stats.averageRating}
           profileUrl={toAbsoluteUrl(`/${encodeURIComponent(profileUsername)}`)}
           socialLinks={socialLinks(profile)}
+          {...followState}
         />
 
-        {/* Unified profile content */}
-        <div className="overflow-hidden rounded-[1.6rem] border border-border/70 bg-card/55 shadow-sm sm:rounded-[2rem]">
-          <div className="px-3 py-4 sm:px-5 sm:py-6">
+        <div className="overflow-hidden rounded-[1.6rem] rounded-t-none border-x border-b border-t-0 border-border/70 bg-card/55 shadow-sm sm:rounded-[2rem] sm:rounded-t-none lg:rounded-[2rem] lg:border-t">
+          <div aria-hidden="true" className="mx-3 h-px bg-border/70 lg:hidden" />
+          <div className="px-3 py-4 sm:px-5 sm:py-6 lg:py-5">
             <LibraryShowcase
               books={books}
               username={profileUsername}
               stats={stats}
             />
+          </div>
+        </div>
+        </div>
+
+        {/* Unified profile content */}
+        <div className="mt-0 overflow-hidden rounded-[1.6rem] rounded-t-none border-x border-b border-t-0 border-border/70 bg-card/55 shadow-sm sm:rounded-[2rem] sm:rounded-t-none lg:mt-4 lg:rounded-[2rem] lg:border-t">
+
+          <div className="px-3 py-4 sm:px-5 sm:py-6">
+            <HomeRecentActivity items={recentActivity} variant="profile" username={profileUsername} canLike={!!viewer} />
           </div>
 
           <div className="mx-3 border-t border-border/60 sm:mx-5" />
@@ -220,7 +231,6 @@ export default async function RootProfilePage({
           <div className="px-3 py-4 sm:px-5 sm:py-6">
             <QuotesSection
               quotes={quotes}
-              initialHasMore={quotesHasMore}
               username={profileUsername}
               isOwner={isOwner}
               canLike={!!viewer}
@@ -232,7 +242,6 @@ export default async function RootProfilePage({
           <div className="px-3 py-4 sm:px-5 sm:py-6">
             <NotesSection
               notes={notes}
-              initialHasMore={notesHasMore}
               username={profileUsername}
               isOwner={isOwner}
               canLike={!!viewer}
@@ -248,10 +257,12 @@ function PrivateProfileState({
   name,
   username,
   image,
+  isFollowing,
 }: {
   name: string | null;
   username: string | null;
   image: string | null;
+  isFollowing: boolean;
 }) {
   const displayName = name || username || "کاربر قفسه";
 
@@ -278,6 +289,8 @@ function PrivateProfileState({
             @{username}
           </p>
         ) : null}
+
+        {username && isFollowing ? <div className="mt-4"><FollowButton username={username} initialFollowing allowFollow={false} /></div> : null}
 
         <div className="mt-6 h-px w-full max-w-md bg-border/60" />
 

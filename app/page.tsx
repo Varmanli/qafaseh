@@ -19,12 +19,13 @@ import PublicShell from "@/components/PublicShell";
 import HomeHeroSlider from "@/components/home/HomeHeroSlider";
 import HomeBookCarousel from "@/components/home/HomeBookCarousel";
 import HomeQuotesSection from "@/components/home/HomeQuotesSection";
+import HomeRecentActivity from "@/components/home/HomeRecentActivity";
 import HomePopularAuthors from "@/components/home/HomePopularAuthors";
 import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
 // import HomeFeatureCards from "@/components/home/HomeFeatureCards";
 import HomeBlogPreview from "@/components/home/HomeBlogPreview";
-import HomeExploreGhafaseh from "@/components/home/HomeExploreGhafaseh";
 import HomeGenreDiscovery from "@/components/home/HomeGenreDiscovery";
+import { getFollowingFeed } from "@/lib/social/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,9 @@ function loadHomeSections(
       books.length ? [] : measure("popular books", () => getPopularBooks(8)),
     ),
     quotes: measure("recent quotes", () => userPromise.then((user) => getRecentHomeQuotes(10, user?.id))),
+    recentActivity: measure("recent activities", () =>
+      userPromise.then((user) => user ? getFollowingFeed(user.id, null, 3) : null),
+    ),
     blogPosts: measure("featured blog posts", getFeaturedHomeBlogPosts),
     authors: measure("featured authors", getFeaturedAuthors),
     genres: measure("genres", () => getHomepageGenres(5)),
@@ -74,6 +78,11 @@ async function HomeLists({ data }: { data: HomeData }) {
 
 async function HomeBlog({ data }: { data: HomeData }) {
   return <HomeBlogPreview posts={await data.blogPosts} />;
+}
+
+async function HomeRecentActivities({ data }: { data: HomeData }) {
+  const feed = await data.recentActivity;
+  return feed ? <HomeRecentActivity items={feed.items} canLike /> : null;
 }
 
 function createHomePerfMeter(enabled: boolean, requestId: string) {
@@ -154,9 +163,9 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:space-y-10">
           <HomeHeroSlider slides={heroSlides} />
 
-          <div className="[content-visibility:auto] [contain-intrinsic-size:auto_340px]">
-            <HomeExploreGhafaseh />
-          </div>
+          <Suspense fallback={null}>
+            <HomeRecentActivities data={homeData} />
+          </Suspense>
 
           <div className="[content-visibility:auto] [contain-intrinsic-size:auto_650px]">
             <Suspense fallback={<div className="h-[650px]" aria-hidden="true" />}>

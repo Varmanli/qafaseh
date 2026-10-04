@@ -11,6 +11,7 @@ import {
   normalizeQuoteText,
 } from "@/lib/quotes/image";
 import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
+import { getVisibleQuoteById } from "@/lib/quotes/service";
 import { deleteImageUpload } from "@/lib/server/upload-storage";
 
 async function manageableQuote(id: string, userId: string, admin: boolean) {
@@ -34,9 +35,11 @@ async function cleanupImage(key: string | null, userId: string) {
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [quote] = await db.select().from(Quote).where(eq(Quote.id, id));
-  if (!quote) return NextResponse.json({ error: "تکه پیدا نشد" }, { status: 404 });
-  return NextResponse.json({ quote });
+  const viewer = await getCurrentUser();
+  const quote = await getVisibleQuoteById(id, viewer?.id);
+  const headers = { "Cache-Control": "private, no-store" };
+  if (!quote) return NextResponse.json({ error: "تکه پیدا نشد" }, { status: 404, headers });
+  return NextResponse.json({ quote }, { headers });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

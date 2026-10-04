@@ -209,6 +209,7 @@ export type PublicProfileResult =
       found: true;
       isPrivate: true;
       isOwner: false;
+      userId: string;
       username: string | null;
       displayName: string | null;
       image: string | null;
@@ -218,6 +219,7 @@ export type PublicProfileResult =
       isPrivate: false;
       isOwner: boolean;
       profile: {
+        userId: string;
         username: string | null;
         displayName: string | null;
         image: string | null;
@@ -254,6 +256,7 @@ export async function getPublicProfile(
       found: true,
       isPrivate: true,
       isOwner: false,
+      userId: user.id,
       username: user.username,
       displayName: user.name,
       image: user.image,
@@ -280,6 +283,7 @@ export async function getPublicProfile(
     isPrivate: false,
     isOwner,
     profile: {
+      userId: user.id,
       username: user.username,
       displayName: user.name,
       image: user.image,

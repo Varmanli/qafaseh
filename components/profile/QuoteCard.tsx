@@ -1,38 +1,29 @@
 "use client";
 
-import { useState, type KeyboardEvent, type ReactNode } from "react";
-import dynamic from "next/dynamic";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   BookOpen,
-  Check,
-  Copy,
-  ExternalLink,
   Heart,
-  Pencil,
   Quote as QuoteIcon,
-  Share2,
   Star,
-  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import BookCoverImage from "@/components/books/BookCoverImage";
+import CardActionsMenu from "@/components/social/CardActionsMenu";
+import { useEditedContent } from "@/components/social/useEditedContent";
+import CommentCountLink from "@/components/social/CommentCountLink";
+import { useSocialLike } from "@/components/social/useSocialLike";
 import type { PublicQuote } from "@/lib/quotes/service";
 import { cn } from "@/lib/utils";
 import { getQuoteDirectionProps } from "@/lib/text-direction";
 import type { QuoteBackground as QuoteBackgroundVariant } from "@/lib/quotes/backgrounds";
-import { useQuoteBackgroundImage } from "@/lib/quotes/background-client";
-
-const QuoteReadingDialog = dynamic(
-  () => import("@/components/profile/QuoteReadingDialog"),
-  { ssr: false },
-);
+import { QuoteBackground } from "@/components/quotes/QuoteBackground";
+export { QuoteBackground } from "@/components/quotes/QuoteBackground";
 
 const PLACEHOLDER = "/placeholder-cover.svg";
-const LONG_QUOTE_CHAR_LIMIT = 220;
-const LONG_QUOTE_WORD_LIMIT = 42;
 
 export interface CardManage {
   onEdit: () => void;
@@ -48,10 +39,14 @@ interface QuoteCardProps {
   background?: QuoteBackgroundVariant;
   className?: string;
   priority?: boolean;
+  detailPage?: boolean;
+  flat?: boolean;
+  showActions?: boolean;
+  showComments?: boolean;
 }
 
 export default function QuoteCard({
-  quote,
+  quote: initialQuote,
   canLike,
   showAuthor = false,
   showBook = true,
@@ -59,67 +54,22 @@ export default function QuoteCard({
   background = "default",
   className,
   priority = false,
+  detailPage = false,
+  flat = false,
+  showActions = true,
+  showComments = true,
 }: QuoteCardProps) {
-  const [liked, setLiked] = useState(quote.likedByViewer);
-  const [likeCount, setLikeCount] = useState(quote.likeCount);
-  const [likePending, setLikePending] = useState(false);
+  const quote = useEditedContent("QUOTE", initialQuote);
+  const { liked, likeCount, pending: likePending, toggleLike: handleLike } = useSocialLike("QUOTE", quote.id, { liked: quote.likedByViewer, likeCount: quote.likeCount }, canLike);
   const [copied, setCopied] = useState(false);
-  const [contentOpen, setContentOpen] = useState(false);
 
   const bookHref = `/book/${encodeURIComponent(
     quote.bookSlug || quote.bookId,
   )}`;
+  const quoteHref = `/quote/${encodeURIComponent(quote.id)}`;
 
   const quoteText = quote.content?.trim() || "";
-  const hasImage = Boolean(quote.imageKey);
   const fallbackText = `تکه‌ای تصویری از کتاب «${quote.bookTitle}»`;
-
-  const wordCount = quoteText.split(/\s+/).filter(Boolean).length;
-
-  const isLongQuote =
-    quoteText.length > LONG_QUOTE_CHAR_LIMIT ||
-    wordCount > LONG_QUOTE_WORD_LIMIT;
-
-  async function handleLike() {
-    if (!canLike) {
-      toast("برای پسندیدن وارد شوید");
-      return;
-    }
-
-    if (likePending) return;
-
-    const previousLiked = liked;
-    const previousCount = likeCount;
-    const nextLiked = !previousLiked;
-
-    setLiked(nextLiked);
-    setLikeCount(Math.max(0, previousCount + (nextLiked ? 1 : -1)));
-    setLikePending(true);
-
-    try {
-      const response = await fetch(`/api/quotes/${quote.id}/like`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Like request failed");
-      }
-
-      const data = (await response.json()) as {
-        liked: boolean;
-        likeCount: number;
-      };
-
-      setLiked(data.liked);
-      setLikeCount(data.likeCount);
-    } catch {
-      setLiked(previousLiked);
-      setLikeCount(previousCount);
-      toast.error("پسند ثبت نشد");
-    } finally {
-      setLikePending(false);
-    }
-  }
 
   async function handleCopy() {
     try {
@@ -139,8 +89,8 @@ export default function QuoteCard({
   async function handleShare() {
     const url =
       typeof window !== "undefined"
-        ? `${window.location.origin}${bookHref}`
-        : bookHref;
+        ? `${window.location.origin}${quoteHref}`
+        : quoteHref;
 
     const shareData = {
       title: quote.bookTitle,
@@ -160,28 +110,10 @@ export default function QuoteCard({
 
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("لینک کتاب کپی شد");
+      toast.success("لینک تکهٔ کتاب کپی شد");
     } catch {
       toast.error("اشتراک‌گذاری ممکن نشد");
     }
-  }
-
-  function openFullQuote() {
-    if (isLongQuote || hasImage) {
-      setContentOpen(true);
-    }
-  }
-
-  function handleQuoteKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (
-      (!isLongQuote && !hasImage) ||
-      (event.key !== "Enter" && event.key !== " ")
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    setContentOpen(true);
   }
 
   return (
@@ -189,21 +121,17 @@ export default function QuoteCard({
       <article
         dir="rtl"
         className={cn(
-          "group relative flex h-full min-h-[390px] flex-col overflow-hidden",
-          "rounded-[1.75rem] border border-border/65 bg-card/80",
-          "p-3.5 sm:min-h-[420px] sm:p-4",
-          "shadow-md md:shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)]",
-          "transition-colors duration-150 md:transition-[border-color,background-color,box-shadow] md:duration-300",
-          "hover:border-primary/20 hover:bg-card/90",
-          "hover:shadow-md md:hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)]",
+          flat
+            ? "relative flex min-h-0 flex-col overflow-hidden bg-transparent p-0 shadow-none"
+            : "group relative flex h-full min-h-[390px] flex-col overflow-hidden rounded-[1.75rem] border border-border/65 bg-card/80 p-3.5 shadow-md transition-colors duration-150 hover:border-primary/20 hover:bg-card/90 hover:shadow-md sm:min-h-[420px] sm:p-4 sm:shadow-[0_22px_65px_-48px_rgba(0,0,0,0.75)] sm:transition-[border-color,background-color,box-shadow] sm:duration-300 sm:hover:shadow-[0_28px_72px_-50px_rgba(0,0,0,0.85)]",
           className,
         )}
       >
         {/* top highlight */}
-        <div
+        {!flat ? <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-10 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent"
-        />
+        /> : null}
 
         {/* Author */}
         {showAuthor && quote.authorUsername ? (
@@ -231,39 +159,30 @@ export default function QuoteCard({
           imageKey={quote.imageKey}
           bookTitle={quote.bookTitle}
           page={quote.page}
-          background={background}
-          isLongQuote={isLongQuote}
-          canOpen={isLongQuote || hasImage}
-          onOpen={openFullQuote}
-          onKeyDown={handleQuoteKeyDown}
+          background={quote.background || background}
+          href={detailPage ? undefined : quoteHref}
           priority={priority}
+          flat={flat}
         />
 
         {/* Actions */}
-        <QuoteCardFooter
+        {showActions ? <QuoteCardFooter
           liked={liked}
           likeCount={likeCount}
+          commentCount={quote.commentCount}
+          quoteId={quote.id}
+          showComments={showComments && !detailPage}
           likePending={likePending}
           copied={copied}
           manage={manage}
+          quote={quote}
           onLike={handleLike}
           onCopy={handleCopy}
           canCopy={Boolean(quoteText)}
           onShare={handleShare}
-        />
+        /> : null}
       </article>
 
-      {contentOpen ? (
-        <QuoteReadingDialog
-          open={contentOpen}
-          onOpenChange={setContentOpen}
-          quote={quote}
-          quoteText={quoteText}
-          bookHref={bookHref}
-          showBook={showBook}
-          renderBackground={() => <QuoteBackground variant={background} />}
-        />
-      ) : null}
     </>
   );
 }
@@ -423,39 +342,26 @@ function QuoteContent({
   bookTitle,
   page,
   background,
-  isLongQuote,
-  canOpen,
-  onOpen,
-  onKeyDown,
+  href,
   priority = false,
+  flat = false,
 }: {
   quoteText: string;
   imageKey: string | null;
   bookTitle: string;
   page: number | null;
   background: QuoteBackgroundVariant;
-  isLongQuote: boolean;
-  canOpen: boolean;
-  onOpen: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  href?: string;
   priority?: boolean;
+  flat?: boolean;
 }) {
   const hasArtwork = background !== "default";
-
-  return (
-    <div
-      role={canOpen ? "button" : undefined}
-      tabIndex={canOpen ? 0 : undefined}
-      aria-label={canOpen ? "مشاهده کامل تکه کتاب" : undefined}
-      onClick={onOpen}
-      onKeyDown={onKeyDown}
-      className={cn(
+  const canOpen = !!href;
+  const containerClass = cn(
         "relative z-10 mt-3 flex min-h-0 flex-1 overflow-hidden",
-        "rounded-[1.45rem] border",
-        hasArtwork
-          ? "border-white/10 bg-black"
-          : "border-border/60 bg-background/30",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]",
+        flat ? "rounded-2xl border-0 bg-transparent shadow-none" : "rounded-[1.45rem] border",
+        !flat && (hasArtwork ? "border-white/10 bg-black" : "border-border/60 bg-background/30"),
+        !flat && "shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]",
         canOpen &&
           "cursor-pointer transition-[border-color,box-shadow] duration-300",
         canOpen &&
@@ -464,10 +370,11 @@ function QuoteContent({
             : "hover:border-primary/15"),
         canOpen &&
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
-      )}
-    >
+      );
+  const content = (
+    <>
       {/* Background belongs ONLY to the quote area. */}
-      <QuoteBackground variant={background} />
+      {!flat || hasArtwork ? <QuoteBackground variant={background} /> : null}
 
       {/* Decorative quote marks */}
       <QuoteIcon
@@ -486,11 +393,12 @@ function QuoteContent({
         )}
       />
 
-      <div className="relative z-10 flex min-h-[205px] w-full flex-1 flex-col px-5 py-6 sm:min-h-[230px] sm:px-7 sm:py-7">
+      <div className={cn("relative z-10 flex w-full flex-1 flex-col", flat ? "min-h-[180px] px-4 py-9 sm:min-h-[200px] sm:px-8 sm:py-10" : "min-h-[205px] px-5 py-6 sm:min-h-[230px] sm:px-7 sm:py-7")}>
         {imageKey ? (
           <div
             className={cn(
-              "relative mb-4 flex max-h-48 min-h-32 w-full items-center justify-center overflow-hidden rounded-xl",
+              "relative mb-4 flex min-h-32 w-full items-center justify-center overflow-hidden rounded-xl",
+              canOpen ? "max-h-48" : "max-h-[70dvh]",
               hasArtwork
                 ? "bg-black/25 ring-1 ring-white/15 backdrop-blur-[2px]"
                 : "bg-black/10 ring-1 ring-border/40",
@@ -503,7 +411,7 @@ function QuoteContent({
               height={450}
               priority={priority}
               sizes="(max-width: 768px) 280px, 350px"
-              className="h-auto max-h-48 w-auto max-w-full object-contain"
+              className={cn("h-auto w-auto max-w-full object-contain", canOpen ? "max-h-48" : "max-h-[70dvh]")}
             />
           </div>
         ) : null}
@@ -514,7 +422,7 @@ function QuoteContent({
               <p
                 {...getQuoteDirectionProps(quoteText)}
                 className={cn(
-                  "whitespace-pre-line text-center",
+                  "whitespace-pre-line break-words text-center [overflow-wrap:anywhere]",
                   "text-[13px] font-medium leading-7",
                   hasArtwork
                     ? "text-white [text-shadow:0_1px_18px_rgba(0,0,0,0.55)]"
@@ -522,7 +430,8 @@ function QuoteContent({
                   "sm:text-[15px] sm:leading-[2.2]",
                   "md:text-[1rem] md:leading-[2.3]",
                   "lg:text-base lg:leading-[2.4]",
-                  isLongQuote && "line-clamp-6",
+                  canOpen && "line-clamp-6",
+                  flat && "text-base leading-9 sm:text-lg sm:leading-10 md:text-lg md:leading-10 lg:text-lg lg:leading-10",
                 )}
               >
                 {quoteText}
@@ -531,45 +440,29 @@ function QuoteContent({
           </div>
         ) : null}
 
-        {(isLongQuote || page) && (
-          <div className="mt-4 flex min-h-8 shrink-0 items-center justify-between gap-3">
-            {isLongQuote ? (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onOpen();
-                }}
-                className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-lg px-1.5",
-                  "text-[11px] font-black transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
-                  hasArtwork
-                    ? "text-white/90 hover:bg-white/10 hover:text-white"
-                    : "text-primary hover:bg-primary/8",
-                )}
-              >
-                ادامه خواندن
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <span />
-            )}
-
-            {page ? <PageBadge page={page} inverted={hasArtwork} /> : null}
+        {page ? (
+          <div className="mt-4 flex min-h-8 shrink-0 items-center justify-end">
+            <PageBadge page={page} inverted={hasArtwork} />
           </div>
-        )}
+        ) : null}
       </div>
-    </div>
+    </>
   );
+  return href
+    ? <Link href={href} prefetch={false} className={containerClass} aria-label="مشاهده کامل تکه کتاب">{content}</Link>
+    : <div className={containerClass}>{content}</div>;
 }
 
 function QuoteCardFooter({
   liked,
   likeCount,
+  commentCount,
+  quoteId,
+  showComments,
   likePending,
   copied,
   manage,
+  quote,
   onLike,
   onCopy,
   canCopy,
@@ -577,9 +470,13 @@ function QuoteCardFooter({
 }: {
   liked: boolean;
   likeCount: number;
+  commentCount: number;
+  quoteId: string;
+  showComments: boolean;
   likePending: boolean;
   copied: boolean;
   manage?: CardManage;
+  quote: PublicQuote;
   onLike: () => void;
   onCopy: () => void;
   canCopy: boolean;
@@ -587,52 +484,17 @@ function QuoteCardFooter({
 }) {
   return (
     <footer className="relative z-10 mt-3 flex shrink-0 items-center justify-between gap-2">
-      <LikePill
-        liked={liked}
-        count={likeCount}
-        pending={likePending}
-        onClick={onLike}
-      />
-
       <div className="flex items-center gap-1.5">
-        <ActionPill
-          label={canCopy ? "کپی تکه" : "تکه تصویری متنی برای کپی ندارد"}
-          onClick={onCopy}
-          disabled={!canCopy}
-          active={copied}
-          icon={
-            copied ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )
-          }
+        <LikePill
+          liked={liked}
+          count={likeCount}
+          pending={likePending}
+          onClick={onLike}
         />
-
-        <ActionPill
-          label="اشتراک‌گذاری"
-          onClick={onShare}
-          icon={<Share2 className="h-4 w-4" />}
-        />
-
-        {manage ? (
-          <>
-            <IconAction
-              label="ویرایش"
-              onClick={manage.onEdit}
-              tone="primary"
-              icon={<Pencil className="h-4 w-4" />}
-            />
-
-            <IconAction
-              label="حذف"
-              onClick={manage.onDelete}
-              tone="danger"
-              icon={<Trash2 className="h-4 w-4" />}
-            />
-          </>
-        ) : null}
+        {showComments ? <CommentCountLink targetType="QUOTE" targetId={quoteId} count={commentCount} /> : null}
       </div>
+
+      <CardActionsMenu quote={quote} copied={copied} canCopy={canCopy} onCopy={onCopy} onShare={onShare} manage={manage} />
     </footer>
   );
 }
@@ -695,173 +557,6 @@ function LikePill({
 
       <span>{count.toLocaleString("fa-IR")}</span>
     </button>
-  );
-}
-
-function ActionPill({
-  label,
-  icon,
-  onClick,
-  active,
-  disabled = false,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "grid h-10 w-12 place-items-center rounded-full",
-        "border border-border/60 bg-background/30",
-        "text-muted-foreground",
-        "transition-[border-color,background-color,color] duration-200",
-        "hover:border-primary/15 hover:bg-primary/5 hover:text-foreground",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
-        "disabled:cursor-not-allowed disabled:opacity-30",
-        active && "border-primary/15 bg-primary/8 text-primary",
-      )}
-    >
-      {icon}
-    </button>
-  );
-}
-
-export function IconAction({
-  label,
-  icon,
-  onClick,
-  tone = "default",
-  disabled = false,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-  tone?: "default" | "primary" | "danger";
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "grid h-9 w-9 place-items-center rounded-full",
-        "text-muted-foreground transition-colors duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35",
-        "disabled:cursor-not-allowed disabled:opacity-30",
-        tone === "primary" && "text-primary hover:bg-primary/8",
-        tone === "danger" &&
-          "text-red-400 hover:bg-red-500/8 hover:text-red-300",
-        tone === "default" && "hover:bg-foreground/5 hover:text-foreground",
-      )}
-    >
-      {icon}
-    </button>
-  );
-}
-
-/* Quote backgrounds — rendered only inside the quote-content area. */
-export function QuoteBackground({
-  variant,
-}: {
-  variant: QuoteBackgroundVariant;
-}) {
-  const imageSrc = useQuoteBackgroundImage(variant);
-
-  if (!imageSrc || variant === "default") {
-    return <DefaultQuoteBackground />;
-  }
-
-  return <ImageQuoteBackground src={imageSrc} />;
-}
-
-function DefaultQuoteBackground() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      {/* Sophisticated ivory/charcoal gradient background base */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--card)/0.95),hsl(var(--background)/0.98))]" />
-
-      {/* Very soft warm literary glows - hidden on mobile for performance */}
-      <div className="hidden md:block absolute -right-20 -top-20 h-72 w-72 rounded-full bg-primary/[0.08] dark:bg-primary/[0.05] blur-3xl" />
-      <div className="hidden md:block absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-primary/[0.04] dark:bg-primary/[0.02] blur-3xl" />
-
-      {/* Intricate manuscript layout guidelines SVG (low visual weight) - hidden on mobile to reduce DOM size and paint cost */}
-      <svg className="hidden md:block absolute inset-0 w-full h-full text-primary opacity-[0.06] dark:opacity-[0.04]" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="0.4">
-        {/* Outer margin guides */}
-        <rect x="5" y="5" width="90" height="90" rx="2" strokeDasharray="1 2" />
-        <rect x="8" y="8" width="84" height="84" rx="1" />
-        
-        {/* Center crosshair guides */}
-        <line x1="50" y1="8" x2="50" y2="92" strokeDasharray="0.75 1.5" />
-        <line x1="8" y1="50" x2="92" y2="50" strokeDasharray="0.75 1.5" />
-
-        {/* Symmetrical diagonal guides */}
-        <line x1="20" y1="20" x2="80" y2="80" strokeDasharray="0.5 2" />
-        <line x1="80" y1="20" x2="20" y2="80" strokeDasharray="0.5 2" />
-
-        {/* Concentric layout circles */}
-        <circle cx="50" cy="50" r="30" />
-        <circle cx="50" cy="50" r="18" strokeDasharray="1 1" />
-        <circle cx="50" cy="50" r="8" />
-
-        {/* Corner crop marks / grid lines */}
-        <path d="M5 15 L15 5 M85 15 L95 5 M5 85 L15 95 M85 85 L95 95" />
-      </svg>
-
-      {/* Fine manuscript grain texture - hidden on mobile for performance */}
-      <div className="hidden md:block absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,hsl(var(--foreground)/0.18)_0.7px,transparent_0.8px)] [background-size:16px_16px]" />
-
-      {/* Subtle top light highlight */}
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-    </div>
-  );
-}
-
-function ImageQuoteBackground({ src }: { src: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      {/* Artwork */}
-      <div
-        className="absolute inset-0 scale-[1.01] bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url("${src}")`,
-        }}
-      />
-
-      {/* Readability — keep the artwork visible, not washed out */}
-      <div className="absolute inset-0 bg-black/34" />
-
-      {/* Gentle center focus */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.10)_0%,rgba(0,0,0,0.18)_52%,rgba(0,0,0,0.38)_100%)]" />
-
-      {/* Cinematic depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/25" />
-
-      {/* Thin glass-like highlight */}
-      <div className="absolute inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-    </div>
   );
 }
 

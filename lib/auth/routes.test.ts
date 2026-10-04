@@ -10,7 +10,7 @@ test("keeps public browsing routes accessible to guests", () => {
 });
 
 test("protects private account workspaces only", () => {
-  for (const path of ["/dashboard", "/settings/profile", "/wishlist", "/loans", "/reading", "/account", "/admin", "/books/add"]) {
+  for (const path of ["/dashboard", "/feed", "/settings/profile", "/wishlist", "/loans", "/reading", "/account", "/admin", "/books/add"]) {
     assert.equal(isProtectedPagePath(path), true, path);
   }
 });

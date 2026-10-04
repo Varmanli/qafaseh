@@ -7,6 +7,7 @@ import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/content/rich-te
 import { isOwnedQuoteImageKey, normalizeQuoteImageKey, normalizeQuoteText } from "@/lib/quotes/image";
 import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
 import { deleteImageUpload } from "@/lib/server/upload-storage";
+import { recordPublishedActivity } from "@/lib/social/activity";
 
 export const ADMIN_CONTENT_PAGE_SIZE = 15;
 
@@ -114,8 +115,11 @@ export async function createAdminQuote(input: { userId: string; bookId: string; 
   if (!content && !imageKey) throw new Error("متن یا تصویر تکه لازم است");
   if (imageKey && !isOwnedQuoteImageKey(imageKey, input.userId)) throw new Error("مالک تصویر با کاربر مقصد تطابق ندارد");
   const page = Number(input.page); const validPage = Number.isInteger(page) && page > 0 ? page : null;
-  const [row] = await db.insert(Quote).values({ userId: input.userId, content, imageKey, page: validPage, background, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: book.editionId }).returning();
-  return row;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(Quote).values({ userId: input.userId, content, imageKey, page: validPage, background, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: book.editionId }).returning();
+    await recordPublishedActivity(tx, input.userId, book.id, { quoteId: row.id });
+    return row;
+  });
 }
 
 export async function updateAdminQuote(id: string, input: { userId: string; bookId: string; content?: unknown; imageAction?: unknown; imageKey?: unknown; page?: unknown; background?: unknown }) {
@@ -141,7 +145,11 @@ export async function createAdminNote(input: { userId: string; bookId: string; c
   const book = await validBook(input.bookId); if (!book || !book.catalogBookId) throw new Error("کتاب مقصد باید به کاتالوگ متصل باشد");
   const content = sanitizeRichTextHtml(typeof input.content === "string" ? input.content : ""); const validation = noteContentSchema.safeParse(content); if (!validation.success) throw new Error(validation.error.issues[0]?.message ?? "متن یادداشت نامعتبر است");
   const scope = input.scope === "edition" && book.editionId ? "edition" : "book";
-  const [row] = await db.insert(PublishedBookNote).values({ userId: input.userId, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: scope === "edition" ? book.editionId : null, scope, content }).returning(); return row;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(PublishedBookNote).values({ userId: input.userId, bookId: book.id, catalogBookId: book.catalogBookId, bookEditionId: scope === "edition" ? book.editionId : null, scope, content }).returning();
+    await recordPublishedActivity(tx, input.userId, book.id, { noteId: row.id });
+    return row;
+  });
 }
 
 export async function updateAdminNote(id: string, input: { userId: string; bookId: string; content?: unknown; scope?: unknown }) {

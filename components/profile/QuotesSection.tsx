@@ -13,13 +13,11 @@ export default function QuotesSection({
   isOwner,
   canLike,
   username,
-  initialHasMore,
 }: {
   quotes: PublicQuote[];
   isOwner: boolean;
   canLike: boolean;
   username: string;
-  initialHasMore: boolean;
 }) {
   const hasQuotes = quotes.length > 0;
   const [limit, setLimit] = useState(3);
@@ -55,64 +53,16 @@ export default function QuotesSection({
   return (
     <section className="relative" dir="rtl">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3 px-1 sm:mb-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className="
-              grid h-10 w-10 shrink-0 place-items-center
-              rounded-xl
-              bg-primary/10
-              text-primary
-              ring-1 ring-primary/15
-            "
-          >
-            <Quote className="h-4.5 w-4.5" />
-          </span>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[15px] font-black text-foreground sm:text-base">
-                تکه‌های کتاب
-              </h2>
-
-              {hasQuotes ? (
-                <span
-                  className="
-                    inline-flex h-6 items-center
-                    rounded-full
-                    bg-foreground/[0.045]
-                    px-2
-                    text-[10px] font-bold
-                    text-muted-foreground
-                  "
-                >
-                  {quotes.length.toLocaleString("fa-IR")} تکه
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {initialHasMore ? (
-          <Link
-            href={`/${encodeURIComponent(username)}/quotes`}
-            className="
-              inline-flex h-8 items-center justify-center rounded-lg
-              border border-border/50
-              bg-background/20
-              px-3
-              text-[11px] font-bold
-              text-muted-foreground
-              transition-colors
-              hover:border-primary/20
-              hover:bg-primary/5
-              hover:text-primary
-              shrink-0
-            "
-          >
-            مشاهده کامل
-          </Link>
-        ) : null}
+      <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-7">
+        <h2 className="text-base font-black tracking-tight text-foreground sm:text-2xl">
+          تکه‌های کتاب
+        </h2>
+        <Link
+          href={`/${encodeURIComponent(username)}/quotes`}
+          className="shrink-0 text-xs font-bold text-primary transition-colors hover:text-primary/80 sm:text-base"
+        >
+          نمایش تکه‌ها
+        </Link>
       </div>
 
       {/* Content */}

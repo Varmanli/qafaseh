@@ -42,9 +42,10 @@ export default function HomeQuotesSection({
             className="px-1 py-1 sm:px-2"
             slideClassName="
               flex
-              w-[min(82vw,300px)]
+              w-[88%]
               flex-none
               px-1
+              sm:w-[min(82vw,360px)]
               md:w-auto
               md:basis-1/2
               xl:basis-1/3

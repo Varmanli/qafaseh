@@ -31,6 +31,7 @@ export const config = {
     "/books/add/:path*",
     "/books/edit/:path*",
     "/dashboard/:path*",
+    "/feed/:path*",
     "/reading/:path*",
     "/settings/:path*",
     "/wishlist/:path*",

@@ -7,9 +7,11 @@ import {
   CatalogBook,
   PublishedBookNote,
   PublishedBookNoteLike,
+  SocialComment,
   User,
 } from "@/db/schema";
 import { richTextToPlainText, sanitizeRichTextHtml } from "@/lib/content/rich-text";
+import { recordLikedActivity, recordPublishedActivity } from "@/lib/social/activity";
 
 export class NoteError extends Error {
   constructor(message: string, public status = 400, public code?: string) {
@@ -31,7 +33,9 @@ export interface PublicNote {
   bookCover: string | null;
   createdAt: Date;
   likeCount: number;
+  commentCount: number;
   likedByViewer: boolean;
+  canEdit?: boolean;
   authorUserId: string;
   authorUsername: string | null;
   authorName: string | null;
@@ -131,6 +135,8 @@ export async function getPublishedNotesByUsername(
       )`,
       createdAt: PublishedBookNote.createdAt,
       likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'NOTE' and ${SocialComment.targetId} = ${PublishedBookNote.id})`,
       likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${
         viewerId ?? null
       }), false)`,
@@ -165,6 +171,7 @@ export async function getPublishedNotesByUsername(
       ...r,
       scope: (r.scope ?? "book") as "book" | "edition",
       likedByViewer: Boolean(r.likedByViewer),
+      canEdit: isOwner,
       authorUserId: user.id,
       authorUsername: user.username,
       authorName: user.name,
@@ -172,6 +179,54 @@ export async function getPublishedNotesByUsername(
     }));
 
   return { found: true, isPrivate: false, isOwner, notes, hasMore };
+}
+
+export async function getVisiblePublishedNoteById(
+  noteId: string,
+  viewerId?: string,
+): Promise<PublicNote | null> {
+  const visibility = viewerId
+    ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, viewerId))
+    : eq(User.profileVisibility, "PUBLIC");
+  const [row] = await db
+    .select({
+      id: PublishedBookNote.id,
+      content: PublishedBookNote.content,
+      bookId: sql<string>`coalesce(${PublishedBookNote.bookId}, '')`,
+      catalogBookId: PublishedBookNote.catalogBookId,
+      bookEditionId: PublishedBookNote.bookEditionId,
+      scope: PublishedBookNote.scope,
+      bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
+      bookTitle: sql<string>`coalesce(${CatalogBook.title}, ${Book.title})`,
+      bookAuthor: sql<string>`coalesce(${CatalogBook.author}, ${Book.author})`,
+      bookCover: sql<string | null>`coalesce(${BookEdition.coverImage}, ${CatalogBook.coverImage}, ${Book.coverImage})`,
+      createdAt: PublishedBookNote.createdAt,
+      likeCount: sql<number>`count(${PublishedBookNoteLike.id})::int`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'NOTE' and ${SocialComment.targetId} = ${PublishedBookNote.id})`,
+      likedByViewer: sql<boolean>`coalesce(bool_or(${PublishedBookNoteLike.userId} = ${viewerId ?? null}), false)`,
+      authorUserId: User.id,
+      authorUsername: User.username,
+      authorName: User.name,
+      authorImage: User.image,
+    })
+    .from(PublishedBookNote)
+    .innerJoin(User, eq(PublishedBookNote.userId, User.id))
+    .leftJoin(Book, eq(PublishedBookNote.bookId, Book.id))
+    .leftJoin(CatalogBook, eq(PublishedBookNote.catalogBookId, CatalogBook.id))
+    .leftJoin(BookEdition, eq(PublishedBookNote.bookEditionId, BookEdition.id))
+    .leftJoin(PublishedBookNoteLike, eq(PublishedBookNoteLike.noteId, PublishedBookNote.id))
+    .where(and(eq(PublishedBookNote.id, noteId), visibility))
+    .groupBy(PublishedBookNote.id, User.id, Book.id, CatalogBook.id, BookEdition.id)
+    .limit(1);
+
+  if (!row || !richTextToPlainText(row.content)) return null;
+  return {
+    ...row,
+    canEdit: row.authorUserId === viewerId,
+    scope: (row.scope ?? "book") as "book" | "edition",
+    likedByViewer: Boolean(row.likedByViewer),
+  };
 }
 
 export async function listPublishedNotesForBook(opts: {
@@ -238,41 +293,46 @@ export async function togglePublishedNoteLike(
   noteId: string,
   userId: string,
 ): Promise<{ liked: boolean; likeCount: number } | null> {
-  const [note] = await db
-    .select({ id: PublishedBookNote.id })
-    .from(PublishedBookNote)
-    .where(eq(PublishedBookNote.id, noteId))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'note-like:' + noteId + ':' + userId}, 0))`);
+    const [note] = await tx
+      .select({ id: PublishedBookNote.id, bookId: PublishedBookNote.bookId })
+      .from(PublishedBookNote)
+      .innerJoin(User, eq(User.id, PublishedBookNote.userId))
+      .where(and(eq(PublishedBookNote.id, noteId), or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, userId))))
+      .limit(1).for("share", { of: [PublishedBookNote, User] });
 
-  if (!note) return null;
+    if (!note) return null;
 
-  const removed = await db
-    .delete(PublishedBookNoteLike)
-    .where(
-      and(
-        eq(PublishedBookNoteLike.noteId, noteId),
-        eq(PublishedBookNoteLike.userId, userId),
-      ),
-    )
-    .returning({ id: PublishedBookNoteLike.id });
+    const removed = await tx
+      .delete(PublishedBookNoteLike)
+      .where(
+        and(
+          eq(PublishedBookNoteLike.noteId, noteId),
+          eq(PublishedBookNoteLike.userId, userId),
+        ),
+      )
+      .returning({ id: PublishedBookNoteLike.id });
 
-  let liked: boolean;
-  if (removed.length > 0) {
-    liked = false;
-  } else {
-    await db
-      .insert(PublishedBookNoteLike)
-      .values({ noteId, userId })
-      .onConflictDoNothing();
-    liked = true;
-  }
+    let liked: boolean;
+    if (removed.length > 0) {
+      liked = false;
+    } else {
+      await tx
+        .insert(PublishedBookNoteLike)
+        .values({ noteId, userId })
+        .onConflictDoNothing();
+      liked = true;
+    }
 
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(PublishedBookNoteLike)
-    .where(eq(PublishedBookNoteLike.noteId, noteId));
+    await recordLikedActivity(tx, userId, note.bookId, { noteId }, liked);
+    const [row] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(PublishedBookNoteLike)
+      .where(eq(PublishedBookNoteLike.noteId, noteId));
 
-  return { liked, likeCount: row?.count ?? 0 };
+    return { liked, likeCount: row?.count ?? 0 };
+  });
 }
 
 export async function createPublishedNote(
@@ -318,31 +378,30 @@ export async function createPublishedNote(
     );
   }
 
-  const [created] = await db
-    .insert(PublishedBookNote)
-    .values({
+  return db.transaction(async (tx) => {
+    const [created] = await tx.insert(PublishedBookNote).values({
       userId,
       bookId: ownedBook.id,
       catalogBookId: input.catalogBookId,
       bookEditionId: input.scope === "edition" ? input.bookEditionId ?? null : null,
       scope: input.scope,
       content: sanitizeRichTextHtml(input.content),
-    })
-    .returning({ id: PublishedBookNote.id });
-
-  return created;
+    }).returning({ id: PublishedBookNote.id });
+    await recordPublishedActivity(tx, userId, ownedBook.id, { noteId: created.id });
+    return created;
+  });
 }
 
 export async function updatePublishedNote(
   userId: string,
   noteId: string,
   content: string,
-): Promise<{ id: string }> {
+): Promise<{ id: string; content: string }> {
   const [updated] = await db
     .update(PublishedBookNote)
     .set({ content: sanitizeRichTextHtml(content), updatedAt: new Date() })
     .where(and(eq(PublishedBookNote.id, noteId), eq(PublishedBookNote.userId, userId)))
-    .returning({ id: PublishedBookNote.id });
+    .returning({ id: PublishedBookNote.id, content: PublishedBookNote.content });
 
   if (!updated) {
     throw new NoteError("یادداشت یافت نشد", 404, "NOTE_NOT_FOUND");
@@ -401,6 +460,8 @@ export async function getPublishedNotesForBook(opts: {
       createdAt: PublishedBookNote.createdAt,
       likeCount: sql<number>`(select count(*)::int from ${PublishedBookNoteLike}
         where ${PublishedBookNoteLike.noteId} = ${PublishedBookNote.id})`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'NOTE' and ${SocialComment.targetId} = ${PublishedBookNote.id})`,
       likedByViewer: sql<boolean>`exists (select 1 from ${PublishedBookNoteLike}
         where ${PublishedBookNoteLike.noteId} = ${PublishedBookNote.id}
           and ${PublishedBookNoteLike.userId} = ${opts.viewerId ?? null})`,
@@ -433,6 +494,7 @@ export async function getPublishedNotesForBook(opts: {
 
   const notes = visibleRows.map((row) => ({
     ...row,
+    canEdit: row.authorUserId === opts.viewerId,
     scope: (row.scope ?? "book") as "book" | "edition",
     likedByViewer: Boolean(row.likedByViewer),
   }));

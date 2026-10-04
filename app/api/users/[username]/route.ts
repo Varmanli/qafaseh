@@ -16,5 +16,10 @@ export async function GET(
     return apiError("کاربر یافت نشد", 404, "USER_NOT_FOUND");
   }
 
-  return apiSuccess({ result });
+  if (result.isPrivate) {
+    const { userId: _userId, ...publicResult } = result;
+    return apiSuccess({ result: publicResult });
+  }
+  const { userId: _userId, ...profile } = result.profile;
+  return apiSuccess({ result: { ...result, profile } });
 }

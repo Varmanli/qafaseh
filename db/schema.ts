@@ -9,6 +9,7 @@ import {
   unique,
   uniqueIndex,
   index,
+  foreignKey,
   check,
   boolean,
   jsonb,
@@ -31,6 +32,21 @@ export const ReadingEventType = pgEnum("ReadingEventType", [
   "PROGRESS",
   "FINISH",
 ]);
+
+export const ActivityType = pgEnum("ActivityType", [
+  "STARTED_READING",
+  "FINISHED_READING",
+  "PUBLISHED_NOTE",
+  "PUBLISHED_QUOTE",
+  "WANT_TO_READ",
+  "ADDED_FINISHED",
+  "PAUSED_READING",
+  "STOPPED_READING",
+  "FAVORITED_BOOK",
+  "LIKED_NOTE",
+  "LIKED_QUOTE",
+]);
+export const CommentTargetType = pgEnum("CommentTargetType", ["QUOTE", "NOTE", "ACTIVITY"]);
 
 export const PublicBookThoughtType = pgEnum("PublicBookThoughtType", [
   "THOUGHT",
@@ -1324,6 +1340,85 @@ export const PublishedBookNoteLike = pgTable(
     ),
   }),
 );
+
+export const Follow = pgTable("Follow", {
+  followerId: varchar("follower_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+  followingId: varchar("following_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  pairUnique: uniqueIndex("Follow_pair_unique").on(t.followerId, t.followingId),
+  followingIdx: index("Follow_following_idx").on(t.followingId),
+  noSelfFollow: check("Follow_no_self_check", sql`${t.followerId} <> ${t.followingId}`),
+}));
+
+export const Activity = pgTable("Activity", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  actorUserId: varchar("actor_user_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+  type: ActivityType("type").notNull(),
+  bookId: varchar("book_id").references(() => Book.id, { onDelete: "cascade" }),
+  noteId: varchar("note_id").references(() => PublishedBookNote.id, { onDelete: "cascade" }),
+  quoteId: varchar("quote_id").references(() => Quote.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  actorCreatedIdx: index("Activity_actor_created_idx").on(t.actorUserId, t.createdAt, t.id),
+  createdIdx: index("Activity_created_idx").on(t.createdAt, t.id),
+  noteUnique: uniqueIndex("Activity_note_unique").on(t.noteId).where(sql`${t.type} = 'PUBLISHED_NOTE'`),
+  quoteUnique: uniqueIndex("Activity_quote_unique").on(t.quoteId).where(sql`${t.type} = 'PUBLISHED_QUOTE'`),
+  likedNoteUnique: uniqueIndex("Activity_liked_note_unique").on(t.actorUserId, t.noteId).where(sql`${t.type} = 'LIKED_NOTE'`),
+  likedQuoteUnique: uniqueIndex("Activity_liked_quote_unique").on(t.actorUserId, t.quoteId).where(sql`${t.type} = 'LIKED_QUOTE'`),
+  objectCheck: check("Activity_object_check", sql`(
+    (${t.type} IN ('STARTED_READING', 'FINISHED_READING', 'WANT_TO_READ', 'ADDED_FINISHED', 'PAUSED_READING', 'STOPPED_READING', 'FAVORITED_BOOK') AND ${t.bookId} IS NOT NULL AND ${t.noteId} IS NULL AND ${t.quoteId} IS NULL)
+    OR (${t.type} = 'PUBLISHED_NOTE' AND ${t.bookId} IS NOT NULL AND ${t.noteId} IS NOT NULL AND ${t.quoteId} IS NULL)
+    OR (${t.type} = 'PUBLISHED_QUOTE' AND ${t.bookId} IS NOT NULL AND ${t.noteId} IS NULL AND ${t.quoteId} IS NOT NULL)
+    OR (${t.type} = 'LIKED_NOTE' AND ${t.noteId} IS NOT NULL AND ${t.quoteId} IS NULL)
+    OR (${t.type} = 'LIKED_QUOTE' AND ${t.noteId} IS NULL AND ${t.quoteId} IS NOT NULL)
+  )`),
+}));
+
+export const ActivityLike = pgTable("ActivityLike", {
+  activityId: varchar("activity_id").notNull().references(() => Activity.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (t) => ({
+  pairUnique: uniqueIndex("ActivityLike_activity_user_unique").on(t.activityId, t.userId),
+}));
+
+export const SocialComment = pgTable("SocialComment", {
+  id: varchar("id").primaryKey().notNull().default(sql`gen_random_uuid()`),
+  targetType: CommentTargetType("target_type").notNull(),
+  targetId: varchar("target_id").notNull(),
+  quoteId: varchar("quote_id").references(() => Quote.id, { onDelete: "cascade" }),
+  noteId: varchar("note_id").references(() => PublishedBookNote.id, { onDelete: "cascade" }),
+  activityId: varchar("activity_id").references(() => Activity.id, { onDelete: "cascade" }),
+  authorUserId: varchar("author_user_id").notNull().references(() => User.id, { onDelete: "cascade" }),
+  parentId: varchar("parent_id"),
+  requestId: varchar("request_id").notNull().default(sql`gen_random_uuid()`),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+}, (table) => ({
+  targetCreatedIdx: index("SocialComment_target_created_idx").on(table.targetType, table.targetId, table.createdAt, table.id),
+  rootCreatedIdx: index("SocialComment_root_created_idx").on(table.targetType, table.targetId, table.createdAt, table.id).where(sql`${table.parentId} IS NULL`),
+  parentIdx: index("SocialComment_parent_idx").on(table.parentId, table.createdAt, table.id),
+  authorCreatedIdx: index("SocialComment_author_created_idx").on(table.authorUserId, table.createdAt),
+  quoteIdx: index("SocialComment_quote_idx").on(table.quoteId),
+  noteIdx: index("SocialComment_note_idx").on(table.noteId),
+  activityIdx: index("SocialComment_activity_idx").on(table.activityId),
+  authorRequestUnique: unique("SocialComment_author_request_unique").on(table.authorUserId, table.requestId),
+  identityTargetUnique: unique("SocialComment_identity_target_unique").on(table.id, table.targetType, table.targetId),
+  parentTargetFk: foreignKey({
+    name: "SocialComment_parent_target_fk",
+    columns: [table.parentId, table.targetType, table.targetId],
+    foreignColumns: [table.id, table.targetType, table.targetId],
+  }).onDelete("cascade"),
+  targetObject: check("SocialComment_target_object_check", sql`(
+    (${table.targetType} = 'QUOTE' AND ${table.quoteId} IS NOT NULL AND ${table.quoteId} = ${table.targetId} AND ${table.noteId} IS NULL AND ${table.activityId} IS NULL)
+    OR (${table.targetType} = 'NOTE' AND ${table.noteId} IS NOT NULL AND ${table.noteId} = ${table.targetId} AND ${table.quoteId} IS NULL AND ${table.activityId} IS NULL)
+    OR (${table.targetType} = 'ACTIVITY' AND ${table.activityId} IS NOT NULL AND ${table.activityId} = ${table.targetId} AND ${table.quoteId} IS NULL AND ${table.noteId} IS NULL)
+  )`),
+  contentLength: check("SocialComment_content_length_check", sql`char_length(btrim(${table.content})) BETWEEN 1 AND 2000`),
+  noSelfReply: check("SocialComment_no_self_reply_check", sql`${table.parentId} IS NULL OR ${table.parentId} <> ${table.id}`),
+}));
 
 // ---------------- HomeFeaturedBook (کتاب‌های پیشنهادیِ انتخابیِ ادمین برای صفحه‌ی اصلی) ----------------
 export const HomeFeaturedBook = pgTable("HomeFeaturedBook", {

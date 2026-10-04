@@ -4,7 +4,7 @@ import test from "node:test";
 
 test("database-backed list workflow and imported paths", { skip: !process.env.DATABASE_URL }, async (t) => {
   const { db, pool } = await import("../../db");
-  const { CatalogBook, ReadingList, ReadingListItem, ReadingListRelated } = await import("../../db/schema");
+  const { CatalogBook, ReadingList, ReadingListCategory, ReadingListDisplayGroup, ReadingListItem, ReadingListRelated } = await import("../../db/schema");
   const { and, eq, inArray } = await import("drizzle-orm");
   const { readingLists } = await import("./reading-lists-config");
   const { getReadingListBySlug, getReadingListsOverview } = await import("./reading-lists-service");
@@ -14,12 +14,13 @@ test("database-backed list workflow and imported paths", { skip: !process.env.DA
   assert.equal(books.length, 2, "integration database needs two public books");
   const privateId = randomUUID();
   const suffix = randomUUID().slice(0, 8);
+  const termsName = `Test ${suffix}`;
   const created: string[] = [];
   const orderedSlug = `codex-ordered-${suffix}`;
   const unorderedSlug = `codex-unordered-${suffix}`;
   const input = (slug: string, mode: "ORDERED" | "UNORDERED", status: "DRAFT" | "PUBLISHED") => ({
     title: slug, slug, description: "Test editorial list", audience: null,
-    category: "Test", hubGroup: "Test", mode, status, featured: false,
+    category: termsName, hubGroup: termsName, mode, status, featured: false,
     seoTitle: null, seoDescription: null, relatedListIds: [] as string[],
     items: [
       { bookId: books[1].id, note: "Second first", difficulty: "EASY" as const },
@@ -28,6 +29,8 @@ test("database-backed list workflow and imported paths", { skip: !process.env.DA
   });
 
   try {
+    await db.insert(ReadingListCategory).values({ name: termsName });
+    await db.insert(ReadingListDisplayGroup).values({ name: termsName });
     await db.insert(CatalogBook).values({ id: privateId, title: "Private list check", author: "Test", slug: `private-list-check-${suffix}`, status: "PENDING" });
 
     await t.test("all eight imported slugs, notes, order, and directed edges survive", async () => {
@@ -118,6 +121,8 @@ test("database-backed list workflow and imported paths", { skip: !process.env.DA
   } finally {
     for (const id of created) await db.delete(ReadingList).where(eq(ReadingList.id, id));
     await db.delete(CatalogBook).where(eq(CatalogBook.id, privateId));
+    await db.delete(ReadingListCategory).where(eq(ReadingListCategory.name, termsName));
+    await db.delete(ReadingListDisplayGroup).where(eq(ReadingListDisplayGroup.name, termsName));
     await pool.end();
   }
 });

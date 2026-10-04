@@ -11,7 +11,7 @@ export default function ProfileBio({ bio }: { bio: string }) {
   const shouldCollapse = bio.length > 150;
 
   return (
-    <div className="mt-2.5 max-w-xl text-right">
+    <div className="max-w-xl text-right">
       <p
         className={cn(
           "whitespace-pre-line text-xs leading-6 text-muted-foreground sm:text-sm sm:leading-7",

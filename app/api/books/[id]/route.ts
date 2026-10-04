@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { Book, Quote } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { parseUserBookUpdate, type UserBookUpdate } from "@/lib/book/user-mutation";
+import { recordFavoriteActivity, recordReadingActivity } from "@/lib/social/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -90,10 +91,9 @@ export async function PUT(
       updateData.completedAt = null;
     }
 
-    const [updatedBook] = await db
-      .update(Book)
-      .set(updateData)
-      .where(and(eq(Book.id, id), eq(Book.userId, user.id)))
+    const updatedBook = await db.transaction(async (tx) => {
+      const [updated] = await tx.update(Book).set(updateData)
+      .where(and(eq(Book.id, id), eq(Book.userId, user.id), eq(Book.status, book.status), typeof updateData.isFavorite === "boolean" ? eq(Book.isFavorite, book.isFavorite) : undefined))
       .returning({
         id: Book.id,
         title: Book.title,
@@ -115,13 +115,22 @@ export async function PUT(
         rating: Book.rating,
         review: Book.review,
         moodTags: Book.moodTags,
+        isFavorite: Book.isFavorite,
       });
+      if (!updated) throw new Error("STATUS_CONFLICT");
+      await recordReadingActivity(tx, user.id, id, book.status, updated.status);
+      if (typeof updateData.isFavorite === "boolean") await recordFavoriteActivity(tx, user.id, id, book.isFavorite, updated.isFavorite);
+      return updated;
+    });
 
     return NextResponse.json({
       book: updatedBook,
       message: "کتاب بروزرسانی شد",
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "STATUS_CONFLICT") {
+      return NextResponse.json({ error: "وضعیت کتاب تغییر کرده؛ دوباره تلاش کنید" }, { status: 409 });
+    }
     console.error("❌ خطا در بروزرسانی کتاب:", err);
     return NextResponse.json(
       { error: "خطا در بروزرسانی کتاب" },

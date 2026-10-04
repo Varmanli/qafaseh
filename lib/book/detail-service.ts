@@ -13,6 +13,7 @@ import {
   QuoteLike,
   ReadingEvent,
   ReferenceItem,
+  SocialComment,
   User,
 } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/book/external-links";
 import { splitStoredGenres } from "@/lib/book/genres";
 import { normalizeQuoteBackground } from "@/lib/quotes/backgrounds";
+import { recordReadingActivity } from "@/lib/social/activity";
 import {
   isToastCorruptionError,
   listPublishedNotesForBook,
@@ -547,10 +549,13 @@ async function loadPublicQuotes(
       background: Quote.background,
       page: Quote.page,
       bookId: Quote.bookId,
+      canEdit: sql<boolean>`coalesce(${Quote.userId} = ${viewerId ?? null}, false)`,
       authorUsername: User.username,
       authorName: User.name,
       authorImage: User.image,
       likeCount: sql<number>`(select count(*)::int from ${QuoteLike} where ${QuoteLike.quoteId} = ${Quote.id})`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'QUOTE' and ${SocialComment.targetId} = ${Quote.id})`,
       likedByViewer: sql<boolean>`exists (select 1 from ${QuoteLike}
         where ${QuoteLike.quoteId} = ${Quote.id} and ${QuoteLike.userId} = ${viewerId ?? null})`,
     })
@@ -582,7 +587,9 @@ async function loadPublicQuotes(
     bookAuthor: subject.author,
     bookCover: subject.coverImage,
     likeCount: row.likeCount,
+    commentCount: row.commentCount,
     likedByViewer: Boolean(row.likedByViewer),
+    canEdit: Boolean(row.canEdit),
     authorUsername: row.authorUsername,
     authorName: row.authorName,
     authorImage: row.authorImage,
@@ -921,6 +928,8 @@ export async function addBookToLibrary(
         });
       }
 
+      await recordReadingActivity(tx, viewerId, book.id, null, status);
+
       return book;
     });
 
@@ -1008,6 +1017,8 @@ export async function addBookToLibrary(
         pageTo: 0,
       });
     }
+
+    await recordReadingActivity(tx, viewerId, book.id, null, status);
 
     return book;
   });

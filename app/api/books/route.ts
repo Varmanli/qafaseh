@@ -4,6 +4,7 @@ import { Book } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { recordReadingActivity } from "@/lib/social/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -52,9 +53,8 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
-    const [newBook] = await db
-      .insert(Book)
-      .values({
+    const newBook = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(Book).values({
         title: data.title,
         coverImage: data.coverImage,
         author: data.author,
@@ -70,8 +70,7 @@ export async function POST(req: NextRequest) {
         rating: data.rating || null,
         review: data.review || null,
         userId: user.id,
-      })
-      .returning({
+      }).returning({
         id: Book.id,
         title: Book.title,
         author: Book.author,
@@ -90,6 +89,9 @@ export async function POST(req: NextRequest) {
         rating: Book.rating,
         review: Book.review,
       });
+      await recordReadingActivity(tx, user.id, created.id, null, data.status);
+      return created;
+    });
 
     return NextResponse.json(
       { book: newBook, message: "کتاب ایجاد شد" },

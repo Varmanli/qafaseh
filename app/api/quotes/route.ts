@@ -12,6 +12,7 @@ import {
 import {
   normalizeQuoteBackground,
 } from "@/lib/quotes/backgrounds";
+import { recordPublishedActivity } from "@/lib/social/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -88,9 +89,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "کتاب در قفسه شما پیدا نشد" }, { status: 404 });
     }
 
-    const [quote] = await db
-      .insert(Quote)
-      .values({
+    const quote = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(Quote).values({
         userId: user.id,
         content,
         imageKey,
@@ -99,8 +99,10 @@ export async function POST(req: NextRequest) {
         bookId,
         catalogBookId: book.catalogBookId,
         bookEditionId: book.editionId,
-      })
-      .returning();
+      }).returning();
+      await recordPublishedActivity(tx, user.id, bookId, { quoteId: created.id });
+      return created;
+    });
 
     return NextResponse.json({
       quote,

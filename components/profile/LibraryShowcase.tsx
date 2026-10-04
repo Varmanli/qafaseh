@@ -1,4 +1,4 @@
-import { LibraryBig } from "lucide-react";
+import Link from "next/link";
 
 import ShelfPreviewColumn, {
   type ShelfBook,
@@ -27,60 +27,55 @@ export default function LibraryShowcase({
   const getBooksByStatus = (status: string) =>
     books.filter((book) => book.status === status);
 
-  const unread = Math.max(stats.total - stats.reading - stats.finished, 0);
+  const unread = stats.wantToRead;
 
   const getHref = (filter: string) => `/books/${username}?filter=${filter}`;
 
   const shelves = [
     {
-      title: "خوانده‌شده",
+      title: "خوانده‌ام",
       count: stats.finished,
       books: getBooksByStatus(STATUS.finished),
       href: getHref(STATUS.finished),
-      accentClassName: "text-lime-300",
     },
     {
-      title: "خوانده‌نشده",
-      count: unread,
-      books: getBooksByStatus(STATUS.unread),
-      href: getHref(STATUS.unread),
-      accentClassName: "text-foreground",
-    },
-    {
-      title: "درحال خواندن",
+      title: "در حال خواندن",
       count: stats.reading,
       books: getBooksByStatus(STATUS.reading),
       href: getHref(STATUS.reading),
-      accentClassName: "text-sky-300",
+    },
+    {
+      title: "می‌خواهم بخوانم",
+      count: unread,
+      books: getBooksByStatus(STATUS.unread),
+      href: getHref(STATUS.unread),
     },
   ];
 
   return (
     <section className="min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <LibraryBig className="h-[18px] w-[18px] shrink-0 text-primary sm:h-5 sm:w-5" />
-
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-black tracking-tight text-foreground sm:text-base">
-              کتابخانه
-            </h2>
-          </div>
-        </div>
-
+      <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-7 lg:mb-4">
+        <h2 className="text-base font-black tracking-tight text-foreground sm:text-2xl lg:text-lg">
+          کتابخانه
+        </h2>
+        <Link
+          href={`/books/${encodeURIComponent(username)}`}
+          className="text-xs font-bold text-primary transition-colors hover:text-primary/80 sm:text-base lg:text-xs"
+        >
+          نمایش کتابخانه
+        </Link>
       </div>
 
       {/* Shelves */}
-      <div className="mt-4 grid min-w-0 grid-cols-3 items-stretch gap-2 sm:mt-5 sm:gap-3">
+      <div className="grid min-w-0 grid-cols-3 items-start gap-2 sm:gap-4 lg:mx-auto lg:max-w-[540px] lg:gap-3">
         {shelves.map((shelf) => (
-          <div key={shelf.title} className="min-w-0 h-full">
+          <div key={shelf.title} className="h-full min-w-0">
             <ShelfPreviewColumn
               title={shelf.title}
               count={shelf.count}
               books={shelf.books}
               href={shelf.href}
-              accentClassName={shelf.accentClassName}
             />
           </div>
         ))}

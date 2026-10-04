@@ -18,14 +18,16 @@ test("public bibliography, roles, counts and ordering share distinct canonical b
   try {
     await client.query("BEGIN");
     await client.query(`
-      CREATE TEMP TABLE "ReferenceItem" (id text, name text, type text, status text) ON COMMIT DROP;
+      CREATE TEMP TABLE "ReferenceItem" (id text, name text, type text, status text,
+        roles "ReferenceType"[], canonical_reference_id text) ON COMMIT DROP;
       CREATE TEMP TABLE "CatalogBook" (id text, author text, status text, created_at integer) ON COMMIT DROP;
       CREATE TEMP TABLE "CatalogBookContributor" (reference_item_id text, catalog_book_id text, role text) ON COMMIT DROP;
       CREATE TEMP TABLE "BookEdition" (id text, catalog_book_id text, translator text, status text) ON COMMIT DROP;
       CREATE TEMP TABLE "BookEditionContributor" (reference_item_id text, book_edition_id text, role text) ON COMMIT DROP;
-      INSERT INTO "ReferenceItem" VALUES
+      INSERT INTO "ReferenceItem" (id, name, type, status) VALUES
         ('a','A','AUTHOR','APPROVED'), ('b','B','TRANSLATOR','APPROVED'),
         ('c','C','AUTHOR','APPROVED'), ('t','T','TRANSLATOR','APPROVED');
+      UPDATE "ReferenceItem" SET roles = ARRAY[type::"ReferenceType"];
       INSERT INTO "CatalogBook" VALUES
         ('a1','C','APPROVED',1), ('a2','A','APPROVED',2),
         ('a3','Other','APPROVED',3), ('a4','Other','APPROVED',4),

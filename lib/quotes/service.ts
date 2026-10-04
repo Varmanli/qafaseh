@@ -1,7 +1,7 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { Book, CatalogBook, Quote, QuoteLike, User } from "@/db/schema";
+import { Book, CatalogBook, Quote, QuoteLike, SocialComment, User } from "@/db/schema";
 import { coalesceCoverImage } from "@/lib/book/cover";
 import {
   ensureBookSlug,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/book/public-slug";
 import { normalizeQuoteBackground, type QuoteBackground } from "@/lib/quotes/backgrounds";
 import { normalizeQuoteLikeState } from "@/lib/quotes/like-state";
+import { recordLikedActivity } from "@/lib/social/activity";
 
 export interface PublicQuote {
   id: string;
@@ -22,7 +23,9 @@ export interface PublicQuote {
   bookAuthor: string;
   bookCover: string | null;
   likeCount: number;
+  commentCount: number;
   likedByViewer: boolean;
+  canEdit?: boolean;
   authorUsername: string | null;
   authorName: string | null;
   authorImage: string | null;
@@ -76,6 +79,8 @@ export async function getPublicQuotesByUsername(
       bookAuthor: Book.author,
       bookCover: Book.coverImage,
       likeCount: sql<number>`count(${QuoteLike.id})::int`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'QUOTE' and ${SocialComment.targetId} = ${Quote.id})`,
       // NULL-safe: with no viewer (or no matching like) bool_or yields NULL → false.
       likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${
         viewerId ?? null
@@ -103,6 +108,7 @@ export async function getPublicQuotesByUsername(
       ...r,
       background: normalizeQuoteBackground(r.background),
       likedByViewer: Boolean(r.likedByViewer),
+      canEdit: isOwner,
       authorUsername: user.username,
       authorName: user.name,
       authorImage: user.image,
@@ -135,10 +141,13 @@ export async function getLatestPublicQuotes(
       bookCover: sql<string | null>`coalesce(${CatalogBook.coverImage}, ${Book.coverImage})`,
       catalogBookId: Book.catalogBookId,
       catalogBookSlug: CatalogBook.slug,
+      canEdit: sql<boolean>`coalesce(${Quote.userId} = ${viewerId ?? null}, false)`,
       authorUsername: User.username,
       authorName: User.name,
       authorImage: User.image,
       likeCount: sql<number>`count(${QuoteLike.id})::int`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'QUOTE' and ${SocialComment.targetId} = ${Quote.id})`,
       // The viewer's liked state is aggregated with the same query as the
       // persisted total, avoiding a per-card follow-up request in feeds.
       likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${
@@ -193,12 +202,63 @@ export async function getLatestPublicQuotes(
         bookSlug,
         bookCover: coalesceCoverImage(row.bookCover),
         ...normalizeQuoteLikeState(row.likeCount, row.likedByViewer),
+        commentCount: row.commentCount,
+        canEdit: Boolean(row.canEdit),
         authorUsername: row.authorUsername,
         authorName: row.authorName,
         authorImage: row.authorImage,
       } satisfies PublicQuote;
     })
   );
+}
+
+export async function getVisibleQuoteById(
+  quoteId: string,
+  viewerId?: string,
+): Promise<PublicQuote | null> {
+  const visibility = viewerId
+    ? or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, viewerId))
+    : eq(User.profileVisibility, "PUBLIC");
+  const [row] = await db
+    .select({
+      id: Quote.id,
+      content: Quote.content,
+      imageKey: Quote.imageKey,
+      background: Quote.background,
+      page: Quote.page,
+      bookId: Book.id,
+      bookSlug: sql<string | null>`coalesce(${CatalogBook.slug}, ${Book.slug})`,
+      bookTitle: sql<string>`coalesce(${CatalogBook.title}, ${Book.title})`,
+      bookAuthor: sql<string>`coalesce(${CatalogBook.author}, ${Book.author})`,
+      bookCover: sql<string | null>`coalesce(${CatalogBook.coverImage}, ${Book.coverImage})`,
+      canEdit: sql<boolean>`coalesce(${Quote.userId} = ${viewerId ?? null}, false)`,
+      authorUsername: User.username,
+      authorName: User.name,
+      authorImage: User.image,
+      likeCount: sql<number>`count(${QuoteLike.id})::int`,
+      commentCount: sql<number>`(select count(*)::int from ${SocialComment}
+        where ${SocialComment.targetType} = 'QUOTE' and ${SocialComment.targetId} = ${Quote.id})`,
+      likedByViewer: sql<boolean>`coalesce(bool_or(${QuoteLike.userId} = ${viewerId ?? null}), false)`,
+    })
+    .from(Quote)
+    .innerJoin(Book, eq(Quote.bookId, Book.id))
+    .innerJoin(User, eq(Quote.userId, User.id))
+    .leftJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
+    .leftJoin(QuoteLike, eq(QuoteLike.quoteId, Quote.id))
+    .where(and(
+      eq(Quote.id, quoteId),
+      visibility,
+    ))
+    .groupBy(Quote.id, Book.id, CatalogBook.id, User.id)
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    ...row,
+    background: normalizeQuoteBackground(row.background),
+    bookCover: coalesceCoverImage(row.bookCover),
+    ...normalizeQuoteLikeState(row.likeCount, row.likedByViewer),
+  } satisfies PublicQuote;
 }
 
 /**
@@ -209,34 +269,39 @@ export async function toggleQuoteLike(
   quoteId: string,
   userId: string
 ): Promise<{ liked: boolean; likeCount: number } | null> {
-  const [quote] = await db
-    .select({ id: Quote.id })
-    .from(Quote)
-    .where(eq(Quote.id, quoteId))
-    .limit(1);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'quote-like:' + quoteId + ':' + userId}, 0))`);
+    const [quote] = await tx
+      .select({ id: Quote.id, bookId: Quote.bookId })
+      .from(Quote)
+      .innerJoin(User, eq(User.id, Quote.userId))
+      .where(and(eq(Quote.id, quoteId), or(eq(User.profileVisibility, "PUBLIC"), eq(User.id, userId))))
+      .limit(1).for("share", { of: [Quote, User] });
 
-  if (!quote) return null;
+    if (!quote) return null;
 
-  const removed = await db
-    .delete(QuoteLike)
-    .where(and(eq(QuoteLike.quoteId, quoteId), eq(QuoteLike.userId, userId)))
-    .returning({ id: QuoteLike.id });
+    const removed = await tx
+      .delete(QuoteLike)
+      .where(and(eq(QuoteLike.quoteId, quoteId), eq(QuoteLike.userId, userId)))
+      .returning({ id: QuoteLike.id });
 
-  let liked: boolean;
-  if (removed.length > 0) {
-    liked = false;
-  } else {
-    await db
-      .insert(QuoteLike)
-      .values({ quoteId, userId })
-      .onConflictDoNothing();
-    liked = true;
-  }
+    let liked: boolean;
+    if (removed.length > 0) {
+      liked = false;
+    } else {
+      await tx
+        .insert(QuoteLike)
+        .values({ quoteId, userId })
+        .onConflictDoNothing();
+      liked = true;
+    }
 
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(QuoteLike)
-    .where(eq(QuoteLike.quoteId, quoteId));
+    await recordLikedActivity(tx, userId, quote.bookId, { quoteId }, liked);
+    const [row] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(QuoteLike)
+      .where(eq(QuoteLike.quoteId, quoteId));
 
-  return { liked, likeCount: row?.count ?? 0 };
+    return { liked, likeCount: row?.count ?? 0 };
+  });
 }

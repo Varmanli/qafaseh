@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MessageSquareText, NotebookPen } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 
 import NoteCard from "@/components/profile/NoteCard";
 import type { PublicNote } from "@/lib/notes/service";
@@ -11,81 +11,27 @@ export default function NotesSection({
   isOwner,
   canLike = false,
   username,
-  initialHasMore,
 }: {
   notes: PublicNote[];
   isOwner: boolean;
   canLike?: boolean;
   username: string;
-  initialHasMore: boolean;
 }) {
   const hasNotes = notes.length > 0;
 
   return (
     <section className="relative" dir="rtl">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3 px-1 sm:mb-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className="
-              grid h-10 w-10 shrink-0 place-items-center
-              rounded-xl
-              bg-primary/10
-              text-primary
-              ring-1 ring-primary/15
-            "
-          >
-            <NotebookPen className="h-4.5 w-4.5" />
-          </span>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[15px] font-black text-foreground sm:text-base">
-                یادداشت‌ها
-              </h2>
-
-              {hasNotes ? (
-                <span
-                  className="
-                    inline-flex h-6 items-center
-                    rounded-full
-                    bg-foreground/[0.045]
-                    px-2
-                    text-[10px] font-bold
-                    text-muted-foreground
-                  "
-                >
-                  {notes.length.toLocaleString("fa-IR")} یادداشت
-                </span>
-              ) : null}
-            </div>
-
-            <p className="mt-0.5 text-[10px] leading-5 text-muted-foreground sm:text-[11px]">
-              نوشته‌ها و برداشت‌ها درباره کتاب‌ها
-            </p>
-          </div>
-        </div>
-
-        {initialHasMore ? (
-          <Link
-            href={`/${encodeURIComponent(username)}/notes`}
-            className="
-              inline-flex h-8 items-center justify-center rounded-lg
-              border border-border/50
-              bg-background/20
-              px-3
-              text-[11px] font-bold
-              text-muted-foreground
-              transition-colors
-              hover:border-primary/20
-              hover:bg-primary/5
-              hover:text-primary
-              shrink-0
-            "
-          >
-            مشاهده کامل
-          </Link>
-        ) : null}
+      <div className="mb-5 flex items-center justify-between gap-3 px-1 sm:mb-7">
+        <h2 className="text-base font-black tracking-tight text-foreground sm:text-2xl">
+          یادداشت‌ها
+        </h2>
+        <Link
+          href={`/${encodeURIComponent(username)}/notes`}
+          className="shrink-0 text-xs font-bold text-primary transition-colors hover:text-primary/80 sm:text-base"
+        >
+          نمایش یادداشت‌ها
+        </Link>
       </div>
 
       {/* Content */}

@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
+  Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -80,6 +81,11 @@ export default function UserMenu({
         href: getLibraryPath(user.username),
         icon: BookOpen,
         onboardingTarget: "profile-menu-library",
+      },
+      {
+        label: "خانه",
+        href: "/feed",
+        icon: Users,
       },
       {
         label: "امانت‌های من",

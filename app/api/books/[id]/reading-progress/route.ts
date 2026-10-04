@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 
 import { db } from "@/db";
 import { Book, ReadingEvent } from "@/db/schema";
+import { recordReadingActivity } from "@/lib/social/activity";
 
 const progressUpdateSchema = z.object({
   currentPage: z.number().int().min(0).optional(),
@@ -69,7 +70,7 @@ export async function PATCH(request: NextRequest) {
         status: nextStatus,
         readingUpdatedAt: now,
         completedAt: nextStatus === "FINISHED" ? book.completedAt ?? now : null,
-      }).where(eq(Book.id, id)).returning({
+      }).where(and(eq(Book.id, id), eq(Book.userId, userId), eq(Book.status, book.status))).returning({
         id: Book.id,
         currentPage: Book.currentPage,
         progress: Book.progress,
@@ -77,6 +78,7 @@ export async function PATCH(request: NextRequest) {
         readingUpdatedAt: Book.readingUpdatedAt,
         completedAt: Book.completedAt,
       });
+      if (!nextBook) throw new Error("STATUS_CONFLICT");
 
       if (eventType) {
         await tx.insert(ReadingEvent).values({
@@ -90,11 +92,14 @@ export async function PATCH(request: NextRequest) {
         });
       }
 
+      await recordReadingActivity(tx, userId, id, book.status, nextStatus);
+
       return nextBook;
     });
 
     return NextResponse.json({ book: updatedBook, message: "پیشرفت مطالعه ثبت شد" });
   } catch (error) {
+    if (error instanceof Error && error.message === "STATUS_CONFLICT") return NextResponse.json({ error: "وضعیت کتاب تغییر کرده؛ دوباره تلاش کنید" }, { status: 409 });
     if (error instanceof jwt.JsonWebTokenError) return NextResponse.json({ error: "توکن نامعتبر است" }, { status: 401 });
     console.error("reading progress update failed", error);
     return NextResponse.json({ error: "ثبت پیشرفت مطالعه ناموفق بود" }, { status: 500 });
