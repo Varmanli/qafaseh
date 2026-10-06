@@ -5,11 +5,12 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Check, ChevronDown, Loader2, Search, X } from "lucide-react";
 
 import type { BookEditionSummary } from "@/lib/book/detail-service";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,9 @@ export default function BookEditionSelector({
   selectedEditionId: string | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -207,13 +210,16 @@ export default function BookEditionSelector({
   }
 
   function chooseEdition(editionId: string) {
+    setOpen(false);
+    setQuery("");
+    if (editionId === selectedEdition?.id) return;
+
     const params = new URLSearchParams(searchParams.toString());
     params.set("edition", editionId);
 
-    setOpen(false);
-    setQuery("");
-
-    router.replace(`?${params.toString()}`, { scroll: false });
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    });
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -237,23 +243,30 @@ export default function BookEditionSelector({
         onKeyDown={handleTriggerKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-busy={isPending}
+        disabled={isPending}
         className={cn(
           "group flex h-11 w-full items-center justify-between gap-3 rounded-2xl border px-3 text-right text-xs font-bold shadow-none transition-all",
           "border-border/80 bg-background/55 text-foreground hover:border-primary/25 hover:bg-background/80",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
+          "disabled:cursor-wait disabled:opacity-70",
           open && "border-primary/30 bg-background/80",
         )}
       >
-        <span className="min-w-0 truncate">
-          {getEditionTitle(selectedEdition)}
+        <span className="min-w-0 truncate" aria-live="polite">
+          {isPending ? "در حال تغییر نسخه..." : getEditionTitle(selectedEdition)}
         </span>
 
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180 text-primary",
-          )}
-        />
+        {isPending ? (
+          <Loader2 className="h-4 w-4 shrink-0 motion-safe:animate-spin" />
+        ) : (
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180 text-primary",
+            )}
+          />
+        )}
       </button>
 
       {mounted && open && position

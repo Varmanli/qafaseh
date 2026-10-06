@@ -184,6 +184,7 @@ export default async function BookPage({
   };
 
   const { wantToReadCount, readingCount, finishedCount } = stats;
+  const editionViewKey = `${book.id}:${selectedEdition?.id ?? "default"}`;
 
   const metaItems: ReactNode[] = [
     <BookMetaItem
@@ -553,13 +554,14 @@ export default async function BookPage({
             <BookIntroduction content={book.description} />
           </div>
         </section>
-        <Suspense fallback={<BookSectionSkeleton label="مطالب مرتبط" />}>
+        {/* Reset streamed sections so changing editions does not wait for them. */}
+        <Suspense key={`magazine:${editionViewKey}`} fallback={<BookSectionSkeleton label="مطالب مرتبط" />}>
           <BookMagazineArticles bookId={book.id} />
         </Suspense>
-        <Suspense fallback={<BookSectionSkeleton label="نقل‌قول‌ها و یادداشت‌ها" />}>
+        <Suspense key={`community:${editionViewKey}`} fallback={<BookSectionSkeleton label="نقل‌قول‌ها و یادداشت‌ها" />}>
           <BookCommunitySections result={result} viewerId={viewer?.id} viewerIsAdmin={isAdmin(viewer)} notesHref={notesHref} loginHref={loginHref} />
         </Suspense>
-        <Suspense fallback={<BookSectionSkeleton label="کتاب‌های مشابه" />}>
+        <Suspense key={`similar:${editionViewKey}`} fallback={<BookSectionSkeleton label="کتاب‌های مشابه" />}>
           <BookSimilarBooks bookId={book.id} />
         </Suspense>
         <BookReadingTour isAuthenticated={isLoggedIn} />
