@@ -27,10 +27,10 @@ export function buildRandomUsername() {
   return `${USERNAME_PREFIX}${randomSuffix()}`;
 }
 
-export async function generateUniqueUsername() {
+export async function generateUniqueUsername(reader: Pick<typeof db, "select"> = db) {
   for (let attempt = 0; attempt < 25; attempt += 1) {
     const candidate = buildRandomUsername();
-    const [existing] = await db
+    const [existing] = await reader
       .select({ id: User.id })
       .from(User)
       .where(sql`lower(${User.username}) = lower(${candidate})`)

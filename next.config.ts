@@ -38,7 +38,7 @@ function resolveImageHosts(): string[] {
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "X-XSS-Protection", value: "1; mode=block" },
+  { key: "X-XSS-Protection", value: "0" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
@@ -52,12 +52,16 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // shortcut: Static Next.js bootstrap needs unsafe-inline; adopt nonces when pages switch to dynamic rendering.
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir https://iranketab.ir https://img.iranketab.ir https://lh3.googleusercontent.com",
       "font-src 'self' data:",
       "connect-src 'self' https://*.arvanstorage.ir https://*.liara.space https://www.iranketab.ir",
       "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
     ].join("; "),
   },
 ];

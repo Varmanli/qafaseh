@@ -14,7 +14,10 @@ const optionalText = (max: number) =>
 
 const optionalUrl = z.preprocess(
   emptyToNull,
-  z.union([z.string().url("آدرس نامعتبر است").max(500), z.null()]).optional()
+  z.union([z.string().url("آدرس نامعتبر است").max(500).refine(
+    (value) => URL.canParse(value) && ["https:", "http:"].includes(new URL(value).protocol),
+    "آدرس باید HTTP یا HTTPS باشد",
+  ), z.null()]).optional()
 );
 
 // هندل شبکه‌ی اجتماعی: @ ابتدایی حذف می‌شود؛ فقط حروف/عدد/._

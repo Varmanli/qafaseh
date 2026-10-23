@@ -1,15 +1,13 @@
 import type { NextRequest } from "next/server";
 
 import { apiError } from "@/lib/api/response";
-import { getPublicAppOrigin } from "@/lib/auth/redirects";
+import { isAllowedMutationOrigin } from "@/lib/api/request";
 import { CommentError } from "./comments";
 
 export const COMMENT_RESPONSE_HEADERS = { "Cache-Control": "private, no-store" };
 
 export function assertCommentMutationOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (request.headers.get("sec-fetch-site") === "cross-site" ||
-    (origin && origin !== request.nextUrl.origin && origin !== getPublicAppOrigin())) {
+  if (!isAllowedMutationOrigin(request)) {
     throw new CommentError("درخواست مجاز نیست", 403);
   }
 }

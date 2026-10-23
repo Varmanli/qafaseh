@@ -1,6 +1,9 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/roles";
+import { sharedRateLimit } from "@/lib/rate-limit";
+import { readFormDataBody, RequestError } from "@/lib/api/request";
 import {
   type ImageUploadFolder,
   IMAGE_UPLOAD_FOLDERS,
@@ -40,14 +43,16 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
     }
+    const limit = await sharedRateLimit(`image-upload:${user.id}`, { limit: isAdmin(user) ? 100 : 20, windowMs: 60_000 });
+    if (!limit.allowed) return NextResponse.json({ error: "کمی بعد دوباره تلاش کنید" }, { status: 429 });
 
-    const data = await req.formData();
+    const data = await readFormDataBody(req);
     const file = data.get("file") as File | null;
     const rawFolder = data.get("folder");
     const kind = data.get("kind"); // "favicon" برای دارایی فاوآیکون
     const requestedOwnerId = data.get("targetOwnerId");
 
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: "فایلی ارسال نشده" }, { status: 400 });
     }
 
@@ -125,6 +130,7 @@ export async function POST(req: NextRequest) {
       url: uploadResult.url,
     });
   } catch (err) {
+    if (err instanceof RequestError) return NextResponse.json({ error: err.message }, { status: err.status });
     console.error(err);
 
     if (err instanceof QuoteImageProcessingError || err instanceof ImageValidationError) {
@@ -168,7 +174,7 @@ export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
 
-  const body = (await req.json().catch(() => null)) as { key?: unknown; targetOwnerId?: unknown } | null;
+  const body = (await readJsonBody(req, 1_048_576).catch(() => null)) as { key?: unknown; targetOwnerId?: unknown } | null;
   const key = typeof body?.key === "string" ? body.key.trim() : "";
   let ownerId = user.id;
   if (typeof body?.targetOwnerId === "string" && body.targetOwnerId !== user.id) {

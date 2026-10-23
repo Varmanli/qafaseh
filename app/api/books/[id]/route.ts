@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -79,7 +80,7 @@ export async function PUT(
       return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
     }
 
-    const parsed = parseUserBookUpdate(await req.json());
+    const parsed = parseUserBookUpdate(await readJsonBody(req, 1_048_576));
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 422 });
     }

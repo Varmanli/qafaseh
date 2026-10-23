@@ -4,7 +4,8 @@ import { z } from "zod";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { createContactMessage } from "@/lib/admin/contact-messages";
 import { sendEmail } from "@/lib/email";
-import { getClientKey, rateLimit } from "@/lib/rate-limit";
+import { getClientKey, sharedRateLimit } from "@/lib/rate-limit";
+import { readJsonBody, RequestError } from "@/lib/api/request";
 import { getSiteSettings } from "@/lib/settings/service";
 
 const contactSchema = z.object({
@@ -44,13 +45,14 @@ function escapeHtml(value: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const limit = rateLimit(getClientKey(req, "contact"), { limit: 4, windowMs: 10 * 60_000 });
+  const limit = await sharedRateLimit(getClientKey(req, "contact"), { limit: 4, windowMs: 10 * 60_000 });
   if (!limit.allowed) return apiError("تعداد پیام‌ها زیاد است. کمی بعد دوباره تلاش کنید.", 429, "RATE_LIMITED");
 
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readJsonBody(req);
+  } catch (error) {
+    if (error instanceof RequestError) return apiError(error.message, error.status);
     return apiError("درخواست نامعتبر است.", 400);
   }
 

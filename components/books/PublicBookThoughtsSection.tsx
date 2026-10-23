@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, Globe2, Sparkles } from "lucide-react";
 
 import MetaAvatar from "@/components/books/MetaAvatar";
+import { detectTextDirection } from "@/lib/text-direction";
 import type { listPublicBookThoughts } from "@/lib/public-thoughts/service";
 
 type PublicThought = Awaited<ReturnType<typeof listPublicBookThoughts>>[number];
@@ -40,7 +41,7 @@ export default function PublicBookThoughtsSection({ thoughts }: { thoughts: Publ
                   </div>
                 </div>
                 {thought.pageNumber ? <p className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold text-primary"><BookOpen className="h-3.5 w-3.5" />صفحه‌ی {thought.pageNumber.toLocaleString("fa-IR")}</p> : <p className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground"><Globe2 className="h-3.5 w-3.5" />لحظه‌ی خواندن</p>}
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">{thought.content}</p>
+                <p dir={detectTextDirection(thought.content)} className="persian-paragraph mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">{thought.content}</p>
               </article>
             );
           })}

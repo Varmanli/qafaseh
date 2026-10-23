@@ -217,6 +217,24 @@ body {
    ========================================================================== */
 
 @layer components {
+  /* Opt in prose only; keep lists, code, and tables in their existing alignment. */
+  .persian-prose p:not(:where(ul *, ol *, pre *, table *, [dir="ltr"], [dir="ltr"] *)),
+  .persian-paragraph:not([dir="ltr"]) {
+    direction: rtl;
+    text-align: justify;
+    text-align-last: right;
+    text-justify: inter-word;
+    overflow-wrap: anywhere;
+  }
+
+  /* Narrow phones need natural word spacing more than an even left edge. */
+  @media (width < 24rem) {
+    .persian-prose p:not(:where(ul *, ol *, pre *, table *, [dir="ltr"], [dir="ltr"] *)),
+    .persian-paragraph:not([dir="ltr"]) {
+      text-align: right;
+    }
+  }
+
   .magazine-rich-text {
     direction: rtl;
   }

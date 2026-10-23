@@ -1,9 +1,9 @@
 /**
- * تشخیص ادمین: یا نقش کاربر ADMIN است، یا ایمیلش در ADMIN_EMAILS تعریف شده
+ * تشخیص ادمین: نقش ADMIN یا ایمیل تأییدشده در ADMIN_EMAILS.
  * (برای راه‌اندازی اولین ادمین بدون ویرایش مستقیم دیتابیس).
  */
 export function isAdmin(
-  user: { role?: string | null; email?: string | null } | null | undefined
+  user: { role?: string | null; email?: string | null; emailVerified?: Date | string | null } | null | undefined
 ): boolean {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
@@ -13,5 +13,5 @@ export function isAdmin(
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 
-  return !!user.email && allow.includes(user.email.toLowerCase());
+  return !!user.emailVerified && !!user.email && allow.includes(user.email.trim().toLowerCase());
 }

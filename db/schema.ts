@@ -17,6 +17,13 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
+// Shared security buckets contain hashes, never plaintext email addresses or IPs.
+export const SecurityRateLimit = pgTable("SecurityRateLimit", {
+  key: varchar("key", { length: 64 }).primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+}, (table) => [index("SecurityRateLimit_reset_at_idx").on(table.resetAt)]);
+
 // ---------------- Enums ----------------
 export const BookFormat = pgEnum("BookFormat", ["PHYSICAL", "ELECTRONIC"]);
 export const BookStatus = pgEnum("BookStatus", [
@@ -230,6 +237,8 @@ export const User = pgTable("User", {
   name: varchar("name", { length: 255 }),
   email: varchar("email", { length: 255 }).unique(),
   emailVerified: timestamp("email_verified", { mode: "date" }),
+  phone: varchar("phone", { length: 16 }).unique(),
+  phoneVerified: timestamp("phone_verified", { mode: "date" }),
   image: text("image"),
   // تصویر کاور/بنر پروفایل (پس‌زمینه‌ی هدر، شبیه توییتر)
   profileBannerImage: text("profile_banner_image"),
@@ -314,10 +323,24 @@ export const PasswordResetToken = pgTable("PasswordResetToken", {
     .notNull()
     .references(() => User.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull().unique(),
+  verificationMethod: varchar("verification_method", { length: 5 }).$type<"email" | "sms">().default("email").notNull(),
   expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
   usedAt: timestamp("used_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+export const SmsVerificationCode = pgTable("SmsVerificationCode", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phone: varchar("phone", { length: 16 }).notNull(),
+  purpose: varchar("purpose", { length: 10 }).$type<"login" | "link" | "signup" | "recovery">().notNull(),
+  userId: varchar("user_id").references(() => User.id, { onDelete: "cascade" }),
+  codeHash: varchar("code_hash", { length: 64 }).notNull(),
+  deliveryAccepted: boolean("delivery_accepted").default(false).notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+  consumedAt: timestamp("consumed_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+}, (table) => [index("SmsVerificationCode_phone_purpose_idx").on(table.phone, table.purpose, table.createdAt)]);
 
 export const VerificationCode = pgTable(
   "VerificationCode",
@@ -333,6 +356,7 @@ export const VerificationCode = pgTable(
     consumedAt: timestamp("consumed_at", { mode: "date" }),
     attempts: integer("attempts").default(0).notNull(),
     maxAttempts: integer("max_attempts").default(5).notNull(),
+    deliveryAccepted: boolean("delivery_accepted").default(true).notNull(),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
@@ -1548,6 +1572,7 @@ export const BlogCategory = pgTable("BlogCategory", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  coverImage: text("cover_image"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });

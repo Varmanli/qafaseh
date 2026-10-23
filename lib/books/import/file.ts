@@ -8,6 +8,9 @@ function getFileExtension(filename: string): string {
 }
 
 export async function parseImportFile(file: File): Promise<NormalizedImportBook[]> {
+  if (!(file instanceof File) || file.size === 0 || file.size > 10 * 1024 * 1024) {
+    throw new Error("IMPORT_FILE_TOO_LARGE");
+  }
   const extension = getFileExtension(file.name);
 
   if (extension === "json" || file.type.includes("json")) {

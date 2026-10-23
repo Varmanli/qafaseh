@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
     }
 
-    const body = (await req.json()) as Record<string, unknown>;
+    const body = (await readJsonBody(req, 1_048_576)) as Record<string, unknown>;
 
     const content = normalizeQuoteText(body.content);
     const imageKey = normalizeQuoteImageKey(body.imageKey);

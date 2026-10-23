@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -11,7 +12,7 @@ export async function PUT(req: NextRequest, { params }: Context) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
   const { id } = await params;
-  const parsed = loanUpdateSchema.safeParse(await req.json().catch(() => null));
+  const parsed = loanUpdateSchema.safeParse(await readJsonBody(req, 1_048_576).catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "ورودی نامعتبر است" }, { status: 422 });
   const data = parsed.data;
   try {

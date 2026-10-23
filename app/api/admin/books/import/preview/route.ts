@@ -1,3 +1,4 @@
+import { readFormDataBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 
 import { assertAdminApi } from "@/lib/admin/permissions";
@@ -11,8 +12,9 @@ export async function POST(req: NextRequest) {
 
   let formData: FormData;
   try {
-    formData = await req.formData();
-  } catch {
+    formData = await readFormDataBody(req, 12 * 1024 * 1024);
+  } catch (error) {
+    if (error instanceof RequestError) return apiError(error.message, error.status);
     return apiError("فایل ارسالی نامعتبر است", 400);
   }
 

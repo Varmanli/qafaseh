@@ -8,12 +8,13 @@ import { z } from "zod";
 const email = z
   .string()
   .min(1, "ایمیل را وارد کنید")
+  .max(254, "ایمیل خیلی طولانی است")
   .email("ایمیل معتبر وارد کنید");
 
 const identifier = z
   .string()
   .trim()
-  .min(1, "ایمیل یا نام کاربری را وارد کنید")
+  .min(1, "شماره موبایل یا ایمیل را وارد کنید")
   .max(255, "مقدار واردشده بیش از حد طولانی است");
 
 const verificationCode = z
@@ -32,15 +33,18 @@ const password = z
   .string()
   .min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد")
   .max(72, "رمز عبور نباید بیشتر از ۷۲ کاراکتر باشد")
+  .refine((value) => new TextEncoder().encode(value).length <= 72, "رمز عبور نباید بیشتر از ۷۲ بایت باشد")
   .regex(/[a-zA-Z]/, "رمز عبور باید حداقل یک حرف داشته باشد")
   .regex(/[0-9]/, "رمز عبور باید حداقل یک عدد داشته باشد");
+
+export const passwordSchema = password;
 
 // تغییر رمز عبور (کاربر واردشده) — همان قواعد رمز قوی را به‌کار می‌برد
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, "رمز عبور فعلی را وارد کنید"),
+    currentPassword: z.string().min(1, "رمز عبور فعلی را وارد کنید").max(1024),
     newPassword: password,
-    confirmPassword: z.string().min(1, "تکرار رمز عبور را وارد کنید"),
+    confirmPassword: z.string().min(1, "تکرار رمز عبور را وارد کنید").max(1024),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {
     message: "رمز عبور و تکرار آن یکسان نیستند",
@@ -52,7 +56,7 @@ export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export const loginSchema = z.object({
   identifier,
   // در ورود فقط وجود رمز را چک می‌کنیم تا پیام‌های اعتبارسنجی سخت‌گیرانه لو ندهند
-  password: z.string().min(1, "رمز عبور را وارد کنید"),
+  password: z.string().min(1, "رمز عبور را وارد کنید").max(1024),
   rememberMe: z.boolean(),
 });
 
@@ -109,7 +113,7 @@ export const resetPasswordSchema = z
 
 // نسخه‌ی سمت سرور بازنشانی رمز (بدون confirmPassword)
 export const resetPasswordApiSchema = z.object({
-  token: z.string().min(1, "توکن بازیابی نامعتبر است"),
+  token: z.string().regex(/^[a-f0-9]{64}$/, "توکن بازیابی نامعتبر است"),
   password,
 });
 

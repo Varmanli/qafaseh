@@ -101,7 +101,7 @@ export function normalizeHeader(header: string): string {
 export function mapExcelRowKeys(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
-  const mapped: Record<string, unknown> = {};
+  const mapped: Record<string, unknown> = Object.create(null);
   for (const [key, value] of Object.entries(row)) {
     const alias = EXCEL_COLUMN_ALIASES[normalizeHeader(key)] ?? key;
     mapped[alias] = value;

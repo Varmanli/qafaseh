@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
@@ -50,7 +51,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const existing = await manageableQuote(id, user.id, isAdmin(user));
     if ("error" in existing) return NextResponse.json({ error: existing.error }, { status: existing.status });
 
-    const body = (await req.json()) as Record<string, unknown>;
+    const body = (await readJsonBody(req, 1_048_576)) as Record<string, unknown>;
     const content = normalizeQuoteText(body.content);
     // An omitted imageKey means "keep the current image". Removal must be
     // explicit (`imageKey: null`) so partial clients cannot discard media.

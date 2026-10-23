@@ -1,6 +1,7 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import jwt from "jsonwebtoken";
+import { getCurrentUser } from "@/lib/auth/session";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -23,11 +24,10 @@ function bookIdFromRequest(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) return NextResponse.json({ error: "توکن لازم است" }, { status: 401 });
-
-    const { id: userId } = jwt.verify(token, process.env.JWT_SECRET!) as { id: string };
-    const parsed = progressUpdateSchema.safeParse(await request.json());
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
+    const userId = user.id;
+    const parsed = progressUpdateSchema.safeParse(await readJsonBody(request, 1_048_576));
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "ورودی نامعتبر است" }, { status: 422 });
     }
@@ -100,7 +100,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ book: updatedBook, message: "پیشرفت مطالعه ثبت شد" });
   } catch (error) {
     if (error instanceof Error && error.message === "STATUS_CONFLICT") return NextResponse.json({ error: "وضعیت کتاب تغییر کرده؛ دوباره تلاش کنید" }, { status: 409 });
-    if (error instanceof jwt.JsonWebTokenError) return NextResponse.json({ error: "توکن نامعتبر است" }, { status: 401 });
     console.error("reading progress update failed", error);
     return NextResponse.json({ error: "ثبت پیشرفت مطالعه ناموفق بود" }, { status: 500 });
   }

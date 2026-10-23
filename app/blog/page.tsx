@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 
 import BlogArchiveGrid from "@/components/blog/BlogArchiveGrid";
 import BlogArchiveToolbar from "@/components/blog/BlogArchiveToolbar";
+import BlogCategoryShelf from "@/components/blog/BlogCategoryShelf";
 import PublicShell from "@/components/PublicShell";
 import {
   BLOG_PAGE_SIZE,
   hasPublishedBlogPosts,
-  listBlogCategoryOptions,
+  listPublicBlogCategories,
   listPublicBlogPosts,
 } from "@/lib/blog/service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -47,13 +48,20 @@ export default async function BlogArchivePage({
       page,
       pageSize: BLOG_PAGE_SIZE,
     }),
-    listBlogCategoryOptions(),
+    listPublicBlogCategories(),
     hasPublishedBlogPosts(),
   ]);
 
   return (
     <PublicShell>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <main dir="rtl" className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10 lg:px-8">
+        <h1 className="sr-only">مجله قفسه</h1>
+        <BlogCategoryShelf categories={categories} />
+        <section id="magazine-articles" className="mt-12 scroll-mt-24 border-t border-border/60 pt-8 sm:mt-16 sm:pt-10" aria-labelledby="magazine-articles-title">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <h2 id="magazine-articles-title" className="text-xl font-black sm:text-2xl">همه خواندنی‌ها</h2>
+            <span className="text-xs text-muted-foreground">{archive.total.toLocaleString("fa-IR")} مقاله</span>
+          </div>
         <BlogArchiveToolbar
           categories={categories}
           q={q}
@@ -72,6 +80,7 @@ export default async function BlogArchivePage({
           sort={sort}
           searchParams={params}
         />
+        </section>
       </main>
     </PublicShell>
   );

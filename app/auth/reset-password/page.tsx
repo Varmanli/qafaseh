@@ -81,7 +81,7 @@ function ResetPasswordForm() {
             href="/auth/forgot-password"
             className="font-medium text-primary hover:underline"
           >
-            درخواست لینک جدید
+            بازیابی با شماره موبایل یا ایمیل
           </Link>
         </p>
       </div>

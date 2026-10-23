@@ -23,6 +23,7 @@ import ReadingStatusControl from "@/components/books/ReadingStatusControl";
 import ReadingTimeline from "@/components/books/ReadingTimeline";
 import type { ViewerLibraryEntry } from "@/lib/book/detail-service";
 import { getReadingHistory } from "@/lib/reading-history/service";
+import { detectTextDirection } from "@/lib/text-direction";
 
 export const dynamic = "force-dynamic";
 
@@ -305,7 +306,7 @@ function PersonalExperience({ entry }: { entry: ViewerLibraryEntry | null }) {
       {entry?.privateNote?.trim() ? (
         <div>
           <p className="text-xs font-bold text-muted-foreground">نظر من</p>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">
+          <p dir={detectTextDirection(entry.privateNote)} className="persian-paragraph mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground">
             {entry.privateNote}
           </p>
         </div>

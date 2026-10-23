@@ -1,14 +1,16 @@
+import { readJsonBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { AuthError } from "@/lib/auth/service";
 import { isEmailOtpEnabled } from "@/lib/auth/email-otp";
 import { issueVerificationCode, normalizeEmail } from "@/lib/auth/verification-codes";
-import { getClientKey, rateLimit } from "@/lib/rate-limit";
+import { getClientKey, sharedRateLimit } from "@/lib/rate-limit";
 import { requestCodeSchema } from "@/lib/validations/auth";
+import { isEmailDeliveryConfigured } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
-  const ipLimit = rateLimit(getClientKey(req, "request-code"), {
+  const ipLimit = await sharedRateLimit(getClientKey(req, "request-code"), {
     limit: 10,
     windowMs: 60_000,
   });
@@ -22,8 +24,9 @@ export async function POST(req: NextRequest) {
 
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readJsonBody(req);
+  } catch (error) {
+    if (error instanceof RequestError) return apiError(error.message, error.status);
     return apiError("درخواست نامعتبر است", 400);
   }
 
@@ -38,8 +41,9 @@ export async function POST(req: NextRequest) {
   if (!isEmailOtpEnabled()) {
     return apiError("ارسال کد ایمیل موقتاً غیرفعال است.", 503, "EMAIL_OTP_DISABLED");
   }
+  if (!isEmailDeliveryConfigured()) return apiError("ارسال ایمیل پیکربندی نشده است", 503, "EMAIL_DELIVERY_FAILED");
 
-  const emailRateLimit = rateLimit(
+  const emailRateLimit = await sharedRateLimit(
     `request-code:${parsed.data.purpose}:${normalizeEmail(parsed.data.email)}`,
     { limit: 3, windowMs: 60_000 }
   );
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
       email: parsed.data.email,
       purpose: parsed.data.purpose,
       requireExistingUser: parsed.data.purpose !== "email_verification",
-      requireVerifiedUser: parsed.data.purpose === "login",
+      requireVerifiedUser: false,
     });
 
     return apiSuccess({
@@ -71,6 +75,6 @@ export async function POST(req: NextRequest) {
     }
 
     console.error("❌ request-code error:", error);
-    return apiSuccess({ message: genericMessage });
+    return apiError("ارسال کد ممکن نشد؛ کمی بعد دوباره تلاش کنید", 503, "EMAIL_DELIVERY_FAILED");
   }
 }

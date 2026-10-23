@@ -22,6 +22,7 @@ import {
   ROUTE_BY_TYPE,
 } from "@/lib/reference/public-service";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { detectTextDirection } from "@/lib/text-direction";
 import {
   REFERENCE_TYPE_LABELS,
   type ReferenceTypeValue,
@@ -253,7 +254,7 @@ export default async function ReferencePublicView({
                   className="border-t border-border/50 pt-5 sm:pt-6"
                   fadeClassName="from-card via-card/70"
                 >
-                  <p className="max-w-none whitespace-pre-line break-words text-justify text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
+                  <p dir={detectTextDirection(description)} className="persian-paragraph max-w-none whitespace-pre-line break-words text-sm font-medium leading-8 text-muted-foreground sm:text-base sm:leading-9">
                     {description}
                   </p>
                 </CollapsibleContent>

@@ -1,17 +1,22 @@
+import { readJsonBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { getCurrentUser } from "@/lib/auth/session";
 import { changePasswordSchema } from "@/lib/validations/auth";
 import { AuthError, changePassword } from "@/lib/auth/service";
+import { sharedRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return apiError("احراز هویت نشده", 401, "UNAUTHENTICATED");
+  const limit = await sharedRateLimit(`change-password:${user.id}`, { limit: 10, windowMs: 15 * 60_000 });
+  if (!limit.allowed) return apiError("کمی بعد دوباره تلاش کنید", 429, "RATE_LIMITED");
 
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readJsonBody(req);
+  } catch (error) {
+    if (error instanceof RequestError) return apiError(error.message, error.status);
     return apiError("درخواست نامعتبر است", 400);
   }
 

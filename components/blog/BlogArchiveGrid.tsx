@@ -19,6 +19,8 @@ export default function BlogArchiveGrid({
   sort = "newest",
   pathname = "/blog",
   searchParams = "",
+  emptyResetHref = "/blog",
+  emptyDescription,
 }: {
   posts: PublicBlogPostPreview[];
   page: number;
@@ -30,6 +32,8 @@ export default function BlogArchiveGrid({
   sort?: BlogArchiveSortValue;
   pathname?: string;
   searchParams?: PaginationSearchParams;
+  emptyResetHref?: string;
+  emptyDescription?: string;
 }) {
   return (
     <section className="mt-4 sm:mt-5">
@@ -55,6 +59,8 @@ export default function BlogArchiveGrid({
         <EmptyState
           hasActiveFilters={Boolean(q.trim() || category.trim())}
           hasPublishedArticles={hasPublishedArticles}
+          resetHref={emptyResetHref}
+          description={emptyDescription}
         />
       )}
     </section>
@@ -64,9 +70,13 @@ export default function BlogArchiveGrid({
 function EmptyState({
   hasActiveFilters,
   hasPublishedArticles,
+  resetHref,
+  description: customDescription,
 }: {
   hasActiveFilters: boolean;
   hasPublishedArticles: boolean;
+  resetHref: string;
+  description?: string;
 }) {
   const showClearFilters = hasActiveFilters && hasPublishedArticles;
   const title = showClearFilters ? "مقاله‌ای پیدا نشد" : "هنوز مقاله‌ای منتشر نشده";
@@ -82,16 +92,16 @@ function EmptyState({
         </div>
         <h3 className="mt-4 text-base font-black text-foreground">{title}</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-7 text-muted-foreground">
-          {description}
+          {customDescription || description}
         </p>
         {showClearFilters ? (
           <Button asChild variant="outline" size="sm" className="mt-5 border-border/70 bg-background/50">
-            <Link href="/blog">
+            <Link href={resetHref}>
               <RotateCcw className="size-3.5" />
               پاک کردن فیلترها
             </Link>
           </Button>
-        ) : null}
+        ) : <Link href="/blog" className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-primary">کشف قفسه‌های دیگر <ArrowLeft className="size-3.5" /></Link>}
       </div>
     </div>
   );

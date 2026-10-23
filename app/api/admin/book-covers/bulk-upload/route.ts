@@ -1,3 +1,4 @@
+import { readFormDataBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 
 import { assertAdminApi } from "@/lib/admin/permissions";
@@ -18,7 +19,12 @@ export async function POST(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
 
-  const formData = await req.formData();
+  let formData: FormData;
+  try {
+    formData = await readFormDataBody(req, 128 * 1024 * 1024);
+  } catch (error) {
+    return apiError(error instanceof RequestError ? error.message : "درخواست نامعتبر است", error instanceof RequestError ? error.status : 400);
+  }
   const replaceExisting = formData.get("replaceExisting") === "true";
   const files = formData
     .getAll("files")

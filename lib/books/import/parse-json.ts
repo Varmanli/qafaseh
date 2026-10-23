@@ -10,6 +10,7 @@ export function parseImportJson(content: string): NormalizedImportBook[] {
   if (!Array.isArray(parsed)) {
     throw new Error("JSON_IMPORT_ARRAY_REQUIRED");
   }
+  if (parsed.length > 5000) throw new Error("IMPORT_TOO_MANY_ROWS");
 
   const books = parsed.map((entry, index) => {
     const rowNumber = index + 1;

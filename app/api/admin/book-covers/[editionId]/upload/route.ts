@@ -1,3 +1,4 @@
+import { readFormDataBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 
 import { assertAdminApi } from "@/lib/admin/permissions";
@@ -26,7 +27,12 @@ export async function POST(
     return apiError("نسخه پیدا نشد.", 404, "EDITION_NOT_FOUND");
   }
 
-  const formData = await req.formData();
+  let formData: FormData;
+  try {
+    formData = await readFormDataBody(req, 12 * 1024 * 1024);
+  } catch (error) {
+    return apiError(error instanceof RequestError ? error.message : "درخواست نامعتبر است", error instanceof RequestError ? error.status : 400);
+  }
   const file = formData.get("file");
   const replaceExisting = formData.get("replaceExisting") === "true";
 

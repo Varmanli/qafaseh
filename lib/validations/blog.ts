@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { normalizeMediaUrl } from "@/lib/book/cover";
+import { isAllowedPersistedImageUrl } from "@/lib/storage/image-url";
 
 const relationIdsSchema = z.array(z.string().uuid()).max(30).refine((ids) => new Set(ids).size === ids.length, "ارتباط تکراری مجاز نیست");
 
@@ -31,6 +33,10 @@ export const adminBlogListQuerySchema = z.object({
 export const blogCategoryInputSchema = z.object({
   name: z.string().min(1, "نام دسته‌بندی الزامی است").max(200),
   description: z.string().max(1000).optional().nullable(),
+  coverImage: z.string().trim().max(5000).refine(
+    (value) => !value || (!value.startsWith("//") && normalizeMediaUrl(value) !== null && isAllowedPersistedImageUrl(value)),
+    "نشانی تصویر کاور معتبر نیست؛ تصویر را از بخش آپلود انتخاب کنید.",
+  ).nullish(),
 });
 
 export type BlogPostInput = z.infer<typeof blogPostInputSchema>;

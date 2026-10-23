@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getLoginPath } from "@/lib/auth/routes";
+import { detectTextDirection } from "@/lib/text-direction";
 import { COMMENT_MAX_LENGTH, type CommentItem, type CommentPage, type SocialCommentTarget } from "@/lib/social/comment-contract";
 
 type Props = { targetType: SocialCommentTarget; targetId: string; canComment: boolean; defaultOpen?: boolean; showToggle?: boolean; standalone?: boolean };
@@ -276,7 +277,7 @@ function CommentRow({ comment, disabled, onReply, onManage }: { comment: Comment
         <label className="sr-only" htmlFor={inputId}>ویرایش دیدگاه</label>
         <textarea id={inputId} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={disabled} maxLength={COMMENT_MAX_LENGTH} rows={2} dir="rtl" autoFocus className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-right text-sm leading-6 focus:outline-primary" />
         <div className="flex gap-3"><Button type="submit" size="sm" disabled={disabled || !draft.trim()} className="h-8 text-xs">ذخیره</Button><button type="button" disabled={disabled} onClick={() => setEditing(false)} className="text-xs text-muted-foreground">انصراف</button></div>
-      </form> : <p dir="auto" className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/90 [overflow-wrap:anywhere]">{comment.content}</p>}
+      </form> : <p dir={detectTextDirection(comment.content)} className="persian-paragraph mt-1.5 whitespace-pre-wrap break-words text-sm leading-7 text-foreground/90 [overflow-wrap:anywhere]">{comment.content}</p>}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 text-[10px] text-muted-foreground/75">
         {comment.updatedAt !== comment.createdAt ? <span>ویرایش‌شده</span> : null}
         {onReply ? <button type="button" disabled={disabled} onClick={onReply} className="min-h-8 text-[11px] font-semibold hover:text-primary disabled:opacity-50">پاسخ</button> : null}

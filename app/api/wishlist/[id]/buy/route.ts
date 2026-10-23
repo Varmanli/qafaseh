@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -9,7 +10,7 @@ import { addBookToLibrary } from "@/lib/book/detail-service";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
-  const parsed = z.object({ addToLibrary: z.boolean() }).safeParse(await req.json().catch(() => null));
+  const parsed = z.object({ addToLibrary: z.boolean() }).safeParse(await readJsonBody(req, 1_048_576).catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "ورودی نامعتبر است" }, { status: 422 });
   const { id } = await params;
   try {

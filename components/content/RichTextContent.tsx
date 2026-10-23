@@ -1,4 +1,5 @@
 import { sanitizeRichTextHtml } from "@/lib/content/rich-text";
+import { cn } from "@/lib/utils";
 
 export default function RichTextContent({
   content,
@@ -11,10 +12,11 @@ export default function RichTextContent({
 
   return (
     <div
-      className={
+      className={cn(
+        "persian-prose",
         className ??
-        "magazine-rich-text [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pr-6 [&_ul]:list-disc [&_ul]:pr-6"
-      }
+        "magazine-rich-text [&_a]:text-primary [&_a]:underline [&_ol]:list-decimal [&_ol]:pr-6 [&_ul]:list-disc [&_ul]:pr-6",
+      )}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

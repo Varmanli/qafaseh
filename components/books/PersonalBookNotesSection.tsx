@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { detectTextDirection } from "@/lib/text-direction";
 
 type PersonalNote = {
   id: string;
@@ -336,7 +337,7 @@ export default function PersonalBookNotesSection({
                 </div>
 
                 {/* Content */}
-                <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-foreground/90 sm:text-sm">
+                <p dir={detectTextDirection(note.content)} className="persian-paragraph mt-2 whitespace-pre-wrap text-xs leading-relaxed text-foreground/90 sm:text-sm">
                   {note.content}
                 </p>
 

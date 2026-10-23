@@ -9,11 +9,13 @@ export function buildBlogArchiveHref({
   category = "",
   sort = "newest",
   page = 1,
+  pathname = "/blog",
 }: {
   q?: string;
   category?: string;
   sort?: BlogArchiveSort;
   page?: number;
+  pathname?: string;
 }) {
   const params = new URLSearchParams();
   if (q.trim()) params.set("q", q.trim());
@@ -21,5 +23,5 @@ export function buildBlogArchiveHref({
   if (sort !== "newest") params.set("sort", sort);
   if (page > 1) params.set("page", String(page));
   const query = params.toString();
-  return query ? `/blog?${query}` : "/blog";
+  return query ? `${pathname}?${query}` : pathname;
 }

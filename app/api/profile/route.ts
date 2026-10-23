@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -34,7 +35,7 @@ export async function PUT(req: NextRequest) {
 
   let body: unknown;
   try {
-    body = await req.json();
+    body = await readJsonBody(req, 1_048_576);
   } catch {
     return apiError("درخواست نامعتبر است", 400);
   }
@@ -65,7 +66,7 @@ export async function PATCH(req: NextRequest) {
 
   let body: unknown;
   try {
-    body = await req.json();
+    body = await readJsonBody(req, 1_048_576);
   } catch {
     return apiError("درخواست نامعتبر است", 400);
   }

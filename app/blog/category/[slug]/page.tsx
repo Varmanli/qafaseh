@@ -1,296 +1,95 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import {
-  ArrowLeft,
-  BookOpen,
-  ChevronLeft,
-  Clock3,
-  Layers3,
-} from "lucide-react";
+import { ArrowLeft, ChevronLeft } from "lucide-react";
 
 import BlogArchiveGrid from "@/components/blog/BlogArchiveGrid";
-import BlogCoverImage from "@/components/blog/BlogCoverImage";
+import BlogArchiveToolbar from "@/components/blog/BlogArchiveToolbar";
+import BlogCategoryCover from "@/components/blog/BlogCategoryCover";
+import { normalizeBlogArchiveSort } from "@/components/blog/blog-archive";
 import PublicShell from "@/components/PublicShell";
 import { getMagazineCategory } from "@/lib/blog/categories";
 import { decodeBlogCategorySlug } from "@/lib/blog/category-slug";
-import {
-  BLOG_PAGE_SIZE,
-  getPublicBlogCategoryBySlug,
-  listPublicBlogPosts,
-} from "@/lib/blog/service";
+import { BLOG_PAGE_SIZE, getPublicBlogCategoryBySlug, listPublicBlogCategories, listPublicBlogPosts } from "@/lib/blog/service";
+import { normalizeMediaUrl } from "@/lib/book/cover";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
+type CategoryPageProps = {
   params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export async function generateMetadata({ params }: Pick<CategoryPageProps, "params">): Promise<Metadata> {
   const { slug } = await params;
-  const requestedSlug = decodeBlogCategorySlug(slug);
-
-  const category =
-    getMagazineCategory(requestedSlug) ??
-    (await getPublicBlogCategoryBySlug(requestedSlug));
-
-  if (!category) {
-    return {
-      title: "دسته‌بندی پیدا نشد | قفسه",
-    };
-  }
-
+  const requested = decodeBlogCategorySlug(slug);
+  const category = await getPublicBlogCategoryBySlug(requested);
+  const resolved = category ?? getMagazineCategory(requested);
+  if (!resolved) return { title: "دسته‌بندی پیدا نشد | قفسه" };
   return buildPageMetadata({
-    title: `${category.name} | مجله قفسه`,
-    description:
-      category.description ||
-      "مطالب منتخب مجله قفسه برای کشف کتاب‌ها، نویسندگان و جهان ادبیات.",
-    path: `/blog/category/${encodeURIComponent(category.slug)}`,
+    title: `${resolved.name} | مجله قفسه`,
+    description: resolved.description || `نوشته‌ها و مقاله‌های مجله قفسه درباره ${resolved.name}.`,
+    path: `/blog/category/${encodeURIComponent(resolved.slug)}`,
+    image: normalizeMediaUrl(category?.coverImage),
   });
 }
 
-export default async function MagazineCategoryPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function MagazineCategoryPage({ params, searchParams }: CategoryPageProps) {
   const { slug } = await params;
-  const requestedSlug = decodeBlogCategorySlug(slug);
+  const requested = decodeBlogCategorySlug(slug);
+  const category = await getPublicBlogCategoryBySlug(requested);
+  const resolved = category ?? getMagazineCategory(requested);
+  if (!resolved) notFound();
 
-  const fallback = getMagazineCategory(requestedSlug);
-  const category = await getPublicBlogCategoryBySlug(requestedSlug);
-
-  if (!fallback && !category) {
-    notFound();
+  const query = await searchParams;
+  const pathname = `/blog/category/${encodeURIComponent(resolved.slug)}`;
+  if (requested !== resolved.slug) {
+    const preserved = new URLSearchParams();
+    for (const key of ["q", "sort", "page"]) {
+      if (typeof query[key] === "string") preserved.set(key, query[key]);
+    }
+    permanentRedirect(`${pathname}${preserved.size ? `?${preserved}` : ""}`);
   }
-
-  const categorySlug = category?.slug ?? fallback!.slug;
-  if (requestedSlug !== categorySlug) {
-    permanentRedirect(`/blog/category/${encodeURIComponent(categorySlug)}`);
-  }
-
-  const resolvedSearchParams = await searchParams;
-  const rawPage = resolvedSearchParams.page;
-  const page = Math.max(1, Number(typeof rawPage === "string" ? rawPage : "1") || 1);
-
-  const archive = await listPublicBlogPosts({
-    categorySlug,
-    page,
-    pageSize: BLOG_PAGE_SIZE,
-  });
-
-  const name = category?.name ?? fallback!.name;
-  const description =
-    category?.description ||
-    fallback?.description ||
-    `نوشته‌ها، تحلیل‌ها و مطالب منتخب مجله قفسه در دسته ${name}.`;
-
-  /*
-   * جدیدترین مطلب فقط در صفحه اول
-   * به شکل Feature نمایش داده می‌شود.
-   */
-  const featuredPost =
-    archive.page === 1 && archive.posts.length > 0 ? archive.posts[0] : null;
-
-  const gridPosts = featuredPost ? archive.posts.slice(1) : archive.posts;
+  const q = typeof query.q === "string" ? query.q.trim() : "";
+  const sort = normalizeBlogArchiveSort(typeof query.sort === "string" ? query.sort : undefined);
+  const page = Math.max(1, Math.floor(Number(typeof query.page === "string" ? query.page : "1")) || 1);
+  const [archive, categories] = await Promise.all([
+    listPublicBlogPosts({ categorySlug: resolved.slug, q, sort, page, pageSize: BLOG_PAGE_SIZE }),
+    listPublicBlogCategories(),
+  ]);
+  const postCount = categories.find((item) => item.slug === resolved.slug)?.postCount ?? 0;
 
   return (
     <PublicShell>
-      <main dir="rtl" className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-        {/* =========================================================
-            Category masthead
-        ========================================================= */}
-        <section className="border-b border-border/60 py-7 sm:py-9 lg:py-10">
-          {/* Breadcrumb */}
-          <nav
-            aria-label="مسیر صفحه"
-            className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-muted-foreground"
-          >
-            <Link href="/" className="transition-colors hover:text-foreground">
-              قفسه
-            </Link>
+      <main dir="rtl" className="mx-auto max-w-7xl px-4 pb-20 pt-5 sm:px-6 sm:pt-8 lg:px-8">
+        <nav aria-label="مسیر صفحه" className="mb-5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <Link href="/" className="transition-colors hover:text-primary">قفسه</Link><ChevronLeft aria-hidden="true" className="size-3" />
+          <Link href="/blog" className="transition-colors hover:text-primary">مجله</Link><ChevronLeft aria-hidden="true" className="size-3" />
+          <span aria-current="page" className="font-bold text-foreground">{resolved.name}</span>
+        </nav>
 
-            <ChevronLeft className="h-3 w-3 opacity-40" />
-
-            <Link
-              href="/blog"
-              className="transition-colors hover:text-foreground"
-            >
-              مجله
-            </Link>
-
-            <ChevronLeft className="h-3 w-3 opacity-40" />
-
-            <span className="font-bold text-foreground">{name}</span>
-          </nav>
-
-          <div className="mt-7 flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
-            {/* Main info */}
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Layers3 className="h-4 w-4" />
-                </span>
-
-                <span className="text-xs font-black text-primary">
-                  دسته‌بندی مجله
-                </span>
-              </div>
-
-              <h1 className="mt-4 text-3xl font-black leading-[1.4] tracking-tight text-foreground sm:text-4xl lg:text-[2.75rem]">
-                {name}
-              </h1>
-
-              <p className="mt-3 max-w-2xl text-sm leading-8 text-muted-foreground">
-                {description}
-              </p>
-            </div>
-
-            {/* Action */}
-            <div className="flex shrink-0 items-center gap-3">
-              {page > 1 ? (
-                <span className="inline-flex h-10 items-center rounded-xl bg-muted/60 px-4 text-xs font-bold text-muted-foreground">
-                  صفحه {page.toLocaleString("fa-IR")}
-                </span>
-              ) : null}
-
-              <Link
-                href="/blog"
-                className="group inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 px-4 text-xs font-bold text-foreground transition hover:border-primary/30 hover:text-primary"
-              >
-                همه مطالب مجله
-                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" />
-              </Link>
+        <header className="overflow-hidden rounded-[1.75rem] border border-border/60 bg-card sm:grid sm:grid-cols-[1.1fr_1fr]">
+          <div className="relative min-h-52 overflow-hidden sm:order-2 sm:min-h-80">
+            <BlogCategoryCover src={category?.coverImage} slug={resolved.slug} sizes="(max-width: 640px) 100vw, 50vw" />
+          </div>
+          <div className="flex flex-col items-start justify-center p-6 sm:p-8 lg:p-11">
+            <p className="flex items-center gap-2 text-[11px] font-bold text-primary"><span className="h-px w-6 bg-primary/50" /> یک قفسه از مجله</p>
+            <h1 className="mt-4 text-2xl font-black leading-relaxed tracking-tight sm:text-3xl lg:text-4xl">{resolved.name}</h1>
+            <p className="mt-3 max-w-lg text-sm leading-8 text-muted-foreground">{resolved.description || `نوشته‌ها و روایت‌هایی خواندنی از جهان ${resolved.name}؛ برای کشف ایده‌های تازه و عمیق‌تر خواندن.`}</p>
+            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs">
+              <span className="rounded-full bg-primary/10 px-3 py-2 font-bold text-primary">{postCount ? `${postCount.toLocaleString("fa-IR")} مقاله خواندنی` : "در انتظار اولین روایت"}</span>
+              <Link href="/blog" className="inline-flex items-center gap-2 font-bold text-muted-foreground transition-colors hover:text-primary">همه قفسه‌ها <ArrowLeft className="size-3.5" /></Link>
             </div>
           </div>
-        </section>
+        </header>
 
-        {/* =========================================================
-            Featured article
-        ========================================================= */}
-        {featuredPost ? (
-          <section
-            className="mt-8 sm:mt-10 lg:mt-12"
-            aria-labelledby="featured-category-post"
-          >
-            <div className="mb-4 flex items-center gap-3">
-              <span className="h-px w-6 bg-primary/50" />
-
-              <p className="text-[11px] font-black text-primary">
-                تازه‌ترین مطلب این بخش
-              </p>
-            </div>
-
-            <Link
-              href={`/blog/${encodeURIComponent(featuredPost.slug)}`}
-              className="group relative isolate block min-h-[390px] overflow-hidden rounded-[1.75rem] bg-muted sm:min-h-[480px] lg:min-h-[540px]"
-            >
-              <BlogCoverImage
-                src={featuredPost.bannerImage}
-                alt={featuredPost.title}
-                sizes="(max-width: 1024px) 100vw, 1200px"
-                className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
-              />
-
-              {/* Overlays */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5" />
-
-              <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/55 to-transparent" />
-
-              {/* top label */}
-              <div className="absolute right-5 top-5 sm:right-7 sm:top-7">
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[10px] font-bold text-white/90 backdrop-blur-md">
-                  <BookOpen className="h-3 w-3" />
-
-                  {featuredPost.categoryName || name}
-                </span>
-              </div>
-
-              {/* Content */}
-              <article className="absolute inset-x-0 bottom-0 p-5 sm:p-7 lg:p-9">
-                <div className="max-w-3xl">
-                  <h2
-                    id="featured-category-post"
-                    className="text-xl font-black leading-9 text-white sm:text-3xl sm:leading-[1.55] lg:text-4xl"
-                  >
-                    {featuredPost.title}
-                  </h2>
-
-                  {featuredPost.excerpt ? (
-                    <p className="mt-3 line-clamp-2 max-w-2xl text-xs leading-6 text-white/70 sm:text-sm sm:leading-7">
-                      {featuredPost.excerpt}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium text-white/60 sm:text-xs">
-                      <span>
-                        {featuredPost.publishedAt.toLocaleDateString("fa-IR")}
-                      </span>
-
-                      {featuredPost.readingTime ? (
-                        <>
-                          <span className="text-white/30">•</span>
-
-                          <span className="inline-flex items-center gap-1.5">
-                            <Clock3 className="h-3 w-3" />
-                            {featuredPost.readingTime.toLocaleString(
-                              "fa-IR",
-                            )}{" "}
-                            دقیقه مطالعه
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-
-                    <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 text-xs font-bold text-white backdrop-blur-md transition-colors group-hover:bg-white group-hover:text-black">
-                      مطالعه مطلب
-                      <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" />
-                    </span>
-                  </div>
-                </div>
-              </article>
-            </Link>
-          </section>
-        ) : null}
-
-        {/* =========================================================
-            Archive
-        ========================================================= */}
-        <section
-          className={
-            featuredPost ? "mt-12 sm:mt-16 lg:mt-20" : "mt-8 sm:mt-10 lg:mt-12"
-          }
-        >
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-bold text-primary">آرشیو {name}</p>
-
-              <h2 className="mt-1.5 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-                {archive.page === 1 ? "مطالب بیشتر" : "نوشته‌های این صفحه"}
-              </h2>
-            </div>
-
-            {archive.pageCount > 1 ? (
-              <span className="hidden text-xs font-medium text-muted-foreground sm:block">
-                صفحه {archive.page.toLocaleString("fa-IR")} از{" "}
-                {archive.pageCount.toLocaleString("fa-IR")}
-              </span>
-            ) : null}
-          </div>
-
-          <BlogArchiveGrid
-            posts={gridPosts}
-            total={archive.total}
-            page={archive.page}
-            pageCount={archive.pageCount}
-            category={categorySlug}
-            pathname={`/blog/category/${encodeURIComponent(categorySlug)}`}
-            searchParams={resolvedSearchParams}
-          />
+        <section id="category-articles" className="mt-8 scroll-mt-24 sm:mt-10" aria-label={`مقاله‌های ${resolved.name}`}>
+          <BlogArchiveToolbar q={q} sort={sort} pathname={pathname} />
+          <BlogArchiveGrid posts={archive.posts} total={archive.total} hasPublishedArticles={postCount > 0}
+            page={archive.page} pageCount={archive.pageCount} q={q} sort={sort}
+            pathname={pathname} searchParams={query} emptyResetHref={pathname}
+            emptyDescription={postCount ? undefined : "این قفسه تازه چیده شده؛ اولین مقاله‌هایش به‌زودی اینجا قرار می‌گیرند. تا آن وقت، قفسه‌های دیگر مجله را کشف کن."} />
         </section>
       </main>
     </PublicShell>

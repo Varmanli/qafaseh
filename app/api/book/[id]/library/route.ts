@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -16,7 +17,7 @@ export async function POST(
 
   let body: unknown = {};
   try {
-    body = await req.json();
+    body = await readJsonBody(req, 1_048_576);
   } catch {
     /* empty body → default status */
   }

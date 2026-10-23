@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { detectTextDirection } from "@/lib/text-direction";
 
 export default function ProfileBio({ bio }: { bio: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -13,8 +14,9 @@ export default function ProfileBio({ bio }: { bio: string }) {
   return (
     <div className="max-w-xl text-right">
       <p
+        dir={detectTextDirection(bio)}
         className={cn(
-          "whitespace-pre-line text-xs leading-6 text-muted-foreground sm:text-sm sm:leading-7",
+          "persian-paragraph whitespace-pre-line text-xs leading-6 text-muted-foreground sm:text-sm sm:leading-7",
           !expanded && "line-clamp-3",
         )}
       >

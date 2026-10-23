@@ -33,7 +33,7 @@ export default function StaticContentPage({
           <h1 className="mt-4 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
             {title}
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-8 text-muted-foreground sm:text-base">
+          <p className="persian-paragraph mt-4 max-w-2xl text-sm leading-8 text-muted-foreground sm:text-base">
             {description}
           </p>
 
@@ -62,7 +62,7 @@ export default function StaticContentPage({
                   {section.title}
                 </h2>
               </div>
-              <p className="mt-4 text-sm leading-8 text-muted-foreground">
+              <p className="persian-paragraph mt-4 text-sm leading-8 text-muted-foreground">
                 {section.body}
               </p>
             </section>

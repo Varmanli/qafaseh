@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { personalBookNoteSchema } from "@/lib/validations/personal-book-notes";
@@ -6,7 +7,7 @@ import { assertOwnedBook, deletePersonalBookNote, getOwnedPersonalBookNote, upda
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
-  const parsed = personalBookNoteSchema.safeParse(await request.json());
+  const parsed = personalBookNoteSchema.safeParse(await readJsonBody(request, 1_048_576));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "ورودی نامعتبر است" }, { status: 422 });
   const { id } = await params;
   const existing = await getOwnedPersonalBookNote(id, user.id);

@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -25,7 +26,7 @@ export async function POST(
   const source = await getOwnedPersonalBookNote(id, user.id);
   if (!source) return NextResponse.json({ error: "یادداشت پیدا نشد" }, { status: 404 });
 
-  const parsed = shareThoughtSchema.safeParse(await request.json());
+  const parsed = shareThoughtSchema.safeParse(await readJsonBody(request, 1_048_576));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "ورودی نامعتبر است" }, { status: 422 });
 
   const book = await assertOwnedBook(source.bookId, user.id);

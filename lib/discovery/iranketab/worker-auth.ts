@@ -22,7 +22,7 @@ export async function assertIranKetabDiscoveryWorkerRequest(request: Request) {
     return { error: apiError("دسترسی غیرمجاز", 401, "UNAUTHORIZED_WORKER") } as const;
 
   const [actor] = await db
-    .select({ id: User.id, email: User.email, role: User.role })
+    .select({ id: User.id, email: User.email, emailVerified: User.emailVerified, role: User.role })
     .from(User)
     .where(eq(User.id, actorId))
     .limit(1);

@@ -11,6 +11,8 @@ export interface SessionUser {
   id: string;
   name: string | null;
   email: string | null;
+  emailVerified: Date | null;
+  phone: string | null;
   image: string | null;
   username: string | null;
   role: "USER" | "ADMIN";
@@ -36,6 +38,8 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
       id: User.id,
       name: User.name,
       email: User.email,
+      emailVerified: User.emailVerified,
+      phone: User.phone,
       image: User.image,
       username: User.username,
       role: User.role,

@@ -17,9 +17,9 @@ export function AuthButton({
   ...props
 }: AuthButtonProps) {
   const buttonClassName = cn(
-    "h-12 w-full rounded-2xl text-sm font-bold transition-all duration-200",
+    "h-11 w-full rounded-xl text-sm font-semibold transition-colors",
     variant === "default" &&
-      "bg-emerald-200 text-emerald-950 shadow-[0_12px_32px_rgba(145,201,175,0.18)] hover:bg-emerald-100",
+      "bg-emerald-200 text-emerald-950 hover:bg-emerald-100",
     variant === "outline" &&
       "border-white/12 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white",
     className
@@ -48,15 +48,7 @@ export function AuthButton({
       disabled={disabled || loading}
       {...props}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "inline-flex h-4 w-4 items-center justify-center transition-opacity",
-          loading ? "opacity-100" : "opacity-0"
-        )}
-      >
-        <Loader2 className={cn("h-4 w-4", loading && "animate-spin")} />
-      </span>
+      {loading ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
       <span>{children}</span>
     </Button>
   );

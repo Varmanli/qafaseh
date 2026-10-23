@@ -533,6 +533,34 @@
       "when": 1790899200010,
       "tag": "0075_content_activity_likes",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1790899200011,
+      "tag": "0076_security_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1790899200012,
+      "tag": "0077_sms_otp",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1790899200013,
+      "tag": "0078_sms_signup_recovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1790899200014,
+      "tag": "0079_blog_category_covers",
+      "breakpoints": true
     }
   ]
 }

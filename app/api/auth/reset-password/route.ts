@@ -1,11 +1,12 @@
+import { readJsonBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { resetPasswordApiSchema } from "@/lib/validations/auth";
 import { AuthError, resetPassword } from "@/lib/auth/service";
-import { getClientKey, rateLimit } from "@/lib/rate-limit";
+import { getClientKey, sharedRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
-  const limit = rateLimit(getClientKey(req, "reset"), {
+  const limit = await sharedRateLimit(getClientKey(req, "reset"), {
     limit: 5,
     windowMs: 60_000,
   });
@@ -19,8 +20,9 @@ export async function POST(req: NextRequest) {
 
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readJsonBody(req);
+  } catch (error) {
+    if (error instanceof RequestError) return apiError(error.message, error.status);
     return apiError("درخواست نامعتبر است", 400);
   }
 

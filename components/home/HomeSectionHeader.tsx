@@ -6,6 +6,7 @@ export default function HomeSectionHeader({
   icon: Icon,
   eyebrow,
   title,
+  titleId,
   href,
   linkLabel = "مشاهده همه",
   compact = false,
@@ -13,6 +14,7 @@ export default function HomeSectionHeader({
   icon: LucideIcon;
   eyebrow?: string;
   title: string;
+  titleId?: string;
   href?: string;
   linkLabel?: string;
   compact?: boolean;
@@ -28,7 +30,7 @@ export default function HomeSectionHeader({
         </span>
 
         <div className="flex min-w-0 items-center gap-2.5">
-          <h2 className={compact ? "truncate py-1 text-lg font-black leading-[1.5] tracking-tight text-foreground sm:text-xl" : "truncate py-1 text-xl font-black leading-[1.5] tracking-tight text-foreground sm:text-2xl"}>
+          <h2 id={titleId} className={compact ? "truncate py-1 text-lg font-black leading-[1.5] tracking-tight text-foreground sm:text-xl" : "truncate py-1 text-xl font-black leading-[1.5] tracking-tight text-foreground sm:text-2xl"}>
             {title}
           </h2>
 

@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -28,7 +29,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "احراز هویت نشده" }, { status: 401 });
-  const body = await req.json().catch(() => null);
+  const body = await readJsonBody(req, 1_048_576).catch(() => null);
   const parsed = loanSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "ورودی نامعتبر است" }, { status: 422 });
   const data = parsed.data;

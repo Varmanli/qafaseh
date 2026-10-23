@@ -24,6 +24,9 @@ pnpm-debug.log*
 
 # local/dev artifacts
 backups
+public/uploads
+.local-upload-metadata
+security-*.tmp
 *.sqlite
 *.sqlite3
 *.db

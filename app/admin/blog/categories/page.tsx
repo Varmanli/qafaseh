@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, PenSquare, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, PenSquare, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import {
@@ -20,12 +20,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirm } from "@/components/common/ConfirmDialog";
+import BlogCategoryCoverField from "@/components/admin/blog/BlogCategoryCoverField";
+import BlogCategoryCover from "@/components/blog/BlogCategoryCover";
 
 interface BlogCategoryRow {
   id: string;
   name: string;
   slug: string;
   description: string | null;
+  coverImage: string | null;
   postCount: number;
   createdAt: string;
   updatedAt: string;
@@ -48,6 +51,8 @@ export default function AdminBlogCategoriesPage() {
   const [q, setQ] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const filteredRows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -83,12 +88,15 @@ export default function AdminBlogCategoriesPage() {
   }, [load]);
 
   const resetForm = () => {
+    if (uploading || saving) return;
     setEditing(null);
     setName("");
     setDescription("");
+    setCoverImage(null);
   };
 
   const save = async () => {
+    if (uploading) return;
     if (!name.trim()) {
       toast.error("نام دسته‌بندی الزامی است.");
       return;
@@ -107,6 +115,7 @@ export default function AdminBlogCategoriesPage() {
           body: JSON.stringify({
             name: name.trim(),
             description: description.trim() || undefined,
+            coverImage,
           }),
         },
       );
@@ -117,7 +126,10 @@ export default function AdminBlogCategoriesPage() {
       }
 
       toast.success(data.message || "ذخیره شد.");
-      resetForm();
+      setEditing(null);
+      setName("");
+      setDescription("");
+      setCoverImage(null);
       await load();
     } catch {
       toast.error("ارتباط با سرور برقرار نشد.");
@@ -152,9 +164,11 @@ export default function AdminBlogCategoriesPage() {
   };
 
   const startEdit = (row: BlogCategoryRow) => {
+    if (uploading || saving) return;
     setEditing(row);
     setName(row.name);
     setDescription(row.description ?? "");
+    setCoverImage(row.coverImage);
   };
 
   return (
@@ -168,6 +182,7 @@ export default function AdminBlogCategoriesPage() {
         <Button
           type="button"
           onClick={resetForm}
+          disabled={uploading || saving}
           className="h-11 w-full gap-2 rounded-2xl sm:w-auto sm:px-5"
         >
           <Plus className="h-4 w-4" />
@@ -184,13 +199,16 @@ export default function AdminBlogCategoriesPage() {
           {filteredRows.map((row) => (
             <AdminDataTableRow key={row.id}>
               <AdminDataTableCell align="start">
-                <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <div className="relative h-12 w-20 shrink-0 overflow-hidden rounded-lg"><BlogCategoryCover src={row.coverImage} slug={row.slug} sizes="80px" /></div>
+                  <div className="space-y-1">
                   <p className="font-bold text-foreground">{row.name}</p>
                   {row.description ? (
                     <p className="line-clamp-2 text-xs text-muted-foreground">
                       {row.description}
                     </p>
                   ) : null}
+                  </div>
                 </div>
               </AdminDataTableCell>
               <AdminDataTableCell className="text-xs text-muted-foreground" align="start">
@@ -204,6 +222,7 @@ export default function AdminBlogCategoriesPage() {
               </AdminDataTableCell>
               <AdminDataTableCell align="center">
                 <AdminDataTableActions>
+                  <AdminActionButton icon={<ExternalLink className="h-4 w-4" />} href={`/blog/category/${encodeURIComponent(row.slug)}`} external title="مشاهده صفحه دسته‌بندی" />
                   <AdminActionButton
                     icon={<PenSquare className="h-4 w-4" />}
                     title="ویرایش"
@@ -240,21 +259,25 @@ export default function AdminBlogCategoriesPage() {
                 />
               </AdminFormField>
 
+              <BlogCategoryCoverField value={coverImage} name={name} slug={editing?.slug}
+                onChange={setCoverImage} onUploadStateChange={setUploading} disabled={saving} />
+
               <div className="flex gap-3">
                 <Button
                   type="button"
                   onClick={save}
-                  disabled={saving}
+                  disabled={saving || uploading}
                   className="h-11 flex-1 rounded-2xl gap-2"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {editing ? "به‌روزرسانی" : "ثبت دسته‌بندی"}
+                  {uploading ? "در حال آپلود کاور..." : editing ? "به‌روزرسانی" : "ثبت دسته‌بندی"}
                 </Button>
                 {editing ? (
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={resetForm}
+                    disabled={uploading || saving}
                     className="h-11 rounded-2xl"
                   >
                     انصراف

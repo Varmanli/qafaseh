@@ -34,11 +34,11 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
     const resolvedType = type === "password" ? (visible ? "text" : "password") : type;
 
     return (
-      <div className={cn("space-y-2.5", wrapperClassName)}>
+      <div className={cn("space-y-2", wrapperClassName)}>
         <div className="flex items-center justify-between gap-3">
           <label
             htmlFor={id}
-            className="text-sm font-semibold text-white/86"
+            className="text-sm font-medium text-white/80"
           >
             {label}
           </label>
@@ -58,7 +58,7 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
             type={resolvedType}
             aria-invalid={error ? "true" : "false"}
             className={cn(
-              "h-12 rounded-2xl border-white/10 bg-black/20 text-white placeholder:text-white/28 hover:border-white/16 focus-visible:border-emerald-200/50 focus-visible:ring-emerald-200/15",
+              "h-11 rounded-xl border-white/10 bg-black/15 text-white placeholder:text-white/30 hover:border-white/20 focus-visible:border-emerald-200/50 focus-visible:ring-emerald-200/15",
               icon ? "pr-12" : "pr-4",
               type === "password" ? "pl-12" : "pl-4",
               className
@@ -69,7 +69,6 @@ export const AuthInput = React.forwardRef<HTMLInputElement, AuthInputProps>(
           {type === "password" ? (
             <button
               type="button"
-              tabIndex={-1}
               onClick={() => setVisible((current) => !current)}
               aria-label={visible ? "پنهان کردن رمز عبور" : "نمایش رمز عبور"}
               className="absolute inset-y-0 left-0 flex w-12 items-center justify-center text-white/40 transition-colors hover:text-white/70"

@@ -25,11 +25,13 @@ import {
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { AuthAlert } from "@/components/auth/AuthAlert";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import { SmsOtpPanel } from "@/components/auth/SmsOtpPanel";
 
 export default function AccountSettingsPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [phone, setPhone] = useState<string | null>(null);
 
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
@@ -44,14 +46,12 @@ export default function AccountSettingsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/profile", {
-          credentials: "include",
-        });
-
+        const res = await fetch("/api/auth/me");
         const data = await res.json();
 
         if (res.ok) {
-          setEmail(data.profile?.email ?? null);
+          setEmail(data.user?.email ?? null);
+          setPhone(data.user?.phone ?? null);
         }
       } catch {
         // بی‌صدا
@@ -108,6 +108,12 @@ export default function AccountSettingsPage() {
             {email ?? "—"}
           </div>
         </div>
+      </section>
+
+      <section className="p-6 sm:p-7">
+        <h2 className="mb-4 font-semibold">ورود با پیامک</h2>
+        {phone ? <p className="mb-3 text-sm text-muted-foreground">شماره متصل: <span dir="ltr">{phone}</span></p> : null}
+        <div className="rounded-3xl bg-slate-950 p-5"><SmsOtpPanel purpose="link" onVerified={(verifiedPhone) => { setPhone(verifiedPhone); toast.success("شماره به همین حساب متصل شد"); }} /></div>
       </section>
 
       <div className="mx-6 border-t border-border/70 sm:mx-7" />

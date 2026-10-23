@@ -70,6 +70,7 @@ export async function exchangeGoogleCode(input: { code: string }) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!tokenRes.ok) {
@@ -97,6 +98,7 @@ export async function exchangeGoogleCode(input: { code: string }) {
       Authorization: `Bearer ${tokenData.access_token}`,
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!profileRes.ok) {

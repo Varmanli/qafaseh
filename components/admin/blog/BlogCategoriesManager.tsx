@@ -28,6 +28,7 @@ import {
 } from "@/components/admin/AdminDataTable";
 import { useConfirm } from "@/components/common/ConfirmDialog";
 import type { AdminBlogCategoryRow } from "@/lib/blog/service";
+import BlogCategoryCoverField from "@/components/admin/blog/BlogCategoryCoverField";
 
 const COLUMNS: AdminColumn[] = [
   { key: "name", label: "نام" },
@@ -47,6 +48,8 @@ export default function BlogCategoriesManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -84,6 +87,7 @@ export default function BlogCategoriesManager() {
     setEditingId(null);
     setName("");
     setDescription("");
+    setCoverImage(null);
     setOpen(true);
   };
 
@@ -91,6 +95,7 @@ export default function BlogCategoriesManager() {
     setEditingId(c.id);
     setName(c.name);
     setDescription(c.description ?? "");
+    setCoverImage(c.coverImage);
     setOpen(true);
   };
 
@@ -111,6 +116,7 @@ export default function BlogCategoriesManager() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || null,
+          coverImage,
         }),
       });
       const data = await res.json();
@@ -188,7 +194,7 @@ export default function BlogCategoriesManager() {
               <AdminDataTableActions>
                 <AdminActionButton
                   icon={<ExternalLink className="h-4 w-4" />}
-                  href={`/blog?category=${encodeURIComponent(c.slug)}`}
+                  href={`/blog/category/${encodeURIComponent(c.slug)}`}
                   external
                   title="صفحه عمومی دسته"
                 />
@@ -240,12 +246,14 @@ export default function BlogCategoriesManager() {
                 placeholder="توضیح کوتاه (اختیاری)"
               />
             </div>
+            <BlogCategoryCoverField value={coverImage} name={name} slug={items.find((item) => item.id === editingId)?.slug}
+              onChange={setCoverImage} onUploadStateChange={setUploading} disabled={saving} />
           </div>
 
           <SheetFooter>
             <Button
               onClick={save}
-              disabled={saving || !name.trim()}
+              disabled={saving || uploading || !name.trim()}
               className="w-full gap-2"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

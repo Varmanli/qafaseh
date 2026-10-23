@@ -24,6 +24,8 @@ import HomePopularAuthors from "@/components/home/HomePopularAuthors";
 import HomeReadingListsPreview from "@/components/home/HomeReadingListsPreview";
 // import HomeFeatureCards from "@/components/home/HomeFeatureCards";
 import HomeBlogPreview from "@/components/home/HomeBlogPreview";
+import BlogCategoryShelf from "@/components/blog/BlogCategoryShelf";
+import { listPublicBlogCategories } from "@/lib/blog/service";
 import HomeGenreDiscovery from "@/components/home/HomeGenreDiscovery";
 import { getFollowingFeed } from "@/lib/social/activity";
 
@@ -46,6 +48,7 @@ function loadHomeSections(
       userPromise.then((user) => user ? getFollowingFeed(user.id, null, 3, false) : null),
     ),
     blogPosts: measure("featured blog posts", getFeaturedHomeBlogPosts),
+    blogCategories: measure("magazine categories", listPublicBlogCategories),
     authors: measure("featured authors", getFeaturedAuthors),
     genres: measure("genres", () => getHomepageGenres(5)),
     readingLists: measure("reading lists", getFeaturedHomeReadingLists),
@@ -77,7 +80,8 @@ async function HomeLists({ data }: { data: HomeData }) {
 }
 
 async function HomeBlog({ data }: { data: HomeData }) {
-  return <HomeBlogPreview posts={await data.blogPosts} />;
+  const [posts, categories] = await Promise.all([data.blogPosts, data.blogCategories]);
+  return <div className="space-y-10"><BlogCategoryShelf categories={categories} compact /><HomeBlogPreview posts={posts} /></div>;
 }
 
 async function HomeRecentActivities({ data }: { data: HomeData }) {

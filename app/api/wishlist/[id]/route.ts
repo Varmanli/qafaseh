@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { Wishlist } from "@/db/schema";
@@ -79,7 +80,7 @@ export async function PUT(
 
     let rawBody: unknown;
     try {
-      rawBody = await req.json();
+      rawBody = await readJsonBody(req, 1_048_576);
     } catch {
       return NextResponse.json(
         { error: "داده‌های ارسالی نامعتبر است" },

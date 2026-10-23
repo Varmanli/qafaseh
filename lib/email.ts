@@ -43,13 +43,17 @@ function getSmtpConfig() {
   return { host, user, pass, port, from };
 }
 
+export function isEmailDeliveryConfigured() {
+  return isEmailDevMode || getSmtpConfig() !== null;
+}
+
 function getTransporter(config: NonNullable<ReturnType<typeof getSmtpConfig>>) {
   if (!transporter) {
     transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
       secure: config.port === 465,
-      requireTLS: config.port === 587,
+      requireTLS: config.port !== 465,
       auth: { user: config.user, pass: config.pass },
       connectionTimeout: SMTP_TIMEOUT_MS,
       greetingTimeout: SMTP_TIMEOUT_MS,
@@ -86,6 +90,7 @@ export async function sendEmail(message: EmailMessage): Promise<EmailDeliveryRes
       subject: message.subject,
       text: message.text,
       html: message.html,
+      headers: { IsTransactional: "True", trackclicks: "false", trackopens: "false" },
     });
     return { ok: true, messageId: result.messageId };
   } catch (error) {

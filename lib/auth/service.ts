@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { and, eq, gt, isNull, isNotNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Account, PasswordResetToken, User } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/tokens";
 import { sendPasswordResetEmail, isDev } from "@/lib/email";
 import { signJwt } from "@/lib/jwt";
+import { normalizeIranianPhone } from "./phone";
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -123,16 +124,19 @@ export async function changePassword(
   }
 
   const hashed = await hashPassword(newPassword);
-  await db
-    .update(User)
-    .set({
+  await db.transaction(async (tx) => {
+    const [updated] = await tx.update(User).set({
       password: hashed,
       passwordHash: hashed,
       authProvider: "password",
-      sessionVersion: (user.sessionVersion ?? 0) + 1,
+      sessionVersion: sql`${User.sessionVersion} + 1`,
       updatedAt: new Date(),
-    })
-    .where(eq(User.id, userId));
+    }).where(and(eq(User.id, userId), eq(User.sessionVersion, user.sessionVersion)))
+      .returning({ id: User.id });
+    if (!updated) throw new AuthError("نشست تغییر کرده؛ دوباره وارد شوید", 409, "SESSION_CHANGED");
+    await tx.update(PasswordResetToken).set({ usedAt: new Date() })
+      .where(and(eq(PasswordResetToken.userId, userId), isNull(PasswordResetToken.usedAt)));
+  });
 }
 
 // ---------------- ورود ----------------
@@ -142,6 +146,7 @@ export async function authenticateUser(input: {
 }): Promise<PublicUser> {
   const rawIdentifier = input.identifier.trim();
   const normalized = rawIdentifier.toLowerCase();
+  const phone = normalizeIranianPhone(rawIdentifier);
 
   const [user] = await db
     .select()
@@ -149,13 +154,15 @@ export async function authenticateUser(input: {
     .where(
       rawIdentifier.includes("@")
         ? eq(User.email, normalized)
-        : or(eq(User.email, normalized), eq(User.username, normalized))
+        : phone
+          ? and(eq(User.phone, phone), isNotNull(User.phoneVerified))
+          : or(eq(User.email, normalized), eq(User.username, normalized))
     );
 
   // پیام یکسان برای «کاربر یافت نشد» و «رمز اشتباه» تا اطلاعات لو نرود
   const invalid = () =>
     new AuthError(
-      "ایمیل، نام کاربری یا رمز عبور اشتباه است",
+      "شماره موبایل، ایمیل، نام کاربری یا رمز عبور اشتباه است",
       401,
       "INVALID_CREDENTIALS"
     );
@@ -163,7 +170,7 @@ export async function authenticateUser(input: {
   const passwordHash = user?.passwordHash ?? user?.password ?? null;
   if (!user || !passwordHash) {
     // برای جلوگیری از تشخیص وجود کاربر از روی زمان پاسخ، یک مقایسه‌ی ساختگی انجام می‌دهیم
-    await verifyPassword(input.password, "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv");
+    await verifyPassword(input.password, "$2b$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW");
     throw invalid();
   }
 
@@ -255,6 +262,7 @@ export async function findOrCreateGoogleUser(input: {
       username: User.username,
       image: User.image,
       authProvider: User.authProvider,
+      emailVerified: User.emailVerified,
       sessionVersion: User.sessionVersion,
     })
     .from(User)
@@ -263,13 +271,19 @@ export async function findOrCreateGoogleUser(input: {
 
   if (existingByEmail) {
     const image = resolveGoogleAvatar(existingByEmail.image, input.image);
-    await db.transaction(async (tx) => {
+    const sessionVersion = await db.transaction(async (tx) => {
+      const [current] = await tx.select({ emailVerified: User.emailVerified, sessionVersion: User.sessionVersion })
+        .from(User).where(eq(User.id, existingByEmail.id)).limit(1).for("update");
+      if (!current) throw new AuthError("کاربر یافت نشد", 404, "USER_NOT_FOUND");
+      const version = current.sessionVersion + (current.emailVerified ? 0 : 1);
       await tx
         .update(User)
         .set({
           googleId: input.googleId,
           emailVerified: new Date(),
           image,
+          // An unverified registration may belong to an attacker who used this email.
+          ...(!current.emailVerified ? { password: null, passwordHash: null, authProvider: "google" as const, sessionVersion: version } : {}),
           updatedAt: new Date(),
         })
         .where(eq(User.id, existingByEmail.id));
@@ -294,9 +308,14 @@ export async function findOrCreateGoogleUser(input: {
           providerAccountId: input.googleId,
         });
       }
+      if (!current.emailVerified) {
+        await tx.update(PasswordResetToken).set({ usedAt: new Date() })
+          .where(and(eq(PasswordResetToken.userId, existingByEmail.id), isNull(PasswordResetToken.usedAt)));
+      }
+      return version;
     });
 
-    return { ...existingByEmail, image };
+    return { ...existingByEmail, image, sessionVersion };
   }
 
   const username = await generateUniqueUsername();
@@ -356,23 +375,16 @@ export async function requestPasswordReset(
     return {}; // پاسخ عمومی، بدون افشای اینکه ایمیل وجود ندارد
   }
 
-  // توکن‌های مصرف‌نشده‌ی قبلی این کاربر را باطل می‌کنیم
-  await db
-    .update(PasswordResetToken)
-    .set({ usedAt: new Date() })
-    .where(
-      and(
-        eq(PasswordResetToken.userId, user.id),
-        isNull(PasswordResetToken.usedAt)
-      )
-    );
-
   const { token, tokenHash } = generateResetToken();
-
-  await db.insert(PasswordResetToken).values({
-    userId: user.id,
-    tokenHash,
-    expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+  await db.transaction(async (tx) => {
+    await tx.select({ id: User.id }).from(User).where(eq(User.id, user.id)).for("update");
+    await tx.update(PasswordResetToken).set({ usedAt: new Date() })
+      .where(and(eq(PasswordResetToken.userId, user.id), isNull(PasswordResetToken.usedAt)));
+    await tx.insert(PasswordResetToken).values({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+    });
   });
 
   const resetUrl = `${appUrl}/auth/reset-password?token=${token}`;
@@ -417,7 +429,15 @@ export async function resetPassword(input: {
       .select({ sessionVersion: User.sessionVersion })
       .from(User)
       .where(eq(User.id, record.userId))
-      .limit(1);
+      .limit(1)
+      .for("update");
+
+    // Claim after locking the user: a concurrent reset cannot reuse this token.
+    const [claimed] = await tx.update(PasswordResetToken)
+      .set({ usedAt: new Date() })
+      .where(and(eq(PasswordResetToken.id, record.id), isNull(PasswordResetToken.usedAt), gt(PasswordResetToken.expiresAt, new Date())))
+      .returning({ id: PasswordResetToken.id });
+    if (!user || !claimed) throw new AuthError("لینک بازیابی نامعتبر یا منقضی شده است", 400, "INVALID_RESET_TOKEN");
 
     await tx
       .update(User)
@@ -425,15 +445,11 @@ export async function resetPassword(input: {
         password: hashed,
         passwordHash: hashed,
         authProvider: "password",
-        sessionVersion: (user?.sessionVersion ?? 0) + 1,
+        ...(record.verificationMethod === "email" ? { emailVerified: new Date() } : {}),
+        sessionVersion: sql`${User.sessionVersion} + 1`,
         updatedAt: new Date(),
       })
       .where(eq(User.id, record.userId));
-
-    await tx
-      .update(PasswordResetToken)
-      .set({ usedAt: new Date() })
-      .where(eq(PasswordResetToken.id, record.id));
 
     await tx
       .update(PasswordResetToken)

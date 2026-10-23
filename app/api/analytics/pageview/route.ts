@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { AnalyticsPageView } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getClientKey, rateLimit } from "@/lib/rate-limit";
+import { readJsonBody } from "@/lib/api/request";
 import {
   ANALYTICS_VISITOR_COOKIE,
   describeAnalyticsContent,
@@ -16,7 +18,9 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 204 });
   }
 
-  const body: unknown = await request.json().catch(() => null);
+  const limit = rateLimit(getClientKey(request, "analytics"), { limit: 120, windowMs: 60_000 });
+  if (!limit.allowed) return new NextResponse(null, { status: 429 });
+  const body: unknown = await readJsonBody(request, 4096).catch(() => null);
   const path = normalizeAnalyticsPath(
     body && typeof body === "object" && "path" in body
       ? (body as { path?: unknown }).path
@@ -24,7 +28,9 @@ export async function POST(request: NextRequest) {
   );
   if (!path) return new NextResponse(null, { status: 204 });
 
-  const visitorId = request.cookies.get(ANALYTICS_VISITOR_COOKIE)?.value || randomUUID();
+  const suppliedVisitorId = request.cookies.get(ANALYTICS_VISITOR_COOKIE)?.value;
+  const visitorId = suppliedVisitorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(suppliedVisitorId)
+    ? suppliedVisitorId : randomUUID();
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ipAddress = forwardedFor || request.headers.get("x-real-ip") || null;
   const [user, content] = await Promise.all([
@@ -43,7 +49,7 @@ export async function POST(request: NextRequest) {
   });
 
   const response = new NextResponse(null, { status: 204 });
-  if (!request.cookies.get(ANALYTICS_VISITOR_COOKIE)?.value) {
+  if (visitorId !== suppliedVisitorId) {
     response.cookies.set(ANALYTICS_VISITOR_COOKIE, visitorId, {
       httpOnly: true,
       sameSite: "lax",

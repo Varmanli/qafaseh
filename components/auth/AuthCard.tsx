@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { AuthLogo } from "@/components/auth/AuthLayout";
 
 interface AuthCardProps {
-  title: string;
+  title?: string;
   subtitle?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -19,34 +20,28 @@ export function AuthCard({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.32)] backdrop-blur-2xl sm:p-7",
+        "rounded-2xl border border-white/10 bg-white/[0.025] p-6 sm:p-8",
         className
       )}
     >
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-
-      <div className="relative z-10">
-        <div className="mb-8 space-y-3 text-right">
-          <span className="inline-flex rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-1 text-[11px] font-semibold text-emerald-100/90">
-            ورود امن به کتابخانه‌ی شخصی
-          </span>
+      <div>
+        {title ? <div className="mb-7 text-center">
           <div className="space-y-2">
-            <h1 className="text-2xl font-black tracking-tight text-white sm:text-[2rem]">
+            <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
               {title}
             </h1>
             {subtitle ? (
-              <p className="text-sm leading-7 text-white/62 sm:text-[0.95rem]">
+              <p className="text-sm leading-6 text-white/55">
                 {subtitle}
               </p>
             ) : null}
           </div>
-        </div>
+        </div> : <div className="mb-7 flex justify-center"><AuthLogo /></div>}
 
         {children}
 
         {footer ? (
-          <div className="relative mt-7 border-t border-white/10 pt-5 text-sm text-white/56">
+          <div className="mt-7 border-t border-white/10 pt-5 text-center text-sm text-white/50">
             {footer}
           </div>
         ) : null}

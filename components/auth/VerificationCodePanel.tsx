@@ -45,7 +45,7 @@ export function VerificationCodePanel({
     return () => window.clearTimeout(timer);
   }, [cooldown]);
 
-  const canSubmit = code.length === 4 && !submitting;
+  const canSubmit = code.length === 6 && !submitting;
 
   const cooldownLabel = useMemo(
     () => `ارسال دوباره کد (${cooldown.toLocaleString("fa-IR")})`,
@@ -81,7 +81,7 @@ export function VerificationCodePanel({
   }
 
   async function verifyCode() {
-    if (code.length !== 4) return;
+    if (code.length !== 6) return;
     setError(null);
     setSubmitting(true);
     try {

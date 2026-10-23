@@ -12,10 +12,12 @@ export default function BlogArchiveSort({
   q,
   category,
   sort,
+  pathname = "/blog",
 }: {
   q: string;
   category: string;
   sort: BlogArchiveSort;
+  pathname?: string;
 }) {
   const router = useRouter();
 
@@ -34,7 +36,9 @@ export default function BlogArchiveSort({
             q,
             category,
             sort: value as BlogArchiveSort,
+            pathname,
           }),
+          { scroll: false },
         )
       }
     />

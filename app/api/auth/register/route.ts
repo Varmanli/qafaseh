@@ -1,13 +1,14 @@
+import { readJsonBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { registerApiSchema } from "@/lib/validations/auth";
 import { AuthError, registerUser } from "@/lib/auth/service";
 import { issueVerificationCode } from "@/lib/auth/verification-codes";
 import { isEmailOtpEnabled } from "@/lib/auth/email-otp";
-import { getClientKey, rateLimit } from "@/lib/rate-limit";
+import { getClientKey, sharedRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
-  const limit = rateLimit(getClientKey(req, "register"), {
+  const limit = await sharedRateLimit(getClientKey(req, "register"), {
     limit: 5,
     windowMs: 60_000,
   });
@@ -21,8 +22,9 @@ export async function POST(req: NextRequest) {
 
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readJsonBody(req);
+  } catch (error) {
+    if (error instanceof RequestError) return apiError(error.message, error.status);
     return apiError("درخواست نامعتبر است", 400);
   }
 
@@ -34,17 +36,25 @@ export async function POST(req: NextRequest) {
   try {
     const user = await registerUser(parsed.data);
     const emailOtpEnabled = isEmailOtpEnabled();
-    const codeResult = emailOtpEnabled
-      ? await issueVerificationCode({
+    let codeResult: { devCode?: string } = {};
+    let verificationDeliveryFailed = false;
+    if (emailOtpEnabled) {
+      try {
+        codeResult = await issueVerificationCode({
           email: parsed.data.email,
           purpose: "email_verification",
-        })
-      : {};
+        });
+      } catch (error) {
+        if (!(error instanceof AuthError) || error.code !== "EMAIL_DELIVERY_FAILED") throw error;
+        verificationDeliveryFailed = true;
+      }
+    }
     return apiSuccess(
       {
         message: "ثبت‌نام با موفقیت انجام شد",
         user,
         requiresEmailVerification: emailOtpEnabled,
+        verificationDeliveryFailed,
         ...(codeResult.devCode ? { devCode: codeResult.devCode } : {}),
       },
       { status: 201 }

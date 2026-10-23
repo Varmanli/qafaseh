@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { personalBookNoteSchema } from "@/lib/validations/personal-book-notes";
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const book = await assertOwnedBook(id, user.id);
   if (!book) return NextResponse.json({ error: "کتاب پیدا نشد" }, { status: 404 });
-  const parsed = personalBookNoteSchema.safeParse(await request.json());
+  const parsed = personalBookNoteSchema.safeParse(await readJsonBody(request, 1_048_576));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "ورودی نامعتبر است" }, { status: 422 });
   const pageNumber = parsed.data.pageNumber ?? null;
   if (pageNumber && book.pageCount && pageNumber > book.pageCount) return NextResponse.json({ error: `شماره صفحه نمی‌تواند بیشتر از ${book.pageCount} باشد` }, { status: 422 });

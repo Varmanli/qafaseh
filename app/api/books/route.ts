@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/api/request";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { Book } from "@/db/schema";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     let rawBody: unknown;
     try {
-      rawBody = await req.json();
+      rawBody = await readJsonBody(req, 1_048_576);
     } catch {
       return NextResponse.json({ error: "داده‌های ارسالی نامعتبر است" }, { status: 400 });
     }

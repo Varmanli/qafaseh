@@ -76,6 +76,7 @@ export interface AdminBlogCategoryRow {
   name: string;
   slug: string;
   description: string | null;
+  coverImage: string | null;
   postCount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -86,6 +87,12 @@ export interface BlogCategoryOption {
   name: string;
   slug: string;
   description?: string | null;
+  coverImage?: string | null;
+}
+
+export interface PublicBlogCategory extends BlogCategoryOption {
+  coverImage: string | null;
+  postCount: number;
 }
 
 function stripHtml(html: string) {
@@ -388,7 +395,7 @@ export async function listPublicBlogPosts({
   page: number;
   pageCount: number;
 }> {
-  const conditions = [eq(BlogPost.status, "PUBLISHED")];
+  const conditions = [eq(BlogPost.status, "PUBLISHED"), isNotNull(BlogPost.publishedAt)];
   if (q?.trim()) {
     const term = `%${q.trim()}%`;
     conditions.push(
@@ -584,6 +591,7 @@ export async function listBlogCategories(): Promise<AdminBlogCategoryRow[]> {
       name: BlogCategory.name,
       slug: BlogCategory.slug,
       description: BlogCategory.description,
+      coverImage: BlogCategory.coverImage,
       postCount: count(BlogPost.id),
       createdAt: BlogCategory.createdAt,
       updatedAt: BlogCategory.updatedAt,
@@ -602,9 +610,30 @@ export async function listBlogCategoryOptions(): Promise<BlogCategoryOption[]> {
       name: BlogCategory.name,
       slug: BlogCategory.slug,
       description: BlogCategory.description,
+      coverImage: BlogCategory.coverImage,
     })
     .from(BlogCategory)
     .orderBy(asc(BlogCategory.name));
+}
+
+/** Includes empty categories; only publicly visible articles contribute to the count. */
+export async function listPublicBlogCategories(): Promise<PublicBlogCategory[]> {
+  const rows = await db.select({
+    id: BlogCategory.id,
+    name: BlogCategory.name,
+    slug: BlogCategory.slug,
+    description: BlogCategory.description,
+    coverImage: BlogCategory.coverImage,
+    postCount: count(BlogPost.id),
+  }).from(BlogCategory)
+    .leftJoin(BlogPost, and(
+      eq(BlogPost.categoryId, BlogCategory.id),
+      eq(BlogPost.status, "PUBLISHED"),
+      isNotNull(BlogPost.publishedAt),
+    ))
+    .groupBy(BlogCategory.id)
+    .orderBy(asc(BlogCategory.name));
+  return rows.map((row) => ({ ...row, coverImage: normalizeMediaUrl(row.coverImage) }));
 }
 
 export async function getBlogCategoryById(
@@ -616,6 +645,7 @@ export async function getBlogCategoryById(
       name: BlogCategory.name,
       slug: BlogCategory.slug,
       description: BlogCategory.description,
+      coverImage: BlogCategory.coverImage,
       postCount: count(BlogPost.id),
       createdAt: BlogCategory.createdAt,
       updatedAt: BlogCategory.updatedAt,
@@ -641,6 +671,7 @@ export async function getPublicBlogCategoryBySlug(
       name: BlogCategory.name,
       slug: BlogCategory.slug,
       description: BlogCategory.description,
+      coverImage: BlogCategory.coverImage,
     })
     .from(BlogCategory);
 
@@ -666,6 +697,7 @@ export async function createBlogCategory(input: BlogCategoryInput) {
       name: input.name.trim(),
       slug,
       description: input.description?.trim() || null,
+      coverImage: normalizeMediaUrl(input.coverImage),
     })
     .returning({ id: BlogCategory.id, slug: BlogCategory.slug });
   return created;
@@ -678,6 +710,7 @@ export async function updateBlogCategory(id: string, input: BlogCategoryInput) {
     .set({
       name: input.name.trim(),
       description: input.description?.trim() || null,
+      coverImage: input.coverImage === undefined ? undefined : normalizeMediaUrl(input.coverImage),
       updatedAt: new Date(),
     })
     .where(eq(BlogCategory.id, id));
