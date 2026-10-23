@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
 
@@ -69,3 +70,5 @@ export async function POST(req: NextRequest) {
     { status: 201 }
   );
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

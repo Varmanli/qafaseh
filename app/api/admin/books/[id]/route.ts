@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -26,7 +27,7 @@ export async function GET(
   return apiSuccess({ book });
 }
 
-export async function PATCH(
+async function handlePATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -63,7 +64,7 @@ export async function PATCH(
   }
 }
 
-export async function PUT(
+async function handlePUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -89,7 +90,7 @@ export async function PUT(
   });
 }
 
-export async function DELETE(
+async function handleDELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -100,3 +101,9 @@ export async function DELETE(
   await adminDeleteCatalogBook(id);
   return apiSuccess({ message: "کتاب کاتالوگ حذف شد" });
 }
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);
+
+export const PUT = withPublicContentInvalidation(handlePUT);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

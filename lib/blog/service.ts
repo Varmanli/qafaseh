@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, arrayContains, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -503,7 +504,7 @@ export async function getLatestPublishedBlogPosts(
     .map(normalizeBlogBanner);
 }
 
-export async function getPublicBlogPostBySlug(slug: string): Promise<PublicBlogPost | null> {
+async function loadPublicBlogPostBySlug(slug: string): Promise<PublicBlogPost | null> {
   const [post] = await db
     .select({
       id: BlogPost.id,
@@ -617,7 +618,7 @@ export async function listBlogCategoryOptions(): Promise<BlogCategoryOption[]> {
 }
 
 /** Includes empty categories; only publicly visible articles contribute to the count. */
-export async function listPublicBlogCategories(): Promise<PublicBlogCategory[]> {
+async function loadListPublicBlogCategories(): Promise<PublicBlogCategory[]> {
   const rows = await db.select({
     id: BlogCategory.id,
     name: BlogCategory.name,
@@ -734,4 +735,15 @@ export async function deleteBlogCategory(
 
   await db.delete(BlogCategory).where(eq(BlogCategory.id, id));
   return { ok: true };
+}
+
+const cachedPublicBlogPostBySlug = cachePublicData(loadPublicBlogPostBySlug, "lib/blog/service.ts:getPublicBlogPostBySlug", 300);
+export async function getPublicBlogPostBySlug(...args: Parameters<typeof loadPublicBlogPostBySlug>): ReturnType<typeof loadPublicBlogPostBySlug> {
+  const post = await cachedPublicBlogPostBySlug(...args);
+  return post ? { ...post, publishedAt: new Date(post.publishedAt), updatedAt: new Date(post.updatedAt) } : null;
+}
+
+const cachedListPublicBlogCategories = cachePublicData(loadListPublicBlogCategories, "lib/blog/service.ts:listPublicBlogCategories", 300);
+export async function listPublicBlogCategories(...args: Parameters<typeof loadListPublicBlogCategories>): ReturnType<typeof loadListPublicBlogCategories> {
+  return cachedListPublicBlogCategories(...args);
 }

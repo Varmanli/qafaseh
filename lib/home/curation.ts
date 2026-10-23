@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, arrayContains, asc, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -43,7 +44,7 @@ function uniqueIds(ids: string[]) {
   return new Set(ids).size === ids.length;
 }
 
-export async function getFeaturedAuthors(): Promise<FeaturedAuthor[]> {
+async function loadFeaturedAuthors(): Promise<FeaturedAuthor[]> {
   const rows = await db
     .select({
       id: ReferenceItem.id,
@@ -70,7 +71,7 @@ export async function getFeaturedAuthors(): Promise<FeaturedAuthor[]> {
   }));
 }
 
-export async function getFeaturedHomeBlogPosts(): Promise<PublicBlogPostPreview[]> {
+async function loadFeaturedHomeBlogPosts(): Promise<PublicBlogPostPreview[]> {
   const rows = await db
     .select({
       id: BlogPost.id,
@@ -101,7 +102,7 @@ export async function getFeaturedHomeBlogPosts(): Promise<PublicBlogPostPreview[
     .map((row) => ({ ...row, bannerImage: normalizeMediaUrl(row.bannerImage) ?? "" }));
 }
 
-export async function getFeaturedHomeReadingLists(): Promise<ReadingListPreview[]> {
+async function loadFeaturedHomeReadingLists(): Promise<ReadingListPreview[]> {
   const selected = await db
     .select({ id: ReadingList.id })
     .from(HomeFeaturedReadingList)
@@ -330,4 +331,19 @@ export async function saveHomepageCuration(input: {
       );
     }
   });
+}
+
+const cachedFeaturedAuthors = cachePublicData(loadFeaturedAuthors, "lib/home/curation.ts:getFeaturedAuthors", 300);
+export async function getFeaturedAuthors(...args: Parameters<typeof loadFeaturedAuthors>): ReturnType<typeof loadFeaturedAuthors> {
+  return cachedFeaturedAuthors(...args);
+}
+
+const cachedFeaturedHomeReadingLists = cachePublicData(loadFeaturedHomeReadingLists, "lib/home/curation.ts:getFeaturedHomeReadingLists", 300);
+export async function getFeaturedHomeReadingLists(...args: Parameters<typeof loadFeaturedHomeReadingLists>): ReturnType<typeof loadFeaturedHomeReadingLists> {
+  return cachedFeaturedHomeReadingLists(...args);
+}
+
+const cachedFeaturedHomeBlogPosts = cachePublicData(loadFeaturedHomeBlogPosts, "lib/home/curation.ts:getFeaturedHomeBlogPosts", 300);
+export async function getFeaturedHomeBlogPosts(...args: Parameters<typeof loadFeaturedHomeBlogPosts>): ReturnType<typeof loadFeaturedHomeBlogPosts> {
+  return (await cachedFeaturedHomeBlogPosts(...args)).map((post) => ({ ...post, publishedAt: new Date(post.publishedAt) }));
 }

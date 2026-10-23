@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { readFormDataBody, RequestError } from "@/lib/api/request";
 import { NextRequest } from "next/server";
 
@@ -14,7 +15,7 @@ import { validateImageFile } from "@/lib/upload";
 
 export const runtime = "nodejs";
 
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: Promise<{ editionId: string }> },
 ) {
@@ -89,3 +90,5 @@ export async function POST(
     return apiError("آپلود کاور ناموفق بود و چیزی ذخیره نشد.", 500, "UPLOAD_FAILED");
   }
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

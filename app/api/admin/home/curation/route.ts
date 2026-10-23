@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -35,7 +36,7 @@ export async function GET() {
   return apiSuccess(await getHomepageCuration());
 }
 
-export async function PUT(req: NextRequest) {
+async function handlePUT(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
 
@@ -66,3 +67,5 @@ export async function PUT(req: NextRequest) {
   revalidatePath("/");
   return apiSuccess({ message: "تنظیمات صفحه اصلی ذخیره شد" });
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);

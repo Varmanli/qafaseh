@@ -5,9 +5,9 @@ import { getSiteMetadataBase } from "@/lib/seo/site";
 import { getSiteSettings } from "@/lib/settings/service";
 
 // Site branding, including the favicon, is admin-configured at runtime.
-// Metadata must therefore be regenerated after settings invalidation instead of
-// being frozen into the build alongside the starter favicon.
-export const dynamic = "force-dynamic";
+// Settings writes invalidate the layout; the TTL also bounds branding staleness.
+// Session-dependent children still render dynamically through cookies().
+export const revalidate = 60;
 
 export const viewport: Viewport = {
   width: "device-width",

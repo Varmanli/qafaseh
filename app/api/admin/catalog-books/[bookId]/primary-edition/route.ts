@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
 
@@ -15,7 +16,7 @@ import {
 } from "@/lib/admin/service";
 import { adminPrimaryEditionSchema } from "@/lib/validations/catalog";
 
-export async function PATCH(
+async function handlePATCH(
   req: NextRequest,
   { params }: { params: Promise<{ bookId: string }> },
 ) {
@@ -131,3 +132,5 @@ export async function PATCH(
     return apiError("بروزرسانی نسخه اصلی ناموفق بود", 500);
   }
 }
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);

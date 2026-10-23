@@ -1,5 +1,5 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, arrayContains, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import { cache } from "react";
 
 import { db } from "@/db";
 import {
@@ -281,13 +281,13 @@ async function loadBookSubjectRow(ref: string): Promise<SubjectRow | undefined> 
     })
     .from(Book)
     .innerJoin(CatalogBook, eq(Book.catalogBookId, CatalogBook.id))
-    .where(or(eq(Book.id, ref), eq(Book.slug, ref)))
+    .where(and(eq(CatalogBook.status, "APPROVED"), or(eq(Book.id, ref), eq(Book.slug, ref))))
     .limit(1);
 
   return legacy;
 }
 
-const loadSubjectRow = cache(async (ref: string): Promise<SubjectRow | undefined> => {
+const loadSubjectRow = cachePublicData(async (ref: string): Promise<SubjectRow | undefined> => {
   const subject = await loadBookSubjectRow(ref);
   if (subject) return subject;
 
@@ -297,9 +297,9 @@ const loadSubjectRow = cache(async (ref: string): Promise<SubjectRow | undefined
 
   if (!catalogBookId) return undefined;
   return loadBookSubjectRow(catalogBookId);
-});
+}, "book-subject", 300);
 
-const loadApprovedEditions = cache(async (catalogBookId: string): Promise<BookEditionSummary[]> => {
+const loadApprovedEditions = cachePublicData(async (catalogBookId: string): Promise<BookEditionSummary[]> => {
   const rows = await db
     .select({
       id: BookEdition.id,
@@ -335,7 +335,7 @@ const loadApprovedEditions = cache(async (catalogBookId: string): Promise<BookEd
     ...row,
     coverImage: coalesceCoverImage(row.coverImage),
   }));
-});
+}, "book-approved-editions", 300);
 
 async function loadViewerEntry(
   viewerId: string | undefined,
@@ -383,7 +383,7 @@ async function loadViewerEntry(
   return null;
 }
 
-async function loadBookStats(catalogBookId: string): Promise<BookStats> {
+async function queryBookStats(catalogBookId: string): Promise<BookStats> {
   const [row] = await db
     .select({
       wantToReadCount: sql<number>`count(*) filter (where ${Book.status} = 'UNREAD')::int`,
@@ -404,7 +404,7 @@ async function loadBookStats(catalogBookId: string): Promise<BookStats> {
   };
 }
 
-async function loadTopMoods(catalogBookId: string): Promise<string[]> {
+async function queryTopMoods(catalogBookId: string): Promise<string[]> {
   const result = await db.execute<{ mood: string }>(sql`
     select mood from ${Book}
     cross join lateral unnest(${Book.moodTags}) as tags(mood)
@@ -414,7 +414,7 @@ async function loadTopMoods(catalogBookId: string): Promise<string[]> {
   return result.rows.map((row) => row.mood);
 }
 
-async function loadReferenceLinks(subject: {
+async function queryReferenceLinks(subject: {
   catalogBookId: string;
   editionId: string | null;
   author: string;
@@ -1035,3 +1035,9 @@ export async function ensurePublicBookSlug(ref: string): Promise<string | null> 
     slug: subject.slug,
   });
 }
+
+const loadBookStats = cachePublicData(queryBookStats, "loadBookStats", 60);
+
+const loadTopMoods = cachePublicData(queryTopMoods, "loadTopMoods", 60);
+
+const loadReferenceLinks = cachePublicData(queryReferenceLinks, "loadReferenceLinks", 300);

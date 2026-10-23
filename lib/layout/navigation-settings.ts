@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { SiteSetting } from "@/db/schema";
@@ -11,7 +12,7 @@ import { navigationMenusSchema } from "@/lib/layout/navigation-schema";
 const HEADER_KEY = "headerMenu";
 const FOOTER_KEY = "footerMenu";
 
-export async function getSiteNavigationMenus(): Promise<SiteNavigationMenus> {
+async function loadSiteNavigationMenus(): Promise<SiteNavigationMenus> {
   try {
     const rows = await db.select({ key: SiteSetting.key, value: SiteSetting.value })
       .from(SiteSetting).where(inArray(SiteSetting.key, [HEADER_KEY, FOOTER_KEY]));
@@ -39,4 +40,9 @@ export async function updateSiteNavigationMenus(menus: SiteNavigationMenus) {
     }
   });
   return menus;
+}
+
+const cachedSiteNavigationMenus = cachePublicData(loadSiteNavigationMenus, "lib/layout/navigation-settings.ts:getSiteNavigationMenus", 300);
+export async function getSiteNavigationMenus(...args: Parameters<typeof loadSiteNavigationMenus>): ReturnType<typeof loadSiteNavigationMenus> {
+  return cachedSiteNavigationMenus(...args);
 }

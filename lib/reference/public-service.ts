@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, arrayContains, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -82,7 +83,7 @@ export const ROUTE_BY_TYPE: Record<ReferenceTypeValue, string> = {
  * موجودیت مرجع عمومی را با اسلاگ یا نام (هردو) پیدا می‌کند. فقط موارد APPROVED
  * عمومی‌اند؛ PENDING/REJECTED برای عموم نامرئی است.
  */
-export async function getReferenceEntity(
+async function loadReferenceEntity(
   type: ReferenceTypeValue,
   ref: string
 ): Promise<ReferenceEntity | null> {
@@ -134,4 +135,9 @@ export async function getReferenceEntity(
     slug: row.slug,
     coverImage: coalesceCoverImage(row.coverImage),
   };
+}
+
+const cachedReferenceEntity = cachePublicData(loadReferenceEntity, "lib/reference/public-service.ts:getReferenceEntity", 300);
+export async function getReferenceEntity(...args: Parameters<typeof loadReferenceEntity>): ReturnType<typeof loadReferenceEntity> {
+  return cachedReferenceEntity(...args);
 }

@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -18,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: Context) {
   return apiSuccess({ list, relatedOptions: await getAdminRelatedOptions(id) });
 }
 
-export async function PUT(req: NextRequest, { params }: Context) {
+async function handlePUT(req: NextRequest, { params }: Context) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const { id } = await params;
@@ -35,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: Context) {
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: Context) {
+async function handlePATCH(req: NextRequest, { params }: Context) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const { id } = await params;
@@ -51,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: Context) {
+async function handleDELETE(_req: NextRequest, { params }: Context) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const { id } = await params;
@@ -64,3 +65,9 @@ export async function DELETE(_req: NextRequest, { params }: Context) {
     throw error;
   }
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

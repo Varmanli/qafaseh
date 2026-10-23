@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -66,7 +67,7 @@ async function loadPublicItems(listIds: string[]) {
     .orderBy(ReadingListItem.listId, ReadingListItem.position);
 }
 
-export async function getReadingListsOverview(ids?: string[]): Promise<ReadingListPreview[]> {
+async function loadReadingListsOverview(ids?: string[]): Promise<ReadingListPreview[]> {
   if (ids && !ids.length) return [];
   // ponytail: 200 published lists per hub; add pagination when editorial volume reaches that ceiling.
   const lists = await db.select().from(ReadingList)
@@ -144,4 +145,9 @@ export async function getPublicReadingListsForBook(bookId: string) {
 
 export async function getDiscoverReadingPaths() {
   return (await getReadingListsOverview()).filter((list) => list.mode === "ORDERED");
+}
+
+const cachedReadingListsOverview = cachePublicData(loadReadingListsOverview, "lib/book/reading-lists-service.ts:getReadingListsOverview", 300);
+export async function getReadingListsOverview(...args: Parameters<typeof loadReadingListsOverview>): ReturnType<typeof loadReadingListsOverview> {
+  return cachedReadingListsOverview(...args);
 }

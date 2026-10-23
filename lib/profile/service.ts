@@ -162,37 +162,21 @@ export async function updateProfileVisibility(
 }
 
 export async function getReadingStats(userId: string): Promise<ReadingStats> {
-  const rows = await db
+  const [row] = await db
     .select({
-      status: Book.status,
-      count: sql<number>`count(*)::int`,
+      total: sql<number>`count(*)::int`,
+      reading: sql<number>`count(*) filter (where ${Book.status} = 'READING')::int`,
+      finished: sql<number>`count(*) filter (where ${Book.status} = 'FINISHED')::int`,
+      wantToRead: sql<number>`count(*) filter (where ${Book.status} = 'UNREAD')::int`,
+      favorites: sql<number>`count(*) filter (where ${Book.isFavorite})::int`,
+      average: sql<string | null>`round(avg(${Book.rating}) filter (where ${Book.rating} is not null and ${Book.rating} > 0), 1)`,
     })
-    .from(Book)
-    .where(eq(Book.userId, userId))
-    .groupBy(Book.status);
-
-  let total = 0;
-  let reading = 0;
-  let finished = 0;
-  let wantToRead = 0;
-  for (const r of rows) {
-    total += r.count;
-    if (r.status === "READING") reading = r.count;
-    if (r.status === "FINISHED") finished = r.count;
-    if (r.status === "UNREAD") wantToRead = r.count;
-  }
-
-  const [fav] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(Book)
-    .where(and(eq(Book.userId, userId), eq(Book.isFavorite, true)));
-
-  const [ratingRow] = await db
-    .select({ average: sql<string | null>`round(avg(${Book.rating}) filter (where ${Book.rating} is not null and ${Book.rating} > 0), 1)` })
     .from(Book)
     .where(eq(Book.userId, userId));
 
-  return { total, reading, finished, wantToRead, favorites: fav?.count ?? 0, averageRating: ratingRow?.average != null ? Number(ratingRow.average) : null };
+  return { total: row.total, reading: row.reading, finished: row.finished,
+    wantToRead: row.wantToRead, favorites: row.favorites,
+    averageRating: row.average != null ? Number(row.average) : null };
 }
 
 export interface PublicBookPreview {

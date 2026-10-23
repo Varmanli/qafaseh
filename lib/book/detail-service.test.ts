@@ -101,6 +101,11 @@ test("book loading preserves editions, privacy, ratings, likes and pagination", 
     assert.equal(page.total, 16);
     assert.equal(page.quotes.length, 4);
     assert.deepEqual(await getBookOverview(`missing-${catalogId}`), { found: false });
+    const legacy = await getBookOverview(bookIds[0]);
+    assert(legacy.found);
+    await db.update(CatalogBook).set({ status: "REJECTED" }).where(eq(CatalogBook.id, catalogId));
+    assert.equal(await getBookMetadata(bookIds[0]), null);
+    assert.deepEqual(await getBookOverview(bookIds[0]), { found: false });
   } finally {
     try {
       await db.delete(User).where(inArray(User.id, userIds));

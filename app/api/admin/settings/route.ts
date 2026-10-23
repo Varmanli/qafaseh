@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -16,7 +17,7 @@ export async function GET() {
   return apiSuccess({ settings });
 }
 
-export async function PUT(req: NextRequest) {
+async function handlePUT(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
 
@@ -43,3 +44,5 @@ export async function PUT(req: NextRequest) {
 
   return apiSuccess({ settings, message: "تنظیمات ذخیره شد" });
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);

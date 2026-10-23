@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -12,7 +13,7 @@ export async function GET() {
   return apiSuccess({ menus: await getSiteNavigationMenus() });
 }
 
-export async function PUT(req: NextRequest) {
+async function handlePUT(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const parsed = navigationMenusSchema.safeParse(await req.json().catch(() => null));
@@ -21,3 +22,5 @@ export async function PUT(req: NextRequest) {
   revalidatePath("/", "layout");
   return apiSuccess({ menus, message: "منوهای سایت ذخیره شد" });
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);

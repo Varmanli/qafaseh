@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -18,7 +19,7 @@ export async function GET() {
   return apiSuccess({ slides });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return apiError("احراز هویت نشده", 401, "UNAUTHENTICATED");
   if (!isAdmin(user)) return apiError("دسترسی غیرمجاز", 403, "FORBIDDEN");
@@ -37,3 +38,5 @@ export async function POST(req: NextRequest) {
   const id = await adminCreateHeroSlide(parsed.data);
   return apiSuccess({ id, message: "اسلاید ساخته شد" }, { status: 201 });
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { assertAdminApi } from "@/lib/admin/permissions";
@@ -5,7 +6,7 @@ import { apiError, apiSuccess } from "@/lib/api/response";
 import { deleteAdminBookEdition, updateAdminBookEdition } from "@/lib/admin/service";
 import { adminEditionUpdateSchema } from "@/lib/validations/catalog";
 
-export async function PATCH(
+async function handlePATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -53,7 +54,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+async function handleDELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -76,3 +77,7 @@ export async function DELETE(
     return apiError("حذف نسخه ناموفق بود", 500);
   }
 }
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

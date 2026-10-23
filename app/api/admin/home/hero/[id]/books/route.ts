@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -6,7 +7,7 @@ import { isAdmin } from "@/lib/auth/roles";
 import { heroBooksSchema } from "@/lib/validations/home";
 import { adminSetHeroSlideBooks } from "@/lib/home/service";
 
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,3 +34,5 @@ export async function POST(
   }
   return apiSuccess({ message: "کتاب‌های اسلاید ذخیره شد" });
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

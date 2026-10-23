@@ -68,6 +68,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  cacheMaxMemorySize: 16 * 1024 * 1024,
   outputFileTracingIncludes: {
     "/*": ["./node_modules/@img/sharp-*/lib/**/*"],
   },
@@ -88,6 +89,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    maximumDiskCacheSize: 256 * 1024 * 1024,
     qualities: [60, 75, 78],
     remotePatterns: [
       ...resolveImageHosts().map((hostname) => ({

@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -11,7 +12,7 @@ import { readingListDisplayGroupInputSchema } from "@/lib/validations/reading-li
 
 const idSchema = z.string().uuid();
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function handlePATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const { id } = await params;
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function handleDELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const { id } = await params;
@@ -43,3 +44,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     throw error;
   }
 }
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

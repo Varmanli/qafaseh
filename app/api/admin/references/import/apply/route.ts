@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -10,7 +11,7 @@ const applySchema = z.object({
   overwrite: z.boolean().optional(),
 });
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
 
@@ -32,3 +33,5 @@ export async function POST(req: NextRequest) {
 
   return apiSuccess({ ...result });
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

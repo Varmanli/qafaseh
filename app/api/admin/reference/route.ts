@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   return apiSuccess({ items });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return apiError("احراز هویت نشده", 401, "UNAUTHENTICATED");
   if (!isAdmin(user)) return apiError("دسترسی غیرمجاز", 403, "FORBIDDEN");
@@ -46,3 +47,5 @@ export async function POST(req: NextRequest) {
   const item = await adminCreateReference(parsed.data.type, parsed.data.name);
   return apiSuccess({ item, message: "مقدار ثبت شد" }, { status: 201 });
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, arrayContains, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -434,7 +435,7 @@ function mapOptions(rows: Array<{ name: string | null }>) {
     .filter((value, index, arr) => arr.indexOf(value) === index);
 }
 
-async function getBookArchiveOptions(
+async function loadBookArchiveOptions(
   scope: BookArchiveScope = {},
 ): Promise<BookArchiveFilterOptions> {
   const [authors, genreRows, translators, publishers, countries, catalogLanguages, editionLanguages] =
@@ -624,11 +625,10 @@ async function getBookArchiveOptions(
   };
 }
 
-export async function getBookArchivePageData(
-  searchParams: Record<string, string | string[] | undefined>,
+async function loadBookArchivePageData(
+  parsedFilters: BookArchiveFilters,
   scope: BookArchiveScope = {},
 ): Promise<BookArchivePageData> {
-  const parsedFilters = parseBookArchiveSearchParams(searchParams);
   const filters: BookArchiveFilters = {
     ...parsedFilters,
     genre: scope.fixedGenre ? "" : parsedFilters.genre,
@@ -800,4 +800,19 @@ export async function getBookArchiveScopeCount(
     .where(and(...conditions));
 
   return rows[0]?.count ?? 0;
+}
+
+const getBookArchiveOptions = cachePublicData(loadBookArchiveOptions, "archive-options", 300);
+const cachedArchivePage = cachePublicData(loadBookArchivePageData, "archive-page", 60);
+export async function getBookArchivePageData(
+  searchParams: Record<string, string | string[] | undefined>,
+  scope: BookArchiveScope = {},
+): Promise<BookArchivePageData> {
+  const filters = parseBookArchiveSearchParams(searchParams);
+  // Avoid persisting arbitrary search/filter combinations to the filesystem cache.
+  const commonPage = filters.page <= 100 && !filters.q && !filters.genre && !filters.author &&
+    !filters.translator && !filters.publisher && !filters.country && !filters.language &&
+    filters.hasCover === "any" && [filters.minPages, filters.maxPages, filters.minRating,
+      filters.maxRating, filters.minYear, filters.maxYear].every((value) => value === null);
+  return commonPage ? cachedArchivePage(filters, scope) : loadBookArchivePageData(filters, scope);
 }

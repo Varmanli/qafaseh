@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -8,7 +9,7 @@ import {
   adminUpdateReference,
 } from "@/lib/reference/service";
 
-export async function PUT(
+async function handlePUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,7 +34,7 @@ export async function PUT(
   return apiSuccess({ message: "به‌روزرسانی شد" });
 }
 
-export async function DELETE(
+async function handleDELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -45,3 +46,7 @@ export async function DELETE(
   await adminDeleteReference(id);
   return apiSuccess({ message: "حذف شد" });
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

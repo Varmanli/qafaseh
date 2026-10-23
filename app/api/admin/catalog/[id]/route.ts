@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -18,7 +19,7 @@ const actionSchema = z.object({
 });
 
 // تأیید/رد یک کتاب کاتالوگ (و در صورت نیاز ویرایش متادیتا پیش از تأیید)
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -53,3 +54,5 @@ export async function POST(
     return apiError("خطا در انجام عملیات", 500);
   }
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

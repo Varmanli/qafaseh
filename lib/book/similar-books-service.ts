@@ -1,4 +1,5 @@
 import { and, eq, inArray, like, or, type SQL } from "drizzle-orm";
+import { cachePublicData } from "@/lib/cache/public-data";
 import { db } from "@/db";
 import { BookSearchIndex, CatalogBook, CatalogBookContributor } from "@/db/schema";
 import { discoverySignalFields, getDiscoveryCards, publicCatalogBookCondition } from "@/lib/book/discover-service";
@@ -41,7 +42,7 @@ export function selectSimilarBookIds(
   return [...selected, ...automatic.map(({ book }) => book.id)];
 }
 
-export async function getSimilarBooks(sourceBookId: string): Promise<SimilarBook[]> {
+async function loadSimilarBookIds(sourceBookId: string, day: string): Promise<string[]> {
   const [source] = await db.select(discoverySignalFields).from(CatalogBook)
     .where(and(publicCatalogBookCondition, eq(CatalogBook.id, sourceBookId))).limit(1);
   if (!source) return [];
@@ -79,7 +80,19 @@ export async function getSimilarBooks(sourceBookId: string): Promise<SimilarBook
 
   const candidates = await db.select(discoverySignalFields).from(CatalogBook)
     .where(and(publicCatalogBookCondition, or(...matches)));
-  const ids = selectSimilarBookIds(source, curated, candidates);
-  const cards = await getDiscoveryCards(ids);
-  return cards.flatMap((book) => book.slug ? [{ ...book, slug: book.slug }] : []);
+  return selectSimilarBookIds(source, curated, candidates, day);
+}
+
+const cachedSimilarBookIds = cachePublicData(loadSimilarBookIds, "similar-book-ids", 300);
+
+export async function getSimilarBooks(sourceBookId: string): Promise<SimilarBook[]> {
+  const ids = await cachedSimilarBookIds(sourceBookId, discoveryDay());
+  // Recheck publication for both the source and its suggestions on every request.
+  const cards = await getDiscoveryCards([sourceBookId, ...ids]);
+  const byId = new Map(cards.map((book) => [book.id, book]));
+  if (!byId.has(sourceBookId)) return [];
+  return ids.flatMap((id) => {
+    const book = byId.get(id);
+    return book?.slug ? [{ ...book, slug: book.slug }] : [];
+  });
 }

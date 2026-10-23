@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -10,7 +11,7 @@ import {
   adminUpdateHeroSlide,
 } from "@/lib/home/service";
 
-export async function PATCH(
+async function handlePATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,7 +48,7 @@ export async function PATCH(
   return apiSuccess({ message: "ذخیره شد" });
 }
 
-export async function DELETE(
+async function handleDELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -59,3 +60,7 @@ export async function DELETE(
   await adminDeleteHeroSlide(id);
   return apiSuccess({ message: "حذف شد" });
 }
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

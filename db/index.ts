@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { getPoolConfig } from "./pool-config";
 
 // اگر DATABASE_URL تنظیم نشده باشد، pg با خطای مبهم SASL کرش می‌کند؛
 // این بررسی یک پیام واضح برای توسعه‌دهنده می‌دهد.
@@ -11,12 +12,18 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Reuse the pool across development reloads instead of opening more connections.
+// Share one bounded pool per process, including separately bundled server modules.
 const globalForDb = globalThis as typeof globalThis & { ghafasehPool?: Pool };
 const pool = globalForDb.ghafasehPool ?? new Pool({
   connectionString: process.env.DATABASE_URL,
+  ...getPoolConfig(),
 });
-if (process.env.NODE_ENV !== "production") globalForDb.ghafasehPool = pool;
+if (!globalForDb.ghafasehPool) {
+  globalForDb.ghafasehPool = pool;
+  pool.on("error", (error: Error & { code?: string }) => {
+    console.error("[db] idle connection error", { code: error.code ?? "CONNECTION_ERROR" });
+  });
+}
 
 // اتصال Drizzle به دیتابیس با schema
 export const db = drizzle(pool, { schema });

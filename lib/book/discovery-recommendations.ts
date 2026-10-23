@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache";
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -22,14 +22,14 @@ function quizCollections(answers: QuizAnswers) {
 
 // Cache small public rankings, never cookies, reading history or the full catalog.
 // Cache Components is not enabled in this app, so use the existing Data Cache API.
-const quizPool = unstable_cache(async (answers: QuizAnswers, day: string) =>
+const quizPool = cachePublicData(async (answers: QuizAnswers, day: string) =>
   selectQuizBooks(await getDiscoveryCandidates(quizCollections(answers)), answers, [], day, POOL_SIZE),
-  ["discovery-quiz-v4"], { revalidate: 300 });
+  "discovery-quiz-v5", 300);
 
-const collectionPool = unstable_cache(async (slug: string, day: string) => {
+const collectionPool = cachePublicData(async (slug: string, day: string) => {
   const collection = [...moods, ...topics].find((item) => item.slug === slug);
   return collection ? selectCollectionBooks(await getDiscoveryCandidates([collection]), collection, POOL_SIZE, day) : [];
-}, ["discovery-collection-v4"], { revalidate: 300 });
+}, "discovery-collection-v5", 300);
 
 export async function getDiscoveryExclusions(viewerId?: string) {
   if (!viewerId) return [];

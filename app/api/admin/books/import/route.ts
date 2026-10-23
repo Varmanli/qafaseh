@@ -1,3 +1,4 @@
+import { invalidatePublicContent } from "@/lib/cache/public-data";
 import { readFormDataBody, RequestError } from "@/lib/api/request";
 import { revalidatePath } from "next/cache";
 import { NextRequest } from "next/server";
@@ -74,6 +75,8 @@ export async function POST(req: NextRequest) {
       return apiError("کتاب معتبری برای ورود وجود ندارد", 422, "IMPORT_NO_VALID_BOOKS");
     }
     const result = await importNormalizedBooks(books, gate.user.id, preview);
+    // Import commits per book, so even a later partial failure can change public data.
+    invalidatePublicContent();
 
     console.info("admin import commit result", {
       receivedBooks: result.receivedBooks,

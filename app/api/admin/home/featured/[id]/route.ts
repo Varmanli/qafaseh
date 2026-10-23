@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -11,7 +12,7 @@ import {
 
 const patchSchema = z.object({ isActive: z.boolean() });
 
-export async function PATCH(
+async function handlePATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,7 +34,7 @@ export async function PATCH(
   return apiSuccess({ message: "به‌روزرسانی شد" });
 }
 
-export async function DELETE(
+async function handleDELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -45,3 +46,7 @@ export async function DELETE(
   await adminRemoveFeaturedBook(id);
   return apiSuccess({ message: "حذف شد" });
 }
+
+export const PATCH = withPublicContentInvalidation(handlePATCH);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

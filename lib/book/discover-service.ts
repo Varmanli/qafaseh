@@ -27,11 +27,12 @@ const bookFields = {
 export const discoverySignalFields = {
   id: CatalogBook.id, slug: CatalogBook.slug, title: CatalogBook.title,
   author: CatalogBook.author, genre: CatalogBook.genre,
-  contributorIds: sql<string[]>`coalesce((
-    select array_agg(c.reference_item_id order by c.reference_item_id)
+  contributorIds: sql<string[]>`array(
+    select c.reference_item_id
     from "CatalogBookContributor" c
     where c.catalog_book_id = "CatalogBook"."id" and c.role = 'AUTHOR'
-  ), array[]::varchar[])`,
+    order by c.reference_item_id
+  )`,
   country: CatalogBook.country, language: CatalogBook.language,
   firstPublishedYear: CatalogBook.firstPublishedYear,
   pageCount: preferredEditionFieldSql<number | null>("page_count", {

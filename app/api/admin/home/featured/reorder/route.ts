@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -8,7 +9,7 @@ import { adminReorderFeaturedBooks } from "@/lib/home/service";
 
 const reorderSchema = z.object({ orderedIds: z.array(z.string().min(1)) });
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return apiError("احراز هویت نشده", 401, "UNAUTHENTICATED");
   if (!isAdmin(user)) return apiError("دسترسی غیرمجاز", 403, "FORBIDDEN");
@@ -25,3 +26,5 @@ export async function POST(req: NextRequest) {
   await adminReorderFeaturedBooks(parsed.data.orderedIds);
   return apiSuccess({ message: "ترتیب ذخیره شد" });
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

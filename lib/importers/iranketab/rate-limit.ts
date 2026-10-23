@@ -1,8 +1,15 @@
 type Entry = { timestamps: number[]; active: number; recentUrls: Map<string, number> };
 const entries = new Map<string, Entry>(); let globalActive = 0;
 const WINDOW_MS = 60_000; const MAX_PER_WINDOW = 5; const DUPLICATE_MS = 5_000; const MAX_GLOBAL_ACTIVE = 3;
+const MAX_ENTRIES = 1_000;
 
 export function acquireIranKetabPreviewSlot(adminId: string, canonicalUrl: string, now = Date.now()): { release: () => void } | { code: "RATE_LIMITED" | "ALREADY_RUNNING" | "DUPLICATE_REQUEST"; message: string } {
+  if (!entries.has(adminId)) {
+    for (const [id, entry] of entries) {
+      if (!entry.active && entry.timestamps.every(at => now - at >= WINDOW_MS)) entries.delete(id);
+    }
+    if (entries.size >= MAX_ENTRIES) return { code: "RATE_LIMITED", message: "تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید." };
+  }
   const entry = entries.get(adminId) ?? { timestamps: [], active: 0, recentUrls: new Map() };
   entry.timestamps = entry.timestamps.filter(value => now - value < WINDOW_MS);
   for (const [url, at] of entry.recentUrls) if (now - at >= DUPLICATE_MS) entry.recentUrls.delete(url);

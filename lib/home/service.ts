@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -439,7 +440,7 @@ export async function getPopularBooks(limit = 12): Promise<HomeBookCard[]> {
  * اگر ادمین چیزی انتخاب نکرده باشد، آرایه‌ی خالی برمی‌گردد و صفحه‌ی اصلی به
  * کتاب‌های اخیرِ عمومی به‌عنوان fallback برمی‌گردد.
  */
-export async function getFeaturedBooks(limit = 12): Promise<HomeBookCard[]> {
+async function loadFeaturedBooks(limit = 12): Promise<HomeBookCard[]> {
   const rows = (await listFeaturedBaseRows()).filter((row) => row.isActive);
   const resolvedRows = await resolveFeaturedRows(rows);
 
@@ -718,7 +719,7 @@ async function loadSlideBooks(
 }
 
 /** اسلایدهای فعال صفحه‌ی اصلی (به ترتیب) همراه کتاب‌های انتخابی. */
-export async function getHeroSlides(): Promise<HeroSlideView[]> {
+async function loadHeroSlides(): Promise<HeroSlideView[]> {
   const slides = await db
     .select()
     .from(HomeHeroSlide)
@@ -981,7 +982,7 @@ export interface HomeGenreDiscovery {
 }
 
 /** Stable, database-ranked public genres for the homepage. */
-export async function getHomepageGenres(limit = 10): Promise<HomeGenreDiscovery[]> {
+async function loadHomepageGenres(limit = 10): Promise<HomeGenreDiscovery[]> {
   const result = await db.execute<{
     id: string;
     name: string;
@@ -1007,4 +1008,19 @@ export async function getHomepageGenres(limit = 10): Promise<HomeGenreDiscovery[
     limit ${limit}
   `);
   return result.rows;
+}
+
+const cachedFeaturedBooks = cachePublicData(loadFeaturedBooks, "lib/home/service.ts:getFeaturedBooks", 300);
+export async function getFeaturedBooks(...args: Parameters<typeof loadFeaturedBooks>): ReturnType<typeof loadFeaturedBooks> {
+  return cachedFeaturedBooks(...args);
+}
+
+const cachedHeroSlides = cachePublicData(loadHeroSlides, "lib/home/service.ts:getHeroSlides", 300);
+export async function getHeroSlides(...args: Parameters<typeof loadHeroSlides>): ReturnType<typeof loadHeroSlides> {
+  return cachedHeroSlides(...args);
+}
+
+const cachedHomepageGenres = cachePublicData(loadHomepageGenres, "lib/home/service.ts:getHomepageGenres", 300);
+export async function getHomepageGenres(...args: Parameters<typeof loadHomepageGenres>): ReturnType<typeof loadHomepageGenres> {
+  return cachedHomepageGenres(...args);
 }

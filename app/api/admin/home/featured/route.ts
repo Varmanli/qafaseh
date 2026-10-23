@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -22,7 +23,7 @@ export async function GET() {
   return apiSuccess({ items });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return apiError("احراز هویت نشده", 401, "UNAUTHENTICATED");
   if (!isAdmin(user)) return apiError("دسترسی غیرمجاز", 403, "FORBIDDEN");
@@ -52,3 +53,5 @@ export async function POST(req: NextRequest) {
     return apiError("افزودن کتاب ناموفق بود", 400);
   }
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

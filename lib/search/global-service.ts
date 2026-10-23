@@ -1,7 +1,7 @@
 import { and, arrayContains, asc, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { BlogCategory, BlogPost, Book, ReferenceItem, User } from "@/db/schema";
+import { BlogCategory, BlogPost, ReferenceItem, User } from "@/db/schema";
 import { searchPublicBooks } from "@/lib/book/search-service";
 import { normalizeSearchText } from "@/lib/book/search-normalize";
 import { publicPersonBookRoles } from "@/lib/reference/book-contributions";
@@ -43,24 +43,13 @@ export interface GlobalSearchMagazine {
   excerpt: string | null;
 }
 
-const REFERENCE_FIELD_BY_TYPE = {
-  AUTHOR: Book.author,
-  PUBLISHER: Book.publisher,
-} as const;
+type SearchableReferenceType = "AUTHOR" | "PUBLISHER";
 
-type SearchableReferenceType = keyof typeof REFERENCE_FIELD_BY_TYPE;
-
-function referenceBookCount(type: SearchableReferenceType) {
-  if (type !== "PUBLISHER") return sql<number>`(
+function referenceBookCount() {
+  return sql<number>`(
     select count(distinct person_books.catalog_book_id)::int
     from (${publicPersonBookRoles}) person_books
     where person_books.reference_item_id = ${ReferenceItem.id}
-  )`;
-  const field = REFERENCE_FIELD_BY_TYPE[type];
-  return sql<number>`(
-    select count(distinct coalesce(${Book.catalogBookId}, ${Book.id}))::int
-    from "Book" b
-    where lower(b.${sql.raw(field.name)}) = lower(${ReferenceItem.name})
   )`;
 }
 
@@ -79,7 +68,7 @@ async function searchReferences(
       name: ReferenceItem.name,
       slug: ReferenceItem.slug,
       image: ReferenceItem.coverImage,
-      bookCount: referenceBookCount(type),
+      bookCount: type === "AUTHOR" ? referenceBookCount() : sql<number>`0`,
     })
     .from(ReferenceItem)
     .where(

@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest, NextResponse } from "next/server";
 import { assertAdminApi } from "@/lib/admin/permissions";
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -9,7 +10,7 @@ import { commitIranKetabImportSession, IranKetabCommitServiceError } from "@/lib
 export const runtime = "nodejs";
 
 /** HTTP adapter only; all importer business rules live in commit-service. */
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const gate = await assertAdminApi();
   if ("error" in gate) return gate.error;
   const body = (await req.json().catch(() => null)) as { extraction?: unknown; draft?: unknown; sessionId?: string } | null;
@@ -37,3 +38,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: message, code }, { status: error instanceof IranKetabCommitError ? 409 : 500 });
   }
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);

@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -24,7 +25,7 @@ const orderBy: Record<AuthorArchiveSort, ReturnType<typeof sql>> = {
 };
 
 /** Database-backed author archive. Ratings are library ratings attached to linked catalog books. */
-export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: number): Promise<AuthorArchiveResult> {
+async function loadAuthorArchive(filters: AuthorArchiveFilters, pageSize: number): Promise<AuthorArchiveResult> {
   const safeSize = Math.max(1, Math.min(100, Math.trunc(pageSize)));
   const term = filters.q.trim();
   const where = sql`
@@ -80,4 +81,10 @@ export async function getAuthorArchive(filters: AuthorArchiveFilters, pageSize: 
     SELECT DISTINCT "country_name" AS name FROM "ReferenceItem"
     WHERE "roles" @> ARRAY['AUTHOR']::"ReferenceType"[] AND "canonical_reference_id" IS NULL AND "status" = 'APPROVED' AND "country_name" IS NOT NULL AND "country_name" <> '' ORDER BY 1`);
   return { items: rows, countries: countries.map((row) => row.name), totalCount, page: Math.min(filters.page, pageCount), pageSize: safeSize, pageCount };
+}
+
+const cachedAuthorArchive = cachePublicData(loadAuthorArchive, "lib/reference/author-archive.ts:getAuthorArchive", 60);
+export async function getAuthorArchive(...args: Parameters<typeof loadAuthorArchive>): ReturnType<typeof loadAuthorArchive> {
+  if (args[0].q || args[0].page > 100) return loadAuthorArchive(...args);
+  return cachedAuthorArchive(...args);
 }

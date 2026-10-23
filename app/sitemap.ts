@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -21,7 +22,7 @@ const STATIC_PUBLIC_ROUTES = [
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+async function buildSitemap(): Promise<MetadataRoute.Sitemap> {
   const siteOrigin = getSiteOrigin();
 
   let catalogBooks: { id: string; slug: string | null; title: string; updatedAt: Date }[] = [];
@@ -71,23 +72,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .where(eq(StaticPage.status, "PUBLISHED")),
     ]);
   } catch (error) {
-    console.warn("Sitemap: Failed to query database during render/build, returning static routes.", error);
+    // A partial result must never replace the last successful cached sitemap.
+    throw error;
   }
 
-  const bookEntries = await Promise.all(
-    catalogBooks.map(async (book) => ({
+  const bookEntries: MetadataRoute.Sitemap = [];
+  for (const book of catalogBooks) {
+    const slug = book.slug?.trim() || await ensureCatalogBookSlug(book);
+    bookEntries.push({
       url: `${siteOrigin}/book/${encodeURIComponent(
-        await ensureCatalogBookSlug({
-          id: book.id,
-          title: book.title,
-          slug: book.slug,
-        }),
+        slug,
       )}`,
       lastModified: book.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.8,
-    })),
-  );
+    });
+  }
 
   const referenceRouteByType = {
     AUTHOR: "authors",
@@ -140,4 +140,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     })),
   ];
+}
+
+const cachedSitemap = cachePublicData(buildSitemap, "sitemap", 3600);
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  try {
+    return await cachedSitemap();
+  } catch {
+    console.warn("Sitemap: database unavailable; returning static public routes.");
+    return STATIC_PUBLIC_ROUTES.map((route) => ({ url: `${getSiteOrigin()}${route || "/"}` }));
+  }
 }

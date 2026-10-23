@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 
@@ -25,7 +26,7 @@ export async function GET(
   return apiSuccess({ page });
 }
 
-export async function PUT(
+async function handlePUT(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
@@ -56,3 +57,5 @@ export async function PUT(
 
   return apiSuccess({ page: updated, message: "صفحه با موفقیت ذخیره شد" });
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);

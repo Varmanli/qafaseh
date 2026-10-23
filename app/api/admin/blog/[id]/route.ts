@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { apiError, apiSuccess } from "@/lib/api/response";
@@ -24,7 +25,7 @@ export async function GET(
   return apiSuccess({ post });
 }
 
-export async function PUT(
+async function handlePUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -70,7 +71,7 @@ export async function PUT(
   });
 }
 
-export async function DELETE(
+async function handleDELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -84,3 +85,7 @@ export async function DELETE(
   await deleteBlogPost(id);
   return apiSuccess({ message: "نوشته حذف شد" });
 }
+
+export const PUT = withPublicContentInvalidation(handlePUT);
+
+export const DELETE = withPublicContentInvalidation(handleDELETE);

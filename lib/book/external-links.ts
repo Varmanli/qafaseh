@@ -1,3 +1,4 @@
+import { cachePublicData } from "@/lib/cache/public-data";
 import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -63,7 +64,7 @@ export async function listBookExternalLinks(
 }
 
 /** فقط لینک‌های فعالِ یک کتاب برای نمایش عمومی، با برچسب نمایشِ آماده. */
-export async function getPublicBookExternalLinks(
+async function loadPublicBookExternalLinks(
   catalogBookId: string,
 ): Promise<PublicBookExternalLink[]> {
   const rows = await db
@@ -161,4 +162,9 @@ export async function upsertBookExternalLinks(
       sortOrder: link.sortOrder ?? index,
     })),
   );
+}
+
+const cachedPublicBookExternalLinks = cachePublicData(loadPublicBookExternalLinks, "lib/book/external-links.ts:getPublicBookExternalLinks", 300);
+export async function getPublicBookExternalLinks(...args: Parameters<typeof loadPublicBookExternalLinks>): ReturnType<typeof loadPublicBookExternalLinks> {
+  return cachedPublicBookExternalLinks(...args);
 }

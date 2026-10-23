@@ -1,3 +1,4 @@
+import { withPublicContentInvalidation } from "@/lib/cache/public-data";
 import { NextRequest } from "next/server";
 
 import { assertAdminApi } from "@/lib/admin/permissions";
@@ -17,7 +18,7 @@ export async function GET(
   return apiSuccess({ editions });
 }
 
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -67,3 +68,5 @@ export async function POST(
     return apiError("ثبت نسخه ناموفق بود", 500);
   }
 }
+
+export const POST = withPublicContentInvalidation(handlePOST);
