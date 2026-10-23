@@ -12,9 +12,9 @@ test("Iranian phone formats have one canonical identity", () => {
   assert.equal(smsRequestSchema.parse({ phone: "09123456789" }).purpose, "login");
   assert.equal(smsVerifySchema.safeParse({ phone: "09123456789", code: "1234" }).success, false);
   assert.equal(smsVerifySchema.safeParse({ phone: "09123456789", code: "123456", purpose: "signup" }).success, false);
-  assert.equal(smsVerifySchema.parse({ phone: "09123456789", code: "123456", purpose: "signup", password: "SignupPassword123", name: "  دوست کتاب  " }).name, "دوست کتاب");
+  assert.equal(smsVerifySchema.parse({ phone: "09123456789", code: "123456", purpose: "signup", password: "SignupPassword123", confirmPassword: "SignupPassword123", name: "  دوست کتاب  " }).name, "دوست کتاب");
   assert.equal(smsVerifySchema.safeParse({ phone: "09123456789", code: "123456", purpose: "signup", password: "weak" }).success, false);
-  assert.equal(smsVerifySchema.safeParse({ phone: "09123456789", code: "123456", purpose: "signup", password: "SignupPassword123" }).success, true);
+  assert.equal(smsVerifySchema.safeParse({ phone: "09123456789", code: "123456", purpose: "signup", password: "SignupPassword123", confirmPassword: "SignupPassword123" }).success, true);
   assert.equal(smsRequestSchema.parse({ phone: "09123456789", purpose: "recovery" }).purpose, "recovery");
 });
 

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api/response";
 import { readJsonBody, RequestError } from "@/lib/api/request";
 import { getClientKey, sharedRateLimit } from "@/lib/rate-limit";
-import { isSmsOtpEnabled, smsRequestSchema } from "@/lib/auth/phone";
+import { isSmsOtpEnabled, isSignupOtpEnabled, smsRequestSchema } from "@/lib/auth/phone";
 import { getCurrentUser } from "@/lib/auth/session";
 import { AuthError } from "@/lib/auth/service";
 import { issueSmsOtp } from "@/lib/auth/sms-otp";
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     if (!ip.allowed) return apiError("کمی بعد دوباره تلاش کنید", 429, "RATE_LIMITED");
     const input = smsRequestSchema.safeParse(await readJsonBody(request, 4096));
     if (!input.success) return apiError(input.error.issues[0]?.message ?? "ورودی نامعتبر است", 422);
+    if (input.data.purpose === "signup" && !isSignupOtpEnabled()) return apiError("ثبت‌نام پیامکی فعلاً غیرفعال است", 403, "SIGNUP_OTP_DISABLED");
     const user = input.data.purpose === "link" ? await getCurrentUser() : null;
     if (input.data.purpose === "link" && !user) return apiError("ابتدا وارد شوید", 401, "UNAUTHENTICATED");
     const phone = await sharedRateLimit(`sms-phone:${input.data.phone}`, { limit: 3, windowMs: 15 * 60_000 });

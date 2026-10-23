@@ -39,6 +39,17 @@ const password = z
 
 export const passwordSchema = password;
 
+const commonSignupPasswords = new Set([
+  "password1", "password12", "password123", "password1234", "password12345", "password123456",
+  "passw0rd", "passw0rd1", "qwerty123", "qwerty1234", "qwerty12345", "qwerty123456", "abc12345", "abc123456",
+  "123456abc", "12345678a", "123456789a", "admin123", "admin1234", "admin12345", "admin123456", "letmein123", "welcome123",
+]);
+
+export const signupPasswordSchema = password.refine(
+  (value) => !commonSignupPasswords.has(value.toLowerCase().replace(/[^a-z0-9]/g, "")),
+  "این رمز عبور بسیار رایج است؛ رمز قوی‌تری انتخاب کنید",
+);
+
 // تغییر رمز عبور (کاربر واردشده) — همان قواعد رمز قوی را به‌کار می‌برد
 export const changePasswordSchema = z
   .object({

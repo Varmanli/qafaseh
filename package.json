@@ -11,7 +11,7 @@
     "start:prod": "npm run start:next",
     "lint": "eslint",
     "test": "tsx --test --test-concurrency=1 lib/**/*.test.ts",
-    "test:security": "tsx --test --test-concurrency=1 lib/auth/security.test.ts lib/auth/security-db.test.ts lib/auth/sms-delivery.test.ts lib/auth/sms-otp-db.test.ts lib/auth/email-delivery.test.ts lib/auth/otp-options.test.ts lib/api/request.test.ts lib/rate-limit.test.ts",
+    "test:security": "tsx --test --test-concurrency=1 lib/auth/security.test.ts lib/auth/security-db.test.ts lib/auth/phone-signup.test.ts lib/auth/phone-signup-db.test.ts lib/auth/sms-delivery.test.ts lib/auth/sms-otp-db.test.ts lib/auth/email-delivery.test.ts lib/auth/otp-options.test.ts lib/api/request.test.ts lib/rate-limit.test.ts",
     "security:audit": "npm audit --omit=dev",
     "perf:social": "tsx --env-file=.env scripts/benchmark-social.ts",
     "seed:pagination": "tsx --env-file=.env scripts/seed-pagination.ts",

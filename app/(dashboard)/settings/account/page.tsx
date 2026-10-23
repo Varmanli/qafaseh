@@ -32,6 +32,7 @@ export default function AccountSettingsPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [phone, setPhone] = useState<string | null>(null);
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
@@ -52,6 +53,7 @@ export default function AccountSettingsPage() {
         if (res.ok) {
           setEmail(data.user?.email ?? null);
           setPhone(data.user?.phone ?? null);
+          setPhoneVerified(Boolean(data.user?.phoneVerified));
         }
       } catch {
         // بی‌صدا
@@ -112,8 +114,8 @@ export default function AccountSettingsPage() {
 
       <section className="p-6 sm:p-7">
         <h2 className="mb-4 font-semibold">ورود با پیامک</h2>
-        {phone ? <p className="mb-3 text-sm text-muted-foreground">شماره متصل: <span dir="ltr">{phone}</span></p> : null}
-        <div className="rounded-3xl bg-slate-950 p-5"><SmsOtpPanel purpose="link" onVerified={(verifiedPhone) => { setPhone(verifiedPhone); toast.success("شماره به همین حساب متصل شد"); }} /></div>
+        {phone ? <p className="mb-3 text-sm text-muted-foreground">شماره موبایل: <span dir="ltr">{phone}</span> — {phoneVerified ? "تأییدشده" : "تأییدنشده"}</p> : null}
+        <div className="rounded-3xl bg-slate-950 p-5"><SmsOtpPanel purpose="link" onVerified={(verifiedPhone) => { setPhone(verifiedPhone); setPhoneVerified(true); toast.success("شماره به همین حساب متصل شد"); }} /></div>
       </section>
 
       <div className="mx-6 border-t border-border/70 sm:mx-7" />

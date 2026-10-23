@@ -9,7 +9,7 @@ import { isSmsDevMode, sendSmsCode, SmsDeliveryError } from "./sms-delivery";
 import { smsSignupNameSchema, type SmsPurpose } from "./phone";
 import { generateResetToken } from "./tokens";
 import { hashPassword } from "./password";
-import { passwordSchema } from "@/lib/validations/auth";
+import { signupPasswordSchema } from "@/lib/validations/auth";
 
 type Purpose = SmsPurpose;
 const TTL_MS = 5 * 60_000;
@@ -57,7 +57,7 @@ export async function issueSmsOtp(phone: string, purpose: Purpose, userId?: stri
 export async function verifySmsOtp(phone: string, code: string, purpose: Purpose, userId?: string, sessionVersion?: number, name?: string, password?: string) {
   const signupName = purpose === "signup" ? smsSignupNameSchema.safeParse(name ?? "کاربر قفسه") : null;
   if (signupName && !signupName.success) throw new AuthError("نام معتبر وارد کنید", 422, "INVALID_NAME");
-  const signupPassword = purpose === "signup" ? passwordSchema.safeParse(password) : null;
+  const signupPassword = purpose === "signup" ? signupPasswordSchema.safeParse(password) : null;
   if (signupPassword && !signupPassword.success) throw new AuthError("رمز عبور معتبر وارد کنید", 422, "INVALID_PASSWORD");
   const result = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'sms-otp:' + phone}, 0))`);

@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, isNotNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { Account, PasswordResetToken, User } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -155,7 +155,7 @@ export async function authenticateUser(input: {
       rawIdentifier.includes("@")
         ? eq(User.email, normalized)
         : phone
-          ? and(eq(User.phone, phone), isNotNull(User.phoneVerified))
+          ? eq(User.phone, phone)
           : or(eq(User.email, normalized), eq(User.username, normalized))
     );
 
